@@ -27,6 +27,10 @@ export async function createLeadPayment({
   description?: string;
 }) {
   const mollie = getMollie();
+  const baseUrl = getBaseUrl();
+
+  console.log("[Mollie] Creating payment with baseUrl:", baseUrl);
+
   const payment = await mollie.payments.create({
     amount: {
       currency: "EUR",
@@ -34,8 +38,8 @@ export async function createLeadPayment({
     },
     description:
       description ?? `Déverrouillage demande #${distributionId}`,
-    redirectUrl: `${getBaseUrl()}/demandes-de-devis/${distributionId}?payment=success`,
-    webhookUrl: `${getBaseUrl()}/api/webhooks/mollie`,
+    redirectUrl: `${baseUrl}/demandes-de-devis/${distributionId}?payment=success`,
+    webhookUrl: `${baseUrl}/api/webhooks/mollie`,
     metadata: {
       companyId,
       distributionId,
@@ -43,7 +47,23 @@ export async function createLeadPayment({
     },
   });
 
-  return payment;
+  // Extract checkout URL with multiple fallbacks (Mollie v4 compatibility)
+  let checkoutUrl: string | null = null;
+  try {
+    checkoutUrl = payment.getCheckoutUrl();
+  } catch {
+    // getCheckoutUrl() may throw in some Mollie versions
+  }
+  if (!checkoutUrl) {
+    // Fallback: access _links directly
+    const links = (payment as unknown as Record<string, unknown>)._links as
+      Record<string, { href?: string }> | undefined;
+    checkoutUrl = links?.checkout?.href || null;
+  }
+
+  console.log("[Mollie] Payment created:", payment.id, "checkoutUrl:", checkoutUrl, "webhookUrl:", `${baseUrl}/api/webhooks/mollie`);
+
+  return { ...payment, checkoutUrl };
 }
 
 export async function getPayment(paymentId: string) {

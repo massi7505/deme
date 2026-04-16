@@ -214,9 +214,17 @@ export async function POST(request: NextRequest) {
       status: "pending",
     });
 
+    if (!payment.checkoutUrl) {
+      console.error("[Unlock] No checkout URL returned by Mollie for payment:", payment.id);
+      return NextResponse.json(
+        { error: "Erreur Mollie : aucune URL de paiement retournée. Réessayez." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      paymentUrl: payment.getCheckoutUrl(),
+      paymentUrl: payment.checkoutUrl,
     });
   } catch (error) {
     console.error("Lead unlock error:", error);

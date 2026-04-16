@@ -122,6 +122,8 @@ export default function LeadDetailPage() {
         if (updated) setLead(updated);
       } else if (result.paymentUrl) {
         window.location.href = result.paymentUrl;
+      } else {
+        toast.error("Aucune URL de paiement retournée. Veuillez réessayer.");
       }
     } catch {
       toast.error("Erreur lors du déverrouillage");
