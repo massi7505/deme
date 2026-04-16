@@ -91,7 +91,7 @@ export default function VerifierDemandePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quoteId, code }),
       });
-      const body = r.ok ? await r.json() : await r.json().catch(() => ({}));
+      const body = await r.json().catch(() => ({}));
       if (!r.ok) {
         toast.error(body?.error || "Code invalide");
         return;
@@ -116,7 +116,7 @@ export default function VerifierDemandePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quoteId }),
       });
-      const body = r.ok ? await r.json() : await r.json().catch(() => ({}));
+      const body = await r.json().catch(() => ({}));
       if (!r.ok) {
         toast.error(body?.error || "Impossible d'envoyer le code");
         return;
