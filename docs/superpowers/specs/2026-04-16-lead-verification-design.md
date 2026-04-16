@@ -171,11 +171,11 @@ Body uses the shared gradient header + 6-digit code block + expiry warning (same
 
 ## Migration plan
 
-1. Ship DB migration `002_lead_verification.sql`.
-2. Deploy new code with feature flag `LEAD_VERIFICATION_ENABLED=false` initially. While false, `POST /api/quotes` keeps the old "distribute immediately" path; new routes exist but are only invoked if the flag is on.
-3. Smoke test staging.
-4. Flip `LEAD_VERIFICATION_ENABLED=true` on Vercel.
-5. Monitor claims rate + verification completion rate for 1 week. Expected completion ≥ 70 % given either channel counts.
+1. Ship DB migration `005_lead_verification.sql`.
+2. Deploy new code with the feature flag **default-on** (`LEAD_VERIFICATION_ENABLED !== "false"`). Vercel env var `LEAD_VERIFICATION_ENABLED=true` is set explicitly for clarity.
+3. Smoke test against a real email + French phone number.
+4. Monitor claims rate + verification completion rate for 1 week. Expected completion ≥ 70 % given either channel counts.
+5. Emergency rollback: set `LEAD_VERIFICATION_ENABLED=false` on Vercel → redeploy. `POST /api/quotes` reverts to the old "distribute immediately" path; new verification routes remain idle.
 
 ## Open questions
 

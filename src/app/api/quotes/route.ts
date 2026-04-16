@@ -18,6 +18,18 @@ function baseUrl(): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    if (!body?.email && !body?.phone) {
+      return NextResponse.json(
+        { error: "Email ou téléphone requis" },
+        { status: 400 }
+      );
+    }
+    if (!body?.firstName || !body?.lastName) {
+      return NextResponse.json(
+        { error: "Nom et prénom requis" },
+        { status: 400 }
+      );
+    }
     const supabase = createUntypedAdminClient();
 
     const prospectId = generateProspectId();
@@ -52,7 +64,7 @@ export async function POST(request: NextRequest) {
         client_salutation: body.salutation,
         client_first_name: body.firstName,
         client_last_name: body.lastName,
-        client_name: `${body.firstName} ${body.lastName}`,
+        client_name: `${body.firstName ?? ""} ${body.lastName ?? ""}`.trim(),
         client_phone: body.phone,
         client_email: body.email,
         source: "website",
