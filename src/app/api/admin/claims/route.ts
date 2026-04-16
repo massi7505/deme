@@ -34,31 +34,59 @@ export async function GET() {
     }
   }
 
-  // Get distribution prices
+  // Get distribution prices + prospect IDs (via quote_request)
   const distIds = Array.from(new Set(
     (claims || []).map((c: Record<string, unknown>) => c.quote_distribution_id).filter(Boolean)
   ));
 
-  const distMap: Record<string, number> = {};
+  const distMap: Record<string, { price_cents: number; prospect_id: string | null; quote_request_id: string | null }> = {};
   if (distIds.length > 0) {
     const { data: dists } = await supabase
       .from("quote_distributions")
-      .select("id, price_cents")
+      .select("id, price_cents, quote_request_id")
       .in("id", distIds as string[]);
 
     if (dists) {
+      // Get quote_requests for prospect_id
+      const qrIds = Array.from(new Set(
+        dists.map((d: Record<string, unknown>) => d.quote_request_id).filter(Boolean)
+      ));
+
+      const prospectMap: Record<string, string> = {};
+      if (qrIds.length > 0) {
+        const { data: qrs } = await supabase
+          .from("quote_requests")
+          .select("id, prospect_id")
+          .in("id", qrIds as string[]);
+
+        if (qrs) {
+          for (const q of qrs) {
+            prospectMap[q.id] = q.prospect_id;
+          }
+        }
+      }
+
       for (const d of dists) {
-        distMap[d.id] = d.price_cents;
+        distMap[d.id] = {
+          price_cents: d.price_cents,
+          prospect_id: prospectMap[d.quote_request_id] || null,
+          quote_request_id: d.quote_request_id,
+        };
       }
     }
   }
 
-  const enriched = (claims || []).map((c: Record<string, unknown>) => ({
-    ...c,
-    company_name: companyMap[c.company_id as string]?.name || "Inconnu",
-    company_email: companyMap[c.company_id as string]?.email || "",
-    amount_cents: distMap[c.quote_distribution_id as string] || 0,
-  }));
+  const enriched = (claims || []).map((c: Record<string, unknown>) => {
+    const dist = distMap[c.quote_distribution_id as string];
+    return {
+      ...c,
+      company_name: companyMap[c.company_id as string]?.name || "Inconnu",
+      company_email: companyMap[c.company_id as string]?.email || "",
+      amount_cents: dist?.price_cents || 0,
+      prospect_id: dist?.prospect_id || null,
+      quote_request_id: dist?.quote_request_id || null,
+    };
+  });
 
   return NextResponse.json(enriched);
 }

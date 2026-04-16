@@ -20,6 +20,8 @@ interface Claim {
   company_name: string;
   company_email: string;
   quote_distribution_id: string | null;
+  prospect_id: string | null;
+  quote_request_id: string | null;
   reason: string;
   description: string | null;
   status: string;
@@ -239,6 +241,9 @@ export default function AdminClaims() {
             <div className="rounded-xl border bg-white shadow-sm">
               <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Informations</h3></div>
               <div className="space-y-3 p-4 text-sm">
+                {claim.prospect_id && (
+                  <div><span className="text-muted-foreground">ID Prospect</span><p className="font-mono text-xs font-semibold text-blue-600">{claim.prospect_id}</p></div>
+                )}
                 <div><span className="text-muted-foreground">Entreprise</span><p className="font-medium">{claim.company_name}</p></div>
                 <div><span className="text-muted-foreground">Email</span><p className="font-medium">{claim.company_email || "—"}</p></div>
                 <div><span className="text-muted-foreground">Montant</span><p className="font-medium">{formatPrice(claim.amount_cents)}</p></div>
@@ -329,6 +334,7 @@ export default function AdminClaims() {
             <thead>
               <tr className="border-b bg-gray-50/50">
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Entreprise</th>
+                <th className="px-5 py-3 text-left font-medium text-muted-foreground">ID Prospect</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Raison</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Montant</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Date</th>
@@ -346,6 +352,13 @@ export default function AdminClaims() {
                 return (
                   <tr key={claim.id} className="border-b last:border-0 hover:bg-gray-50/50 cursor-pointer" onClick={() => setSelectedClaim(claim)}>
                     <td className="px-5 py-3 font-medium">{claim.company_name}</td>
+                    <td className="px-5 py-3">
+                      {claim.prospect_id ? (
+                        <span className="font-mono text-xs font-medium text-blue-600">{claim.prospect_id}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3">
                       <span className="font-medium">{claim.reason}</span>
                       {claim.description && <p className="text-xs text-muted-foreground truncate max-w-[200px]">{claim.description}</p>}
