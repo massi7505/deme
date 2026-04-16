@@ -117,6 +117,7 @@ export async function GET() {
       toHousingType: quote.to_housing_type,
       toFloor: quote.to_floor,
       toElevator: quote.to_elevator,
+      emailVerified: quote.email_verified ?? false,
       phoneVerified: quote.phone_verified ?? false,
     };
   });

@@ -67,6 +67,7 @@ interface Lead {
   toHousingType: string | null;
   toFloor: number | null;
   toElevator: boolean;
+  emailVerified: boolean;
   phoneVerified: boolean;
 }
 
@@ -210,9 +211,14 @@ export default function LeadDetailPage() {
             <Badge variant="outline" className="text-xs">
               {lead.totalUnlocks}/{lead.maxUnlocks} acheteurs
             </Badge>
+            {lead.emailVerified && (
+              <Badge variant="outline" className="gap-1 border-green-200 bg-green-50 text-green-700">
+                <ShieldCheck className="h-3 w-3" /> Email vérifié
+              </Badge>
+            )}
             {lead.phoneVerified && (
-              <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700 text-xs">
-                <ShieldCheck className="h-3 w-3" /> Tél. vérifié
+              <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700">
+                <ShieldCheck className="h-3 w-3" /> Tél vérifié
               </Badge>
             )}
             <span className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -344,7 +350,7 @@ export default function LeadDetailPage() {
                   {isUnlocked ? lead.clientPhone || "—" : maskPhone("0600000000")}
                   {lead.phoneVerified && (
                     <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
-                      <ShieldCheck className="h-3 w-3" /> Vérifié
+                      <ShieldCheck className="h-3 w-3" /> Tél
                     </span>
                   )}
                 </p>
@@ -354,6 +360,11 @@ export default function LeadDetailPage() {
                 <p className="font-medium flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5" />
                   {isUnlocked ? lead.clientEmail || "—" : maskEmail("client@email.com")}
+                  {lead.emailVerified && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                      <ShieldCheck className="h-3 w-3" /> Email
+                    </span>
+                  )}
                 </p>
               </div>
             </CardContent>

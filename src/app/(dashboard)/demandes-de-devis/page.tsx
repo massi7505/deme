@@ -26,6 +26,7 @@ interface Lead {
   toPostalCode: string | null;
   moveDate: string | null;
   category: string;
+  emailVerified: boolean;
   phoneVerified: boolean;
 }
 
@@ -132,9 +133,14 @@ export default function DemandesDeDevisPage() {
                               {formatLeadRoute(lead)}
                               {lead.moveDate && ` · ${formatDate(lead.moveDate)}`}
                             </p>
+                            {lead.emailVerified && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                                <ShieldCheck className="h-3 w-3" /> Email
+                              </span>
+                            )}
                             {lead.phoneVerified && (
                               <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
-                                <ShieldCheck className="h-3 w-3" /> Vérifié
+                                <ShieldCheck className="h-3 w-3" /> Tél
                               </span>
                             )}
                           </div>
