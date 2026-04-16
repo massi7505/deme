@@ -203,6 +203,17 @@ export async function POST(request: NextRequest) {
       distributionId,
     });
 
+    // Record pending transaction immediately so all attempts are visible
+    // before the webhook fires (or if webhook never fires)
+    await supabase.from("transactions").insert({
+      company_id: company.id,
+      quote_distribution_id: distributionId,
+      mollie_payment_id: payment.id,
+      amount_cents: distribution.price_cents,
+      type: "lead_purchase",
+      status: "pending",
+    });
+
     return NextResponse.json({
       success: true,
       paymentUrl: payment.getCheckoutUrl(),

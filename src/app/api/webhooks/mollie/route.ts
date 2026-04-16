@@ -55,20 +55,36 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", metadata.distributionId);
 
-      // 2. Create transaction record
-      const { data: transaction } = await supabase
+      // 2. Update pending transaction (created at payment initiation) or insert if missing
+      const amountCentsPaid = Math.round(parseFloat(payment.amount.value) * 100);
+      const { data: updatedTxn } = await supabase
         .from("transactions")
-        .insert({
-          company_id: metadata.companyId,
-          quote_distribution_id: metadata.distributionId,
-          mollie_payment_id: paymentId,
-          amount_cents: Math.round(parseFloat(payment.amount.value) * 100),
-          currency: payment.amount.currency,
-          type: "lead_purchase",
+        .update({
           status: "paid",
+          amount_cents: amountCentsPaid,
+          currency: payment.amount.currency,
         })
+        .eq("mollie_payment_id", paymentId)
         .select()
         .single();
+
+      let transaction = updatedTxn;
+      if (!transaction) {
+        const { data: newTxn } = await supabase
+          .from("transactions")
+          .insert({
+            company_id: metadata.companyId,
+            quote_distribution_id: metadata.distributionId,
+            mollie_payment_id: paymentId,
+            amount_cents: amountCentsPaid,
+            currency: payment.amount.currency,
+            type: "lead_purchase",
+            status: "paid",
+          })
+          .select()
+          .single();
+        transaction = newTxn;
+      }
 
       // 3. Get company info for invoice
       const { data: company } = await supabase
@@ -170,15 +186,24 @@ export async function POST(request: NextRequest) {
 
       const amountCents = Math.round(parseFloat(payment.amount.value) * 100);
 
-      // Record failed transaction
-      await supabase.from("transactions").insert({
-        company_id: metadata.companyId,
-        quote_distribution_id: metadata.distributionId,
-        mollie_payment_id: paymentId,
-        amount_cents: amountCents,
-        type: "lead_purchase",
-        status: "failed",
-      });
+      // Update pending transaction or insert if missing
+      const { data: updatedFailed } = await supabase
+        .from("transactions")
+        .update({ status: "failed", amount_cents: amountCents })
+        .eq("mollie_payment_id", paymentId)
+        .select()
+        .single();
+
+      if (!updatedFailed) {
+        await supabase.from("transactions").insert({
+          company_id: metadata.companyId,
+          quote_distribution_id: metadata.distributionId,
+          mollie_payment_id: paymentId,
+          amount_cents: amountCents,
+          type: "lead_purchase",
+          status: "failed",
+        });
+      }
 
       // Send failure email
       const { data: company } = await supabase
