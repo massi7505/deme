@@ -51,6 +51,7 @@ interface Transaction {
   status: string;
   invoice_number?: string;
   invoice_url?: string;
+  invoice_full_url?: string;
   mollie_payment_id?: string;
   created_at: string;
 }
@@ -304,7 +305,7 @@ export default function FacturationPage() {
                                   size="sm"
                                   className="gap-1.5 text-xs"
                                   onClick={() => window.open(
-                                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoices/${txn.invoice_url}`,
+                                    txn.invoice_full_url,
                                     "_blank"
                                   )}
                                 >
@@ -391,7 +392,7 @@ export default function FacturationPage() {
                             size="sm"
                             className="mt-2 w-full gap-1.5 text-xs"
                             onClick={() => window.open(
-                              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoices/${txn.invoice_url}`,
+                              txn.invoice_full_url,
                               "_blank"
                             )}
                           >

@@ -18,6 +18,7 @@ interface Transaction {
   mollie_payment_id?: string | null;
   invoice_number?: string | null;
   invoice_url?: string | null;
+  invoice_full_url?: string | null;
   created_at: string;
 }
 
@@ -239,9 +240,9 @@ export default function AdminTransactions() {
                   </td>
                   <td className="px-4 py-3">
                     {tx.invoice_number ? (
-                      tx.invoice_url ? (
+                      tx.invoice_full_url ? (
                         <a
-                          href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoices/${tx.invoice_url}`}
+                          href={tx.invoice_full_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-green)] hover:underline"

@@ -65,13 +65,22 @@ export async function GET() {
     .filter((t: Record<string, unknown>) => t.type === "unlock" || t.type === "lead_purchase")
     .reduce((sum: number, t: Record<string, unknown>) => sum + ((t.amount_cents as number) || 0), 0);
 
+  // Build full invoice URLs server-side
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const enrichedTransactions = (transactions || []).map((t: Record<string, unknown>) => ({
+    ...t,
+    invoice_full_url: t.invoice_url
+      ? `${supabaseUrl}/storage/v1/object/public/invoices/${t.invoice_url}`
+      : null,
+  }));
+
   return NextResponse.json({
     plan: {
       name: subscription?.plan || "Aucun",
       priceCents: subscription?.amount_cents || 0,
       nextBilling: subscription?.next_billing_date || null,
     },
-    transactions: transactions || [],
+    transactions: enrichedTransactions,
     summary: {
       totalCents: subscriptionTotal + unlockTotal,
       subscriptionCents: subscriptionTotal,

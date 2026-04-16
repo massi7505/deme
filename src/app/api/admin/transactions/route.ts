@@ -35,9 +35,13 @@ export async function GET() {
     }
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const enriched = (transactions || []).map((t: Record<string, unknown>) => ({
     ...t,
     company_name: companyMap[t.company_id as string] || "Inconnu",
+    invoice_full_url: t.invoice_url
+      ? `${supabaseUrl}/storage/v1/object/public/invoices/${t.invoice_url}`
+      : null,
   }));
 
   return NextResponse.json(enriched);
