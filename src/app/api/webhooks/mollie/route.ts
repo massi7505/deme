@@ -8,19 +8,40 @@ import { formatPrice } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.formData();
-    const paymentId = body.get("id") as string;
-
-    if (!paymentId) {
-      return NextResponse.json({ error: "Missing payment ID" }, { status: 400 });
+    // Mollie sends form-encoded body with "id" field
+    let paymentId: string | null = null;
+    try {
+      const body = await request.formData();
+      paymentId = body.get("id") as string;
+    } catch {
+      // Dashboard test or JSON payload — acknowledge it
+      return NextResponse.json({ received: true });
     }
 
-    const payment = await getPayment(paymentId);
+    if (!paymentId) {
+      // No payment ID — likely a Dashboard webhook test
+      return NextResponse.json({ received: true });
+    }
+
+    let payment;
+    try {
+      payment = await getPayment(paymentId);
+    } catch (err) {
+      // Invalid or test payment ID — acknowledge without error
+      console.warn("Mollie webhook: cannot fetch payment", paymentId, err);
+      return NextResponse.json({ received: true });
+    }
+
     const metadata = payment.metadata as {
       companyId: string;
       distributionId: string;
       type: string;
     };
+
+    if (!metadata?.companyId || !metadata?.distributionId) {
+      // Payment without our metadata — acknowledge
+      return NextResponse.json({ received: true });
+    }
 
     const supabase = createUntypedAdminClient();
 
