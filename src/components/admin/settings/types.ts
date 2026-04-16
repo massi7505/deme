@@ -80,6 +80,19 @@ export interface Settings {
   smtpFromName: string;
   smtpFromEmail: string;
   resendApiKey: string;
+  // Invoice
+  invoiceCompanyName: string;
+  invoiceAddress: string;
+  invoiceCity: string;
+  invoicePostalCode: string;
+  invoiceEmail: string;
+  invoiceSiret: string;
+  invoiceVatNumber: string;
+  invoiceVatRate: string;
+  invoicePriceMode: "ttc" | "ht";
+  invoicePrefix: string;
+  invoiceFooter: string;
+  invoiceConditions: string;
   // Security
   adminEmail: string;
 }
@@ -195,5 +208,17 @@ export const DEFAULT_SETTINGS: Settings = {
   smtpFromName: "Demenagement24",
   smtpFromEmail: "noreply@demenagement24.com",
   resendApiKey: "",
+  invoiceCompanyName: "",
+  invoiceAddress: "",
+  invoiceCity: "",
+  invoicePostalCode: "",
+  invoiceEmail: "",
+  invoiceSiret: "",
+  invoiceVatNumber: "",
+  invoiceVatRate: "20",
+  invoicePriceMode: "ttc",
+  invoicePrefix: "FA",
+  invoiceFooter: "Paiement effectue par carte bancaire via Mollie.",
+  invoiceConditions: "",
   adminEmail: "",
 };
