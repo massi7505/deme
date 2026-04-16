@@ -55,17 +55,47 @@ interface Company {
   website?: string;
 }
 
-const PREDEFINED_QUESTIONS = [
-  "Quels types de déménagement proposez-vous ?",
-  "Proposez-vous un service d'emballage ?",
-  "Effectuez-vous des déménagements le week-end ?",
-  "Quelle est votre zone d'intervention ?",
-  "Proposez-vous un service de garde-meuble ?",
-  "Comment se déroule un déménagement avec votre entreprise ?",
-  "Vos déménageurs sont-ils assurés ?",
-  "Quel est le délai pour obtenir un devis ?",
-  "Prenez-vous en charge les objets lourds (piano, coffre-fort) ?",
-  "Proposez-vous des déménagements internationaux ?",
+const PREDEFINED_QNA = [
+  {
+    question: "Quels types de déménagement proposez-vous ?",
+    answer: "Nous proposons des déménagements nationaux, d'entreprise et internationaux. Que vous déménagiez un studio, une grande maison ou des locaux professionnels, nous adaptons nos solutions à vos besoins et à votre budget.",
+  },
+  {
+    question: "Proposez-vous un service d'emballage ?",
+    answer: "Oui, nous proposons un service complet d'emballage et de déballage. Nos équipes utilisent des matériaux de qualité pour protéger vos affaires : cartons renforcés, papier bulle, couvertures de déménagement et caisses à vaisselle.",
+  },
+  {
+    question: "Effectuez-vous des déménagements le week-end ?",
+    answer: "Oui, nous intervenons du lundi au samedi. Les déménagements le dimanche sont possibles sur demande et sous réserve de disponibilité. Contactez-nous pour vérifier nos créneaux.",
+  },
+  {
+    question: "Quelle est votre zone d'intervention ?",
+    answer: "Nous intervenons sur l'ensemble du territoire français. Pour les déménagements vers l'étranger, contactez-nous pour obtenir un devis personnalisé adapté à votre destination.",
+  },
+  {
+    question: "Proposez-vous un service de garde-meuble ?",
+    answer: "Oui, nous disposons d'espaces de stockage sécurisés disponibles à la semaine ou au mois. C'est idéal lors d'un entre-deux logements ou pour stocker des meubles encombrants.",
+  },
+  {
+    question: "Comment se déroule un déménagement avec votre entreprise ?",
+    answer: "Tout commence par un devis gratuit et sans engagement. Le jour J, nos déménageurs professionnels prennent en charge l'emballage, le chargement, le transport et la livraison dans votre nouveau domicile. Vous n'avez qu'à profiter de votre nouvelle installation.",
+  },
+  {
+    question: "Vos déménageurs sont-ils assurés ?",
+    answer: "Oui, tous nos déménageurs sont couverts par une assurance responsabilité civile professionnelle. Vos biens sont protégés de la prise en charge jusqu'à la livraison dans votre nouveau logement.",
+  },
+  {
+    question: "Quel est le délai pour obtenir un devis ?",
+    answer: "Vous recevez votre devis sous 24 à 48 heures après votre demande. Pour les déménagements urgents, nous faisons le maximum pour vous répondre dans les plus brefs délais.",
+  },
+  {
+    question: "Prenez-vous en charge les objets lourds (piano, coffre-fort) ?",
+    answer: "Oui, nous disposons du matériel spécialisé (monte-meubles, sangles renforcées, diable professionnel) pour déplacer en toute sécurité les objets encombrants et lourds : pianos, coffres-forts, grandes bibliothèques et électroménagers.",
+  },
+  {
+    question: "Proposez-vous des déménagements internationaux ?",
+    answer: "Oui, nous organisons des déménagements vers toute l'Europe et au-delà. Nous gérons les formalités douanières et le transport longue distance pour vous offrir un déménagement international serein et sans mauvaise surprise.",
+  },
 ];
 
 interface Review {
@@ -112,12 +142,12 @@ export default function ProfilEntreprisePage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleAddPredefinedQuestion(question: string) {
+  async function handleAddPredefinedQuestion(question: string, answer = "") {
     try {
       const res = await fetch("/api/dashboard/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add_qna", question, answer: "" }),
+        body: JSON.stringify({ action: "add_qna", question, answer }),
       });
       if (res.ok) {
         toast.success("Question ajoutée !");
@@ -636,15 +666,18 @@ export default function ProfilEntreprisePage() {
               <div className="space-y-3 rounded-lg border border-green-200 bg-green-50/50 p-4">
                 <p className="text-sm font-semibold">Sélectionnez une question :</p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {PREDEFINED_QUESTIONS
-                    .filter(q => !qna.some(existing => existing.question === q))
-                    .map((question) => (
+                  {PREDEFINED_QNA
+                    .filter(({ question }) => !qna.some(existing => existing.question === question))
+                    .map(({ question, answer }) => (
                     <button
                       key={question}
-                      onClick={() => handleAddPredefinedQuestion(question)}
-                      className="rounded-lg border bg-white p-3 text-left text-sm hover:border-green-300 hover:bg-green-50 transition-colors"
+                      onClick={() => handleAddPredefinedQuestion(question, answer)}
+                      className="group rounded-lg border bg-white p-3 text-left transition-colors hover:border-green-300 hover:bg-green-50"
                     >
-                      {question}
+                      <p className="text-sm font-medium">{question}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground group-hover:text-green-700">
+                        {answer}
+                      </p>
                     </button>
                   ))}
                 </div>
