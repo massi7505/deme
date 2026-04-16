@@ -116,6 +116,7 @@ export const EMAIL_TEMPLATE_DEFS: {
   { key: "adminPaymentSuccess", label: "Paiement reçu", category: "Admin", variables: ["siteName", "companyName", "amount", "invoiceNumber", "baseUrl"] },
   { key: "adminPaymentFailed", label: "Paiement échoué", category: "Admin", variables: ["siteName", "companyName", "amount", "dateTime", "baseUrl"] },
   { key: "adminNewClaim", label: "Nouvelle réclamation", category: "Admin", variables: ["siteName", "companyName", "reason", "claimRef", "baseUrl"] },
+  { key: "passwordReset", label: "Réinitialisation mot de passe", category: "Client", variables: ["siteName", "otpCode", "expiryMinutes", "baseUrl"] },
 ];
 
 export const DEFAULT_EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
@@ -170,6 +171,10 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
   adminNewClaim: {
     subject: "Nouvelle réclamation de {{companyName}} — {{reason}}",
     body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}} — Admin</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Nouvelle réclamation</h2><div style="background:#fffbeb;border-radius:8px;padding:16px;margin:16px 0"><p style="margin:0"><strong>Entreprise :</strong> {{companyName}}</p><p style="margin:8px 0 0"><strong>Motif :</strong> {{reason}}</p><p style="margin:8px 0 0"><strong>Réf :</strong> {{claimRef}}</p></div><a href="{{baseUrl}}/admin/claims" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Traiter la réclamation</a></div></div>`,
+  },
+  passwordReset: {
+    subject: "Code de réinitialisation — {{siteName}}",
+    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0;text-align:center"><h1 style="color:white;margin:0;font-size:24px;font-weight:700">{{siteName}}</h1></div><div style="padding:32px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0;font-size:20px;color:#111827">Réinitialisation de votre mot de passe</h2><p style="color:#374151;line-height:1.6">Vous avez demandé à réinitialiser votre mot de passe. Utilisez le code ci-dessous pour choisir un nouveau mot de passe :</p><div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:28px 0;text-align:center"><p style="margin:0 0 8px;color:#166534;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Votre code de vérification</p><p style="margin:0;font-family:'Courier New',monospace;font-size:36px;font-weight:700;letter-spacing:8px;color:#166534">{{otpCode}}</p></div><div style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;padding:12px 16px;margin:20px 0"><p style="margin:0;color:#92400e;font-size:14px"><strong>⏱ Expire dans {{expiryMinutes}} minutes.</strong> Ce code est à usage unique.</p></div><p style="color:#6b7280;font-size:14px;line-height:1.6;margin-top:24px">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email — votre mot de passe restera inchangé.</p><hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"><p style="color:#9ca3af;font-size:12px;text-align:center;margin:0">© {{siteName}} — Ne partagez jamais ce code avec qui que ce soit.</p></div></div>`,
   },
 };
 

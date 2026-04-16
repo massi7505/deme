@@ -137,3 +137,10 @@ export async function notifyAdminPaymentFailed(companyName: string, amountCents:
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
   return sendTemplated("adminPaymentFailed", ADMIN_EMAIL, { companyName, amount, dateTime });
 }
+
+export async function sendPasswordResetEmail(to: string, otpCode: string, expiryMinutes: number) {
+  return sendTemplated("passwordReset", to, {
+    otpCode,
+    expiryMinutes: String(expiryMinutes),
+  });
+}
