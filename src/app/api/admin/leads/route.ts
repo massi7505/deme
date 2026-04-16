@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { distributeLead } from "@/lib/distribute-lead";
 
 export async function GET() {
   const supabase = createUntypedAdminClient();
@@ -126,6 +127,64 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
+  }
+
+  // Retry distribution for a lead whose distributeLead previously failed.
+  // Allowed only when: distributed_at IS NOT NULL AND no quote_distributions
+  // rows exist — i.e. the "stamped-then-crashed" state. If distributions
+  // already exist, the admin should use the existing distribute-to-specific-
+  // mover flow instead, to avoid duplicate notifications to movers.
+  if (body.action === "retry_distribution") {
+    const { id } = body;
+    if (!id) {
+      return NextResponse.json({ error: "id requis" }, { status: 400 });
+    }
+
+    const { data: quote } = await supabase
+      .from("quote_requests")
+      .select("id, distributed_at")
+      .eq("id", id)
+      .single();
+
+    if (!quote) {
+      return NextResponse.json({ error: "Lead introuvable" }, { status: 404 });
+    }
+
+    const { count } = await supabase
+      .from("quote_distributions")
+      .select("id", { count: "exact", head: true })
+      .eq("quote_request_id", id);
+
+    if ((count ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Ce lead a déjà des distributions. Utilisez l'action 'Distribuer à un déménageur' plutôt que 'Relancer'.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Clear distributed_at so distributeLead can re-run the matching.
+    await supabase
+      .from("quote_requests")
+      .update({ distributed_at: null })
+      .eq("id", id);
+
+    try {
+      const result = await distributeLead(id);
+      return NextResponse.json({
+        success: true,
+        matchedMovers: result.matchedMovers,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[admin/leads retry_distribution] ${id}:`, message);
+      return NextResponse.json(
+        { error: `Relance échouée : ${message}` },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ error: "Action inconnue" }, { status: 400 });

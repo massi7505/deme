@@ -156,6 +156,30 @@ export default function AdminLeads() {
     else toast.error("Erreur");
   }
 
+  async function handleRetryDistribution(leadId: string) {
+    if (!confirm("Relancer la distribution de ce lead aux déménageurs ?")) return;
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "retry_distribution", id: leadId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(body?.error || "Erreur lors de la relance");
+        return;
+      }
+      toast.success(
+        body.matchedMovers > 0
+          ? `Lead distribué à ${body.matchedMovers} déménageur${body.matchedMovers > 1 ? "s" : ""}`
+          : "Lead traité mais aucun déménageur correspondant"
+      );
+      fetchLeads();
+    } catch {
+      toast.error("Erreur de connexion");
+    }
+  }
+
   const filtered = leads.filter((l) => {
     if (filterStatus !== "all" && l.status !== filterStatus) return false;
     if (filterCategory !== "all" && l.category !== filterCategory) return false;
@@ -433,6 +457,17 @@ export default function AdminLeads() {
                     </td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {lead.distributions === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRetryDistribution(lead.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                            title="Lead sans distribution — relancer le matching"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Relancer distribution
+                          </button>
+                        )}
                         <button onClick={() => setSelectedLead(lead)} className="rounded-md p-1.5 text-muted-foreground hover:bg-green-50 hover:text-green-600" title="Voir le détail">
                           <Eye className="h-4 w-4" />
                         </button>
