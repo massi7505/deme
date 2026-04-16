@@ -144,7 +144,18 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (companyInfo) {
-          const description = "Déverrouillage demande de devis";
+          // Get prospect_id for invoice
+          let prospectId = "";
+          const { data: qr } = await supabase
+            .from("quote_requests")
+            .select("prospect_id")
+            .eq("id", distribution.quote_request_id)
+            .single();
+          if (qr) prospectId = qr.prospect_id;
+
+          const description = prospectId
+            ? `Déverrouillage demande de devis — ${prospectId}`
+            : "Déverrouillage demande de devis";
           const invoice = await generateInvoice({
             transactionId: txn.id,
             companyId: company.id,

@@ -95,9 +95,27 @@ export async function POST(request: NextRequest) {
         .eq("id", metadata.companyId)
         .single();
 
+      // 3b. Get prospect_id for invoice description
+      let prospectId = "";
+      const { data: distForProspect } = await supabase
+        .from("quote_distributions")
+        .select("quote_request_id")
+        .eq("id", metadata.distributionId)
+        .single();
+      if (distForProspect) {
+        const { data: qr } = await supabase
+          .from("quote_requests")
+          .select("prospect_id")
+          .eq("id", distForProspect.quote_request_id)
+          .single();
+        if (qr) prospectId = qr.prospect_id;
+      }
+
       // 4. Generate invoice + send email (wrapped so a PDF error won't break the webhook)
       if (transaction && company) {
-        const description = "Déverrouillage demande de devis";
+        const description = prospectId
+          ? `Déverrouillage demande de devis — ${prospectId}`
+          : "Déverrouillage demande de devis";
         try {
           const invoice = await generateInvoice({
             transactionId: transaction.id,
