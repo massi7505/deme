@@ -5,6 +5,60 @@ import { sendQuoteConfirmation, sendNewLeadNotification } from "@/lib/resend";
 import { notifyNewLead } from "@/lib/onesignal";
 import { sendLeadSMS, sendOtpSMS } from "@/lib/smsfactor";
 
+/** Calculate lead price in cents from admin settings */
+async function calculatePriceCents(
+  supabase: ReturnType<typeof createUntypedAdminClient>,
+  category: string,
+  departmentCode: string,
+  volumeM3: number | null
+): Promise<number> {
+  try {
+    const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
+    const s = (data?.data || {}) as Record<string, unknown>;
+
+    // Base price by category
+    const basePrices: Record<string, string> = {
+      national: (s.priceNational as string) || "12.00",
+      entreprise: (s.priceEntreprise as string) || "18.00",
+      international: (s.priceInternational as string) || "25.00",
+    };
+    let price = parseFloat(basePrices[category] || basePrices.national);
+
+    // Smart pricing adjustments
+    if (s.pricingMode === "smart") {
+      // Department adjustment
+      const deptRules = (s.smartPricingDepartments as Array<{ code: string; percent: number }>) || [];
+      const deptRule = deptRules.find((r) => r.code === departmentCode);
+      if (deptRule) {
+        price *= 1 + deptRule.percent / 100;
+      }
+
+      // Volume adjustment
+      if (volumeM3) {
+        const volRules = (s.smartPricingVolume as Array<{ minM3: number; maxM3: number; percent: number }>) || [];
+        const volRule = volRules.find((r) => volumeM3 >= r.minM3 && volumeM3 <= r.maxM3);
+        if (volRule) {
+          price *= 1 + volRule.percent / 100;
+        }
+      }
+
+      // Season adjustment
+      const seasonRules = (s.smartPricingSeasons as Array<{ startDate: string; endDate: string; percent: number }>) || [];
+      const today = new Date().toISOString().slice(0, 10);
+      const seasonRule = seasonRules.find((r) => r.startDate && r.endDate && today >= r.startDate && today <= r.endDate);
+      if (seasonRule) {
+        price *= 1 + seasonRule.percent / 100;
+      }
+    }
+
+    return Math.round(price * 100);
+  } catch {
+    // Fallback to default prices
+    const defaults: Record<string, number> = { national: 1200, entreprise: 1800, international: 2500 };
+    return defaults[category] || 1200;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -114,11 +168,19 @@ export async function POST(request: NextRequest) {
         .in("account_status", ["active", "trial"]);
 
       if (companies && companies.length > 0) {
-        // 5. Create distributions
+        // 5. Calculate price from admin settings
+        const priceCents = await calculatePriceCents(
+          supabase,
+          body.category ?? "national",
+          departmentCode,
+          body.volumeM3 ? parseFloat(body.volumeM3) : null
+        );
+
+        // 6. Create distributions
         const distributions = companies.map((company) => ({
           quote_request_id: quote.id,
           company_id: company.id,
-          price_cents: 1200,
+          price_cents: priceCents,
           is_trial: company.account_status === "trial",
           status: "pending",
           competitor_count: companies.length - 1,
