@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { useState, useEffect, useCallback } from "react";
 import { cn, formatPrice } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv-export";
@@ -474,5 +475,4 @@ export default function AdminTransactions() {
   );
 }
 
-// Fragment import
-import { Fragment } from "react";
+

@@ -14,16 +14,6 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
-
-function formatDateTime(date: string): string {
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
-}
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -38,6 +28,16 @@ import {
   Loader2,
   FileX,
 } from "lucide-react";
+
+function formatDateTime(date: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
 
 // ---------------------------------------------------------------------------
 // Types
