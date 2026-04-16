@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getResend } from "@/lib/resend";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
-const SETTINGS_FILE = join(process.cwd(), "admin-settings.json");
-
-function getContactEmail(): string {
-  if (existsSync(SETTINGS_FILE)) {
-    try {
-      const settings = JSON.parse(readFileSync(SETTINGS_FILE, "utf-8"));
-      return settings.contactEmail || "contact@demenagement24.com";
-    } catch {
-      return "contact@demenagement24.com";
-    }
+async function getContactEmail(): Promise<string> {
+  try {
+    const supabase = createUntypedAdminClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("data")
+      .eq("id", 1)
+      .single();
+    return data?.data?.contactEmail || "contact@demenagement24.com";
+  } catch {
+    return "contact@demenagement24.com";
   }
-  return "contact@demenagement24.com";
 }
 
 export async function POST(request: NextRequest) {
@@ -43,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const contactEmail = getContactEmail();
+    const contactEmail = await getContactEmail();
     const fromEmail = process.env.EMAIL_FROM ?? "Demenagement24 <noreply@demenagement24.com>";
 
     const resend = getResend();

@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
-
-const SETTINGS_FILE = join(process.cwd(), "admin-settings.json");
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
 const DEFAULTS = {
   siteName: "Demenagement24",
@@ -13,22 +10,24 @@ const DEFAULTS = {
 };
 
 export async function GET() {
-  let settings = DEFAULTS;
+  try {
+    const supabase = createUntypedAdminClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("data")
+      .eq("id", 1)
+      .single();
 
-  if (existsSync(SETTINGS_FILE)) {
-    try {
-      const saved = JSON.parse(readFileSync(SETTINGS_FILE, "utf-8"));
-      settings = {
-        siteName: saved.siteName || DEFAULTS.siteName,
-        siteUrl: saved.siteUrl || DEFAULTS.siteUrl,
-        contactEmail: saved.contactEmail || DEFAULTS.contactEmail,
-        contactPhone: saved.contactPhone || DEFAULTS.contactPhone,
-        contactAddress: saved.contactAddress || DEFAULTS.contactAddress,
-      };
-    } catch {
-      // Use defaults
-    }
+    const saved = data?.data || {};
+
+    return NextResponse.json({
+      siteName: saved.siteName || DEFAULTS.siteName,
+      siteUrl: saved.siteUrl || DEFAULTS.siteUrl,
+      contactEmail: saved.contactEmail || DEFAULTS.contactEmail,
+      contactPhone: saved.contactPhone || DEFAULTS.contactPhone,
+      contactAddress: saved.contactAddress || DEFAULTS.contactAddress,
+    });
+  } catch {
+    return NextResponse.json(DEFAULTS);
   }
-
-  return NextResponse.json(settings);
 }

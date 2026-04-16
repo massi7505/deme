@@ -1,24 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFileSync, readFileSync, existsSync } from "fs";
-import { join } from "path";
-
-const SETTINGS_FILE = join(process.cwd(), "admin-settings.json");
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function loadSettings(): Record<string, any> {
-  if (existsSync(SETTINGS_FILE)) {
-    return JSON.parse(readFileSync(SETTINGS_FILE, "utf-8"));
-  }
-  return {};
+async function loadSettings(): Promise<Record<string, any>> {
+  const supabase = createUntypedAdminClient();
+  const { data } = await supabase
+    .from("site_settings")
+    .select("data")
+    .eq("id", 1)
+    .single();
+  return data?.data || {};
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function saveSettings(settings: Record<string, any>) {
-  writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf-8");
+async function saveSettings(settings: Record<string, any>) {
+  const supabase = createUntypedAdminClient();
+  await supabase
+    .from("site_settings")
+    .update({ data: settings, updated_at: new Date().toISOString() })
+    .eq("id", 1);
 }
 
 export async function GET() {
-  const settings = loadSettings();
+  const settings = await loadSettings();
   // Never expose full Mollie keys to the frontend — mask them
   const masked = { ...settings };
   if (masked.mollieTestKey) {
@@ -32,7 +36,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const current = loadSettings();
+  const current = await loadSettings();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updates: Record<string, any> = {};
@@ -45,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   const newSettings = { ...current, ...updates };
-  saveSettings(newSettings);
+  await saveSettings(newSettings);
 
   // Update the Mollie API key in the environment for this process
   const activeKey = newSettings.mollieMode === "live"
