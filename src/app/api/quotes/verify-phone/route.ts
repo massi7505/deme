@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 import { distributeLead } from "@/lib/distribute-lead";
 import { loadQuoteForVerification, verifyCode, MAX_ATTEMPTS } from "@/lib/quote-verification";
 import { notifyAdminDistributionFailed } from "@/lib/resend";
 
 export async function POST(request: NextRequest) {
   try {
+    const ipCheck = await checkIpRateLimit(getClientIp(request), "verify-phone", 3600, 30);
+    if (!ipCheck.ok) {
+      return NextResponse.json(
+        { error: "Trop de requêtes", retryAfterSec: ipCheck.retryAfterSec },
+        { status: 429 }
+      );
+    }
     const { quoteId, code } = await request.json().catch(() => ({}));
 
     if (!quoteId || !code) {

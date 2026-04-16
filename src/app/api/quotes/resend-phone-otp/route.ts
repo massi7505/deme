@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 import { sendOtpSMS } from "@/lib/smsfactor";
 import {
   checkResendAllowed,
@@ -9,6 +10,13 @@ import {
 } from "@/lib/quote-verification";
 
 export async function POST(request: NextRequest) {
+  const ipCheck = await checkIpRateLimit(getClientIp(request), "resend-phone-otp", 3600, 10);
+  if (!ipCheck.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes", retryAfterSec: ipCheck.retryAfterSec },
+      { status: 429 }
+    );
+  }
   const { quoteId } = await request.json().catch(() => ({}));
   if (!quoteId) return NextResponse.json({ error: "quoteId requis" }, { status: 400 });
 
