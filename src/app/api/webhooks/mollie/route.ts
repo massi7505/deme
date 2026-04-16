@@ -45,6 +45,8 @@ export async function POST(request: NextRequest) {
 
     const supabase = createUntypedAdminClient();
 
+    console.log("[Webhook] Payment", paymentId, "status:", payment.status, "type:", metadata.type);
+
     if (payment.status === "paid" && metadata.type === "lead_unlock") {
       // 1. Update distribution status
       await supabase
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (payment.status === "failed") {
+    if (payment.status === "failed" || payment.status === "canceled" || payment.status === "expired") {
       const now = new Date();
       const dateTime = new Intl.DateTimeFormat("fr-FR", {
         day: "2-digit",
@@ -198,11 +200,14 @@ export async function POST(request: NextRequest) {
       }).format(now);
 
       const amountCents = Math.round(parseFloat(payment.amount.value) * 100);
+      const failStatus = "failed"; // all failure modes stored as "failed"
+
+      console.log("[Webhook] Handling failure:", payment.status, "→ storing as:", failStatus);
 
       // Update pending transaction or insert if missing
       const { data: updatedFailed } = await supabase
         .from("transactions")
-        .update({ status: "failed", amount_cents: amountCents })
+        .update({ status: failStatus, amount_cents: amountCents })
         .eq("mollie_payment_id", paymentId)
         .select()
         .single();
@@ -214,7 +219,7 @@ export async function POST(request: NextRequest) {
           mollie_payment_id: paymentId,
           amount_cents: amountCents,
           type: "lead_purchase",
-          status: "failed",
+          status: failStatus,
         });
       }
 
