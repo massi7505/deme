@@ -10,9 +10,9 @@ export async function GET(
   const { data: company, error } = await supabase
     .from("companies")
     .select(`
-      id, name, slug, city, postal_code, address, logo_url, description,
+      id, name, slug, city, postal_code, logo_url, description,
       rating, review_count, is_verified, account_status,
-      employee_count, legal_status, siret, website, phone, email_contact,
+      employee_count, legal_status, siret, website,
       created_at,
       company_regions(department_code, department_name, categories),
       company_photos(id, url, caption, order_index),

@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Star, CheckCircle2, MapPin, Globe, Phone, Copy, ArrowRight, Building2,
+  Star, CheckCircle2, MapPin, Globe, Copy, ArrowRight, Building2,
   Users, ChevronRight, MessageSquare, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,10 @@ import { cn, formatDate } from "@/lib/utils";
 
 interface Company {
   id: string; name: string; slug: string; city: string | null; postal_code: string | null;
-  address: string | null; logo_url: string | null; description: string | null;
+  logo_url: string | null; description: string | null;
   rating: number; review_count: number; is_verified: boolean;
   employee_count: number | null; legal_status: string | null; siret: string;
-  website: string | null; phone: string | null; email_contact: string | null;
+  website: string | null;
   company_regions: Array<{ department_name: string; categories: string[] }>;
   company_photos: Array<{ id: string; url: string; caption: string | null }>;
   company_qna: Array<{ id: string; question: string; answer: string }>;
@@ -75,7 +75,6 @@ export default function MoverProfilePage() {
     name: company.name,
     address: {
       "@type": "PostalAddress",
-      streetAddress: company.address || undefined,
       addressLocality: company.city || undefined,
       postalCode: company.postal_code || undefined,
       addressCountry: "FR",
@@ -88,7 +87,6 @@ export default function MoverProfilePage() {
           bestRating: 10,
         }
       : undefined,
-    telephone: company.phone || undefined,
     url: company.website || `https://demenagement24.fr/entreprises-demenagement/${company.slug}`,
     review: company.reviews.map((review) => ({
       "@type": "Review",
@@ -146,7 +144,7 @@ export default function MoverProfilePage() {
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-muted-foreground">
                   <MapPin className="h-4 w-4" />
-                  <span>{company.city || "France"}{company.postal_code ? ` ${company.postal_code}` : ""}</span>
+                  <span>{company.postal_code ? `${company.postal_code} ` : ""}{company.city || "France"}</span>
                 </div>
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5">
@@ -287,13 +285,7 @@ export default function MoverProfilePage() {
                 {company.city && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
-                    {company.address ? `${company.address}, ` : ""}{company.city} {company.postal_code}
-                  </div>
-                )}
-                {company.phone && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-4 w-4 text-[var(--brand-green)]" />
-                    {company.phone}
+                    {company.postal_code ? `${company.postal_code} ` : ""}{company.city}
                   </div>
                 )}
                 {company.website && (
