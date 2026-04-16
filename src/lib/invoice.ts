@@ -1,6 +1,6 @@
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { generateInvoiceNumber } from "@/lib/utils";
-import PDFDocument from "pdfkit";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export interface InvoiceData {
   transactionId: string;
@@ -31,7 +31,6 @@ export async function generateInvoice(data: InvoiceData) {
   const amountTTC = amountHT + vatAmount;
   const date = new Date().toLocaleDateString("fr-FR");
 
-  // Generate PDF buffer
   const pdfBuffer = await buildInvoicePdf({
     invoiceNumber,
     companyName: data.companyName,
@@ -84,108 +83,105 @@ async function buildInvoicePdf(data: {
   vatRate: number;
   date: string;
 }): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
-    const chunks: Buffer[] = [];
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595.28, 841.89]); // A4
+  const { height } = page.getSize();
 
-    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
+  const fontRegular = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-    const green = "#22c55e";
-    const gray = "#6b7280";
-    const dark = "#1f2937";
-    const pageW = doc.page.width - 100; // 50 margin each side
+  const green = rgb(0.133, 0.773, 0.369); // #22c55e
+  const dark = rgb(0.122, 0.161, 0.216);  // #1f2937
+  const gray = rgb(0.420, 0.451, 0.498);  // #6b7280
+  const white = rgb(1, 1, 1);
+  const lightGray = rgb(0.976, 0.98, 0.984); // #f9fafb
+  const lineGray = rgb(0.898, 0.906, 0.918); // #e5e7eb
 
-    // ── Header ──────────────────────────────────────────────
-    doc.rect(50, 50, pageW, 60).fill(green);
-    doc.fillColor("#ffffff").fontSize(22).font("Helvetica-Bold")
-      .text("Demenagement24", 70, 68);
-    doc.fontSize(10).font("Helvetica")
-      .text("Plateforme de mise en relation demenageurs", 70, 92);
+  const margin = 50;
+  const pageW = 595.28 - margin * 2;
 
-    // ── Invoice title ───────────────────────────────────────
-    doc.fillColor(dark).fontSize(28).font("Helvetica-Bold")
-      .text("FACTURE", 50, 140, { align: "right" });
-    doc.fillColor(gray).fontSize(11).font("Helvetica")
-      .text(data.invoiceNumber, 50, 172, { align: "right" })
-      .text(`Date : ${data.date}`, 50, 188, { align: "right" });
+  // ── Header bar ──
+  const headerH = 60;
+  const headerY = height - margin - headerH;
+  page.drawRectangle({ x: margin, y: headerY, width: pageW, height: headerH, color: green });
+  page.drawText("Demenagement24", { x: margin + 20, y: headerY + 30, size: 22, font: fontBold, color: white });
+  page.drawText("Plateforme de mise en relation demenageurs", { x: margin + 20, y: headerY + 12, size: 10, font: fontRegular, color: white });
 
-    // ── From / To ───────────────────────────────────────────
-    const yAddr = 230;
+  // ── Invoice title ──
+  const titleY = headerY - 50;
+  page.drawText("FACTURE", { x: margin + pageW - 120, y: titleY, size: 28, font: fontBold, color: dark });
+  page.drawText(data.invoiceNumber, { x: margin + pageW - 120, y: titleY - 20, size: 11, font: fontRegular, color: gray });
+  page.drawText(`Date : ${data.date}`, { x: margin + pageW - 120, y: titleY - 36, size: 11, font: fontRegular, color: gray });
 
-    // From (us)
-    doc.fillColor(dark).fontSize(10).font("Helvetica-Bold")
-      .text("De :", 50, yAddr);
-    doc.fillColor(gray).fontSize(10).font("Helvetica")
-      .text("Demenagement24", 50, yAddr + 16)
-      .text("Paris, France", 50, yAddr + 30)
-      .text("contact@demenagement24.com", 50, yAddr + 44);
+  // ── From / To ──
+  const addrY = titleY - 80;
 
-    // To (company)
-    doc.fillColor(dark).fontSize(10).font("Helvetica-Bold")
-      .text("Facture a :", 300, yAddr);
-    doc.fillColor(gray).fontSize(10).font("Helvetica")
-      .text(data.companyName, 300, yAddr + 16)
-      .text(data.companyAddress || "", 300, yAddr + 30)
-      .text(`${data.companyPostalCode} ${data.companyCity}`, 300, yAddr + 44)
-      .text(`SIRET : ${data.companySiret}`, 300, yAddr + 58);
+  page.drawText("De :", { x: margin, y: addrY, size: 10, font: fontBold, color: dark });
+  page.drawText("Demenagement24", { x: margin, y: addrY - 16, size: 10, font: fontRegular, color: gray });
+  page.drawText("Paris, France", { x: margin, y: addrY - 30, size: 10, font: fontRegular, color: gray });
+  page.drawText("contact@demenagement24.com", { x: margin, y: addrY - 44, size: 10, font: fontRegular, color: gray });
 
-    // ── Table ───────────────────────────────────────────────
-    const tableTop = 340;
-    const col1 = 50;
-    const col2 = 280;
-    const col3 = 360;
-    const col4 = 440;
-    const col5 = 510;
+  page.drawText("Facture a :", { x: 300, y: addrY, size: 10, font: fontBold, color: dark });
+  page.drawText(data.companyName, { x: 300, y: addrY - 16, size: 10, font: fontRegular, color: gray });
+  if (data.companyAddress) {
+    page.drawText(data.companyAddress, { x: 300, y: addrY - 30, size: 10, font: fontRegular, color: gray });
+  }
+  page.drawText(`${data.companyPostalCode} ${data.companyCity}`, { x: 300, y: addrY - 44, size: 10, font: fontRegular, color: gray });
+  page.drawText(`SIRET : ${data.companySiret}`, { x: 300, y: addrY - 58, size: 10, font: fontRegular, color: gray });
 
-    // Header row
-    doc.rect(50, tableTop, pageW, 28).fill("#f9fafb");
-    doc.fillColor(dark).fontSize(9).font("Helvetica-Bold")
-      .text("Designation", col1 + 10, tableTop + 8)
-      .text("Qte", col2, tableTop + 8)
-      .text("Prix HT", col3, tableTop + 8)
-      .text(`TVA (${Math.round(data.vatRate * 100)}%)`, col4, tableTop + 8)
-      .text("Total TTC", col5, tableTop + 8);
+  // ── Table ──
+  const tableTop = addrY - 100;
+  const rowH = 28;
+  const col1 = margin + 10;
+  const col2 = 280;
+  const col3 = 360;
+  const col4 = 440;
+  const col5 = 510;
 
-    // Data row
-    const rowY = tableTop + 28;
-    doc.rect(50, rowY, pageW, 0.5).fill("#e5e7eb");
-    doc.fillColor(dark).fontSize(9).font("Helvetica")
-      .text(data.description, col1 + 10, rowY + 10, { width: 220 })
-      .text("1", col2, rowY + 10)
-      .text(fmt(data.amountHT), col3, rowY + 10)
-      .text(fmt(data.vatAmount), col4, rowY + 10)
-      .text(fmt(data.amountTTC), col5, rowY + 10);
+  // Header row
+  page.drawRectangle({ x: margin, y: tableTop - rowH, width: pageW, height: rowH, color: lightGray });
+  page.drawText("Designation", { x: col1, y: tableTop - 20, size: 9, font: fontBold, color: dark });
+  page.drawText("Qte", { x: col2, y: tableTop - 20, size: 9, font: fontBold, color: dark });
+  page.drawText("Prix HT", { x: col3, y: tableTop - 20, size: 9, font: fontBold, color: dark });
+  page.drawText(`TVA (${Math.round(data.vatRate * 100)}%)`, { x: col4, y: tableTop - 20, size: 9, font: fontBold, color: dark });
+  page.drawText("Total TTC", { x: col5, y: tableTop - 20, size: 9, font: fontBold, color: dark });
 
-    // ── Totals ──────────────────────────────────────────────
-    const totalsY = rowY + 50;
-    doc.rect(50, totalsY, pageW, 0.5).fill("#e5e7eb");
+  // Separator
+  const rowY = tableTop - rowH;
+  page.drawLine({ start: { x: margin, y: rowY }, end: { x: margin + pageW, y: rowY }, thickness: 0.5, color: lineGray });
 
-    const labelX = 400;
-    const valX = 510;
+  // Data row
+  page.drawText(data.description, { x: col1, y: rowY - 18, size: 9, font: fontRegular, color: dark, maxWidth: 220 });
+  page.drawText("1", { x: col2, y: rowY - 18, size: 9, font: fontRegular, color: dark });
+  page.drawText(fmt(data.amountHT), { x: col3, y: rowY - 18, size: 9, font: fontRegular, color: dark });
+  page.drawText(fmt(data.vatAmount), { x: col4, y: rowY - 18, size: 9, font: fontRegular, color: dark });
+  page.drawText(fmt(data.amountTTC), { x: col5, y: rowY - 18, size: 9, font: fontRegular, color: dark });
 
-    doc.fillColor(gray).fontSize(10).font("Helvetica")
-      .text("Total HT", labelX, totalsY + 12)
-      .text(fmt(data.amountHT), valX, totalsY + 12);
+  // ── Totals ──
+  const totalsY = rowY - 50;
+  page.drawLine({ start: { x: margin, y: totalsY }, end: { x: margin + pageW, y: totalsY }, thickness: 0.5, color: lineGray });
 
-    doc.text(`TVA ${Math.round(data.vatRate * 100)}%`, labelX, totalsY + 30)
-      .text(fmt(data.vatAmount), valX, totalsY + 30);
+  const labelX = 400;
+  const valX = 510;
 
-    doc.rect(labelX, totalsY + 48, pageW - 350, 0.5).fill("#e5e7eb");
+  page.drawText("Total HT", { x: labelX, y: totalsY - 18, size: 10, font: fontRegular, color: gray });
+  page.drawText(fmt(data.amountHT), { x: valX, y: totalsY - 18, size: 10, font: fontRegular, color: gray });
 
-    doc.fillColor(dark).fontSize(14).font("Helvetica-Bold")
-      .text("Total TTC", labelX, totalsY + 58)
-      .text(fmt(data.amountTTC), valX, totalsY + 58);
+  page.drawText(`TVA ${Math.round(data.vatRate * 100)}%`, { x: labelX, y: totalsY - 36, size: 10, font: fontRegular, color: gray });
+  page.drawText(fmt(data.vatAmount), { x: valX, y: totalsY - 36, size: 10, font: fontRegular, color: gray });
 
-    // ── Footer ──────────────────────────────────────────────
-    const footerY = 700;
-    doc.rect(50, footerY, pageW, 0.5).fill("#e5e7eb");
-    doc.fillColor(gray).fontSize(8).font("Helvetica")
-      .text("Demenagement24 — Plateforme de mise en relation demenageurs", 50, footerY + 10)
-      .text("Paiement effectue par carte bancaire via Mollie.", 50, footerY + 22)
-      .text(`Facture generee automatiquement le ${data.date}`, 50, footerY + 34);
+  page.drawLine({ start: { x: labelX, y: totalsY - 48 }, end: { x: margin + pageW, y: totalsY - 48 }, thickness: 0.5, color: lineGray });
 
-    doc.end();
-  });
+  page.drawText("Total TTC", { x: labelX, y: totalsY - 66, size: 14, font: fontBold, color: dark });
+  page.drawText(fmt(data.amountTTC), { x: valX, y: totalsY - 66, size: 14, font: fontBold, color: dark });
+
+  // ── Footer ──
+  const footerY = 80;
+  page.drawLine({ start: { x: margin, y: footerY }, end: { x: margin + pageW, y: footerY }, thickness: 0.5, color: lineGray });
+  page.drawText("Demenagement24 — Plateforme de mise en relation demenageurs", { x: margin, y: footerY - 14, size: 8, font: fontRegular, color: gray });
+  page.drawText("Paiement effectue par carte bancaire via Mollie.", { x: margin, y: footerY - 26, size: 8, font: fontRegular, color: gray });
+  page.drawText(`Facture generee automatiquement le ${data.date}`, { x: margin, y: footerY - 38, size: 8, font: fontRegular, color: gray });
+
+  const pdfBytes = await doc.save();
+  return Buffer.from(pdfBytes);
 }
