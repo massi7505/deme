@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ interface DashboardData {
 }
 
 export default function ComptePage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -86,7 +88,7 @@ export default function ComptePage() {
                 <p className="text-sm font-medium">{profile.email as string}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5"><Pencil className="h-3.5 w-3.5" /> Modifier</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push("/compte/parametres")}><Pencil className="h-3.5 w-3.5" /> Modifier</Button>
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="flex items-center gap-3">
@@ -96,7 +98,7 @@ export default function ComptePage() {
                 <p className="text-sm font-medium tracking-widest">••••••••••</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5"><Pencil className="h-3.5 w-3.5" /> Modifier</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push("/compte/parametres")}><Pencil className="h-3.5 w-3.5" /> Modifier</Button>
           </div>
         </CardContent>
       </Card>
@@ -125,7 +127,7 @@ export default function ComptePage() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Building2 className="h-4 w-4 text-[var(--brand-green)]" /> Informations sur l&apos;entreprise
           </CardTitle>
-          <Button variant="outline" size="sm" className="gap-1.5"><Pencil className="h-3.5 w-3.5" /> Modifier</Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push("/profil-entreprise")}><Pencil className="h-3.5 w-3.5" /> Modifier</Button>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

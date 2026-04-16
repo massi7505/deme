@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Star, CheckCircle2, MapPin, Globe, Copy, ArrowRight, Building2,
+  Star, CheckCircle2, MapPin, Globe, Phone, Copy, ArrowRight, Building2,
   Users, ChevronRight, MessageSquare, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -288,6 +288,12 @@ export default function MoverProfilePage() {
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
                     {company.address ? `${company.address}, ` : ""}{company.city} {company.postal_code}
+                  </div>
+                )}
+                {company.phone && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="h-4 w-4 text-[var(--brand-green)]" />
+                    {company.phone}
                   </div>
                 )}
                 {company.website && (

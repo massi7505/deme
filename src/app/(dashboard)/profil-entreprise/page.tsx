@@ -16,6 +16,7 @@ import {
   Check,
   X,
   Plus,
+  Trash2,
   Image as ImageIcon,
   Copy,
   MapPin,
@@ -24,6 +25,9 @@ import {
   Info,
   ExternalLink,
   MessageSquare,
+  Phone,
+  Mail,
+  Globe,
   Loader2,
 } from "lucide-react";
 import { CoverageMap } from "@/components/dashboard/CoverageMap";
@@ -121,6 +125,38 @@ export default function ProfilEntreprisePage() {
         fetchProfile();
       } else {
         toast.error("Erreur lors de l'ajout");
+      }
+    } catch { toast.error("Erreur réseau"); }
+  }
+
+  async function handleDeleteQna(qnaId: string) {
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_qna", qnaId }),
+      });
+      if (res.ok) {
+        toast.success("Question supprimée");
+        fetchProfile();
+      } else {
+        toast.error("Erreur lors de la suppression");
+      }
+    } catch { toast.error("Erreur réseau"); }
+  }
+
+  async function handleDeletePhoto(photoId: string) {
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_photo", photoId }),
+      });
+      if (res.ok) {
+        setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+        toast.success("Photo supprimée");
+      } else {
+        toast.error("Erreur lors de la suppression");
       }
     } catch { toast.error("Erreur réseau"); }
   }
@@ -480,7 +516,7 @@ export default function ProfilEntreprisePage() {
                 ? photos.map((photo) => (
                     <div
                       key={photo.id}
-                      className="aspect-square overflow-hidden rounded-lg border"
+                      className="group relative aspect-square overflow-hidden rounded-lg border"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -488,6 +524,12 @@ export default function ProfilEntreprisePage() {
                         alt="Photo projet"
                         className="h-full w-full object-cover"
                       />
+                      <button
+                        onClick={() => handleDeletePhoto(photo.id)}
+                        className="absolute right-1 top-1 hidden rounded-full bg-black/60 p-1 text-white hover:bg-red-600 group-hover:flex"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   ))
                 : Array.from({ length: 4 }).map((_, i) => (
@@ -633,7 +675,15 @@ export default function ProfilEntreprisePage() {
             ) : (
               qna.map((item) => (
                 <div key={item.id} className="space-y-2 rounded-lg border p-4">
-                  <p className="text-sm font-semibold">{item.question}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold">{item.question}</p>
+                    <button
+                      onClick={() => handleDeleteQna(item.id)}
+                      className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-red-500"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   {editingQna === item.id ? (
                     <div className="space-y-2">
                       <Textarea
@@ -762,6 +812,51 @@ export default function ProfilEntreprisePage() {
                   else toast.error("Erreur");
                 }}
               />
+              <EditableTextField
+                label="Téléphone"
+                value={company.phone || ""}
+                icon={<Phone className="h-3.5 w-3.5 text-muted-foreground" />}
+                placeholder="+33 6 12 34 56 78"
+                onSave={async (val) => {
+                  const res = await fetch("/api/dashboard/profile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ phone: val }),
+                  });
+                  if (res.ok) { toast.success("Téléphone mis à jour"); fetchProfile(); }
+                  else toast.error("Erreur");
+                }}
+              />
+              <EditableTextField
+                label="Email de contact"
+                value={company.email_contact || ""}
+                icon={<Mail className="h-3.5 w-3.5 text-muted-foreground" />}
+                placeholder="contact@votreentreprise.fr"
+                onSave={async (val) => {
+                  const res = await fetch("/api/dashboard/profile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email_contact: val }),
+                  });
+                  if (res.ok) { toast.success("Email mis à jour"); fetchProfile(); }
+                  else toast.error("Erreur");
+                }}
+              />
+              <EditableTextField
+                label="Site web"
+                value={company.website || ""}
+                icon={<Globe className="h-3.5 w-3.5 text-muted-foreground" />}
+                placeholder="https://votreentreprise.fr"
+                onSave={async (val) => {
+                  const res = await fetch("/api/dashboard/profile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ website: val }),
+                  });
+                  if (res.ok) { toast.success("Site web mis à jour"); fetchProfile(); }
+                  else toast.error("Erreur");
+                }}
+              />
             </div>
           </CardContent>
         </Card>
@@ -817,6 +912,73 @@ export default function ProfilEntreprisePage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Editable text field (inline)
+// ---------------------------------------------------------------------------
+function EditableTextField({
+  label,
+  value,
+  icon,
+  placeholder,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+  placeholder?: string;
+  onSave: (value: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [current, setCurrent] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave(current);
+    setSaving(false);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <div className="mt-1 space-y-2">
+          <input
+            type="text"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            placeholder={placeholder}
+            className="w-full rounded-lg border px-3 py-1.5 text-sm outline-none focus:border-[var(--brand-green)]"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1 h-7 text-xs">
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              OK
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setCurrent(value); setEditing(false); }} className="h-7 text-xs">
+              Annuler
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="mt-1 flex items-center gap-1.5">
+        {icon}
+        <p className="text-sm font-medium">{value || <span className="text-muted-foreground/60">Non renseigné</span>}</p>
+        <button onClick={() => { setCurrent(value); setEditing(true); }} className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <Pencil className="h-3 w-3" />
+        </button>
+      </div>
     </div>
   );
 }

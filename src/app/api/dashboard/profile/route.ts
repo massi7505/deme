@@ -125,6 +125,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  // Delete photo
+  if (body.action === "delete_photo") {
+    const { error: photoError } = await admin
+      .from("company_photos")
+      .delete()
+      .eq("id", body.photoId)
+      .eq("company_id", company.id);
+
+    if (photoError) return NextResponse.json({ error: photoError.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   // Update company fields
   const allowedFields = [
     "description",
