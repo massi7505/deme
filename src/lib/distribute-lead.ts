@@ -147,7 +147,13 @@ export async function distributeLead(quoteId: string): Promise<DistributeResult>
     competitor_count: companies.length - 1,
   }));
 
-  await supabase.from("quote_distributions").insert(distributions);
+  const { error: insertError } = await supabase
+    .from("quote_distributions")
+    .insert(distributions);
+  if (insertError) {
+    console.error(`[distributeLead] quote_distributions insert failed for ${quote.id}:`, insertError.message);
+    return { alreadyDistributed: false, matchedMovers: 0 };
+  }
 
   for (const company of companies) {
     await notifyNewLead(company.id, {
@@ -175,13 +181,18 @@ export async function distributeLead(quoteId: string): Promise<DistributeResult>
       }).catch(() => {});
     }
 
-    await supabase.from("notifications").insert({
-      company_id: company.id,
-      type: "new_lead",
-      title: "Nouvelle demande de devis",
-      body: `${quote.from_city || "?"} → ${quote.to_city || "?"}`,
-      data: { quoteId: quote.id },
-    });
+    await supabase
+      .from("notifications")
+      .insert({
+        company_id: company.id,
+        type: "new_lead",
+        title: "Nouvelle demande de devis",
+        body: `${quote.from_city || "?"} → ${quote.to_city || "?"}`,
+        data: { quoteId: quote.id },
+      })
+      .then(({ error }) => {
+        if (error) console.error(`[distributeLead] notifications insert failed for ${company.id}:`, error.message);
+      });
   }
 
   if (quote.client_email) {
