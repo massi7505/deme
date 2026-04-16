@@ -1,0 +1,254 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AccountManagerCard } from "@/components/dashboard/AccountManagerCard";
+import { motion } from "framer-motion";
+import { formatPrice, formatDate, maskText } from "@/lib/utils";
+import {
+  FileText,
+  Unlock,
+  TrendingUp,
+  Euro,
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
+  ArrowRight,
+  Lock,
+} from "lucide-react";
+
+interface DashboardData {
+  company: Record<string, unknown>;
+  leads: Lead[];
+  stats: { totalLeads: number; unlockedLeads: number; conversionRate: number; revenue: number };
+  notifications: Record<string, unknown>[];
+}
+
+interface Lead {
+  distributionId: string;
+  quoteRequestId: string;
+  priceCents: number;
+  isTrial: boolean;
+  status: string;
+  competitorCount: number;
+  createdAt: string;
+  clientName: string | null;
+  fromCity: string | null;
+  toCity: string | null;
+  moveDate: string | null;
+  category: string;
+}
+
+export default function ApercuPage() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/overview")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setData(d))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-40" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-6 w-48" />
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-semibold">Impossible de charger le dashboard</p>
+          <p className="text-sm text-muted-foreground">Connectez-vous ou réessayez</p>
+          <Link href="/connexion" className="mt-4 inline-block rounded-lg bg-brand-gradient px-6 py-2 text-sm font-bold text-white">
+            Se connecter
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { company, leads, stats } = data;
+  const accountStatus = company.account_status as string;
+  const kycStatus = company.kyc_status as string;
+
+  const statCards = [
+    { label: "Demandes reçues", value: stats.totalLeads, icon: FileText, color: "bg-blue-50 text-blue-600" },
+    { label: "Débloquées", value: stats.unlockedLeads, icon: Unlock, color: "bg-green-50 text-green-600" },
+    { label: "Taux de conversion", value: `${stats.conversionRate}%`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
+    { label: "Revenus", value: formatPrice(stats.revenue), icon: Euro, color: "bg-amber-50 text-amber-600" },
+  ];
+
+  return (
+    <div className="space-y-8">
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+        <h2 className="text-2xl font-bold tracking-tight">Aperçu</h2>
+        <p className="text-sm text-muted-foreground">
+          Bienvenue, {company.name as string}
+        </p>
+      </motion.div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {statCards.map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+          >
+            <Card>
+              <CardContent className="p-5">
+                <div className={`mb-3 inline-flex rounded-lg p-2 ${s.color}`}>
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <div className="text-2xl font-bold">{s.value}</div>
+                <div className="text-sm text-muted-foreground">{s.label}</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Leads */}
+        <div className="space-y-4 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Dernières demandes</h3>
+            <Link href="/demandes-de-devis" className="text-sm font-medium text-[var(--brand-green)] hover:underline">
+              Voir tout →
+            </Link>
+          </div>
+
+          {leads.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-12 text-center">
+                <FileText className="mb-3 h-10 w-10 text-muted-foreground/30" />
+                <p className="font-medium">Aucune demande pour le moment</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Les demandes de devis correspondant à votre zone apparaîtront ici.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {leads.slice(0, 5).map((lead) => (
+                <Link key={lead.distributionId} href={`/demandes-de-devis/${lead.distributionId}`}>
+                  <Card className="transition-shadow hover:shadow-md cursor-pointer">
+                    <CardContent className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${lead.status === "unlocked" ? "bg-green-50" : "bg-gray-100"}`}>
+                          {lead.status === "unlocked" ? (
+                            <Unlock className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <Lock className="h-5 w-5 text-gray-400" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {lead.clientName || maskText("Client", 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {lead.fromCity} → {lead.toCity}
+                            {lead.moveDate && ` · ${formatDate(lead.moveDate)}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold">{formatPrice(lead.priceCents)}</span>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-4">
+          {/* Account status */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="h-4 w-4 text-[var(--brand-green)]" />
+                Statut du compte
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {accountStatus === "active" ? (
+                <Badge variant="success" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Compte actif
+                </Badge>
+              ) : accountStatus === "trial" ? (
+                <Badge variant="default" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  Essai gratuit (3 jours)
+                </Badge>
+              ) : (
+                <Badge variant="warning" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  En attente de vérification
+                </Badge>
+              )}
+
+              {accountStatus === "trial" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Vous êtes en période d&apos;essai de 3 jours. Vous pouvez consulter les leads mais pour les acheter vous devez :
+                  </p>
+                  <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
+                    <li className={kycStatus === "approved" ? "text-green-600 line-through" : "font-medium text-foreground"}>
+                      Vérifier votre pièce d&apos;identité
+                    </li>
+                    <li className="text-muted-foreground">Acheter votre premier lead → compte actif</li>
+                  </ol>
+                  {kycStatus !== "approved" && (
+                    <a href="/verification-identite" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand-gradient px-4 py-2 text-xs font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Vérifier mon identité
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {accountStatus === "active" && (
+                <p className="text-xs text-muted-foreground">
+                  Votre compte est vérifié et actif. Vous pouvez acheter des leads sans restriction.
+                </p>
+              )}
+
+              {accountStatus === "pending" && (
+                <p className="text-xs text-muted-foreground">
+                  Vérifiez votre identité pour activer votre compte.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <AccountManagerCard />
+        </div>
+      </div>
+    </div>
+  );
+}
