@@ -154,6 +154,26 @@ export default function VerifierDemandePage() {
     );
   }
 
+  // Legacy / already-distributed quotes: if the lead was distributed before
+  // verification (e.g. backfilled legacy rows, or feature-off path), don't
+  // reveal masked contact info or allow resends — the lead is already out.
+  if (status.distributed && !status.emailVerified && !status.phoneVerified) {
+    return (
+      <div className="container flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+        <h1 className="text-2xl font-bold">Demande déjà transmise</h1>
+        <p className="text-muted-foreground">
+          Votre demande a déjà été envoyée aux déménageurs. Ils vous contacteront sous 48 h.
+        </p>
+        <Link
+          href="/devis"
+          className="rounded-lg bg-[var(--brand-green)] px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        >
+          Nouvelle demande
+        </Link>
+      </div>
+    );
+  }
+
   const anyVerified = status.emailVerified || status.phoneVerified;
 
   return (
