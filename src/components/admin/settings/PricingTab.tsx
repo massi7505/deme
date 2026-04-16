@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Tag, MapPin, Package, Sun, TrendingDown, Ticket, Plus, Trash2, X } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Tag, MapPin, Package, Sun, TrendingDown, Ticket, Plus, Trash2, X, Calculator } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   Accordion,
@@ -58,8 +58,76 @@ const DEPARTMENTS = [
 export default function PricingTab({ settings, onUpdate }: Props) {
   const [promoDialogOpen, setPromoDialogOpen] = useState(false);
   const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null);
+  const [simCategory, setSimCategory] = useState("national");
+  const [simDept, setSimDept] = useState("");
+  const [simVolume, setSimVolume] = useState("");
+  const [simPromo, setSimPromo] = useState("");
 
   const isSmartMode = settings.pricingMode === "smart";
+
+  /* Live price simulator */
+  const simulatedPrice = useMemo(() => {
+    const basePrices: Record<string, string> = {
+      national: settings.priceNational || "12.00",
+      entreprise: settings.priceEntreprise || "18.00",
+      international: settings.priceInternational || "25.00",
+    };
+    let price = parseFloat(basePrices[simCategory] || basePrices.national);
+    const steps: Array<{ label: string; value: string; delta: string }> = [
+      { label: "Prix de base", value: `${price.toFixed(2)} €`, delta: "" },
+    ];
+
+    if (isSmartMode) {
+      // Department
+      if (simDept) {
+        const deptRule = settings.smartPricingDepartments.find((r) => r.code === simDept);
+        if (deptRule && deptRule.percent !== 0) {
+          const before = price;
+          price *= 1 + deptRule.percent / 100;
+          steps.push({ label: `Département ${deptRule.code} (${deptRule.percent > 0 ? "+" : ""}${deptRule.percent}%)`, value: `${price.toFixed(2)} €`, delta: `${(price - before) > 0 ? "+" : ""}${(price - before).toFixed(2)} €` });
+        }
+      }
+
+      // Volume
+      const vol = parseFloat(simVolume);
+      if (vol > 0) {
+        const volRule = settings.smartPricingVolume.find((r) => vol >= r.minM3 && vol <= r.maxM3);
+        if (volRule && volRule.percent !== 0) {
+          const before = price;
+          price *= 1 + volRule.percent / 100;
+          steps.push({ label: `Volume ${vol} m³ (${volRule.percent > 0 ? "+" : ""}${volRule.percent}%)`, value: `${price.toFixed(2)} €`, delta: `${(price - before) > 0 ? "+" : ""}${(price - before).toFixed(2)} €` });
+        }
+      }
+
+      // Season
+      const today = new Date().toISOString().slice(0, 10);
+      const seasonRule = settings.smartPricingSeasons.find((r) => r.startDate && r.endDate && today >= r.startDate && today <= r.endDate);
+      if (seasonRule && seasonRule.percent !== 0) {
+        const before = price;
+        price *= 1 + seasonRule.percent / 100;
+        steps.push({ label: `Saison active (${seasonRule.percent > 0 ? "+" : ""}${seasonRule.percent}%)`, value: `${price.toFixed(2)} €`, delta: `${(price - before) > 0 ? "+" : ""}${(price - before).toFixed(2)} €` });
+      }
+
+      // Discount tiers (based on a hypothetical monthly count — skip for now, just show if configured)
+    }
+
+    // Promo code
+    if (simPromo) {
+      const promo = settings.promoCodes.find((p) => p.code === simPromo.toUpperCase() && p.active);
+      if (promo) {
+        const before = price;
+        if (promo.type === "percent") {
+          price *= 1 - promo.value / 100;
+          steps.push({ label: `Code promo ${promo.code} (-${promo.value}%)`, value: `${price.toFixed(2)} €`, delta: `${(price - before).toFixed(2)} €` });
+        } else {
+          price -= promo.value;
+          steps.push({ label: `Code promo ${promo.code} (-${promo.value.toFixed(2)} €)`, value: `${price.toFixed(2)} €`, delta: `${(price - before).toFixed(2)} €` });
+        }
+      }
+    }
+
+    return { finalPrice: Math.max(0, price), steps };
+  }, [simCategory, simDept, simVolume, simPromo, settings, isSmartMode]);
 
   /* ---------------------------------------------------------------- */
   /* Department rules                                                  */
@@ -352,6 +420,75 @@ export default function PricingTab({ settings, onUpdate }: Props) {
                 onChange={(e) => onUpdate("trialDays", e.target.value)}
                 className={inputCls}
               />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Price simulator */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50/30 shadow-sm">
+        <div className="border-b border-blue-200 px-5 py-4">
+          <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+            <Calculator className="h-4 w-4 text-blue-500" /> Simulateur de prix en temps réel
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Testez le prix calculé selon vos règles actuelles. Le prix s&apos;applique aux <strong>nouveaux leads</strong>.
+          </p>
+        </div>
+        <div className="p-5">
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium">Catégorie</label>
+              <select value={simCategory} onChange={(e) => setSimCategory(e.target.value)} className={inputCls}>
+                <option value="national">National</option>
+                <option value="entreprise">Entreprise</option>
+                <option value="international">International</option>
+              </select>
+            </div>
+            {isSmartMode && (
+              <>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium">Département</label>
+                  <select value={simDept} onChange={(e) => setSimDept(e.target.value)} className={inputCls}>
+                    <option value="">Aucun</option>
+                    {DEPARTMENTS.map((d) => {
+                      const code = d.split(" - ")[0];
+                      return <option key={code} value={code}>{d}</option>;
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium">Volume (m³)</label>
+                  <input type="number" value={simVolume} onChange={(e) => setSimVolume(e.target.value)} placeholder="30" className={inputCls} />
+                </div>
+              </>
+            )}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium">Code promo</label>
+              <input value={simPromo} onChange={(e) => setSimPromo(e.target.value)} placeholder="BIENVENUE20" className={inputCls} />
+            </div>
+          </div>
+
+          {/* Price breakdown */}
+          <div className="mt-4 rounded-lg border bg-white p-4">
+            <div className="space-y-2">
+              {simulatedPrice.steps.map((step, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className={i === 0 ? "font-medium" : "text-muted-foreground"}>{step.label}</span>
+                  <div className="flex items-center gap-3">
+                    {step.delta && (
+                      <span className={`text-xs font-medium ${step.delta.startsWith("+") ? "text-red-500" : "text-green-600"}`}>
+                        {step.delta}
+                      </span>
+                    )}
+                    <span className="font-mono text-sm">{step.value}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 border-t pt-3 flex items-center justify-between">
+              <span className="text-base font-bold">Prix final du lead</span>
+              <span className="text-2xl font-bold text-[var(--brand-green)]">{simulatedPrice.finalPrice.toFixed(2)} €</span>
             </div>
           </div>
         </div>
