@@ -1,11 +1,28 @@
 import Link from "next/link";
 import { Truck } from "lucide-react";
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
-export default function AuthLayout({
+async function getSiteName(): Promise<string> {
+  try {
+    const supabase = createUntypedAdminClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("data")
+      .eq("id", 1)
+      .single();
+    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+  } catch {
+    return "Demenagement24";
+  }
+}
+
+export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const siteName = await getSiteName();
+
   return (
     <div className="flex min-h-screen">
       {/* Left panel — branding */}
@@ -17,7 +34,7 @@ export default function AuthLayout({
               <Truck className="h-6 w-6 text-white" strokeWidth={2.5} />
             </div>
             <span className="font-display text-2xl font-extrabold text-white">
-              Demenagement24
+              {siteName}
             </span>
           </Link>
 
@@ -50,7 +67,7 @@ export default function AuthLayout({
           </div>
 
           <p className="text-xs text-white/50">
-            &copy; {new Date().getFullYear()} Demenagement24
+            &copy; {new Date().getFullYear()} {siteName}
           </p>
         </div>
 

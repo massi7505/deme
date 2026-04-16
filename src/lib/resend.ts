@@ -6,9 +6,20 @@ export function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? "re_placeholder");
 }
 
-const FROM = process.env.EMAIL_FROM ?? "Demenagement24 <noreply@demenagement24.com>";
+const FROM = process.env.EMAIL_FROM ?? "noreply@demenagement24.fr";
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "contact@demenagement24.fr";
+
+/** Read site name from DB settings */
+async function getSiteName(): Promise<string> {
+  try {
+    const supabase = createUntypedAdminClient();
+    const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
+    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+  } catch {
+    return "Demenagement24";
+  }
+}
 
 /** Publicly reachable URL for links in emails */
 function emailBaseUrl(): string {
@@ -46,9 +57,10 @@ async function sendTemplated(
   to: string,
   vars: Record<string, string>
 ) {
-  const tpl = await getTemplate(key);
-  const subject = replaceVars(tpl.subject, vars);
-  const body = replaceVars(tpl.body, { ...vars, baseUrl: emailBaseUrl() });
+  const [tpl, siteName] = await Promise.all([getTemplate(key), getSiteName()]);
+  const allVars = { ...vars, baseUrl: emailBaseUrl(), siteName };
+  const subject = replaceVars(tpl.subject, allVars);
+  const body = replaceVars(tpl.body, allVars);
   return getResend().emails.send({ from: FROM, to, subject, html: body });
 }
 

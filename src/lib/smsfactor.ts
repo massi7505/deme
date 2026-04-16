@@ -1,4 +1,16 @@
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
+
 const SMSFACTOR_API_URL = "https://api.smsfactor.com";
+
+async function getSiteName(): Promise<string> {
+  try {
+    const supabase = createUntypedAdminClient();
+    const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
+    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+  } catch {
+    return "Demenagement24";
+  }
+}
 
 async function smsfactorFetch(path: string, body: Record<string, unknown>) {
   const response = await fetch(`${SMSFACTOR_API_URL}${path}`, {
@@ -36,10 +48,11 @@ export async function sendLeadSMS(
 }
 
 export async function sendOtpSMS(phone: string, code: string) {
+  const siteName = await getSiteName();
   return smsfactorFetch("/send", {
     to: normalizePhone(phone),
     sender: "Demenag24",
-    text: `Votre code de verification Demenagement24 : ${code}. Valable 10 minutes.`,
+    text: `Votre code de verification ${siteName} : ${code}. Valable 10 minutes.`,
   });
 }
 

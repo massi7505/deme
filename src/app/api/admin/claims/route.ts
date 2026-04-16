@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { sendClaimResolvedEmail } from "@/lib/resend";
 
+async function getSiteName(supabase: ReturnType<typeof createUntypedAdminClient>): Promise<string> {
+  try {
+    const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
+    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+  } catch {
+    return "Demenagement24";
+  }
+}
+
 export async function GET() {
   const supabase = createUntypedAdminClient();
 
@@ -196,14 +205,15 @@ export async function POST(request: NextRequest) {
       try {
         const { getResend } = await import("@/lib/resend");
         const resend = getResend();
+        const emailSiteName = await getSiteName(supabase);
         await resend.emails.send({
-          from: process.env.EMAIL_FROM ?? "Demenagement24 <noreply@demenagement24.com>",
+          from: process.env.EMAIL_FROM ?? `${emailSiteName} <noreply@demenagement24.com>`,
           to: body.companyEmail,
           subject: `Réponse à votre réclamation — ${body.reason || "Réclamation"}`,
           html: `
             <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 24px; border-radius: 12px 12px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 20px;">Demenagement24</h1>
+                <h1 style="color: white; margin: 0; font-size: 20px;">${emailSiteName}</h1>
               </div>
               <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
                 <h2 style="margin-top: 0; font-size: 18px;">Réponse à votre réclamation</h2>

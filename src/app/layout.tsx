@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "@/components/providers";
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import "./globals.css";
 
 const body = DM_Sans({
@@ -17,26 +18,44 @@ const display = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Demenagement24 — Trouvez votre déménageur en France",
-    template: "%s | Demenagement24",
-  },
-  description:
-    "Comparez les devis de déménageurs professionnels près de chez vous. Gratuit, rapide et sans engagement. Plus de 200 entreprises vérifiées en France.",
-  keywords: [
-    "déménagement",
-    "devis déménagement",
-    "déménageur",
-    "déménagement France",
-    "comparateur déménageur",
-  ],
-  openGraph: {
-    type: "website",
-    locale: "fr_FR",
-    siteName: "Demenagement24",
-  },
-};
+async function getSiteName(): Promise<string> {
+  try {
+    const supabase = createUntypedAdminClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("data")
+      .eq("id", 1)
+      .single();
+    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+  } catch {
+    return "Demenagement24";
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const siteName = await getSiteName();
+
+  return {
+    title: {
+      default: `${siteName} — Trouvez votre déménageur en France`,
+      template: `%s | ${siteName}`,
+    },
+    description:
+      "Comparez les devis de déménageurs professionnels près de chez vous. Gratuit, rapide et sans engagement. Plus de 200 entreprises vérifiées en France.",
+    keywords: [
+      "déménagement",
+      "devis déménagement",
+      "déménageur",
+      "déménagement France",
+      "comparateur déménageur",
+    ],
+    openGraph: {
+      type: "website",
+      locale: "fr_FR",
+      siteName,
+    },
+  };
+}
 
 export default function RootLayout({
   children,
