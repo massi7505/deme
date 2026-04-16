@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, FileText, ShieldCheck, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,7 @@ export interface QuoteFormData {
 // ---------------------------------------------------------------------------
 
 export default function DevisPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -130,13 +132,20 @@ export default function DevisPage() {
           }),
         });
 
-        const result = await res.json();
-
         if (!res.ok) {
+          toast.error("Erreur lors de l'envoi");
+          return;
+        }
+        const result = await res.json().catch(() => ({}));
+        if (!result.success) {
           toast.error(result.error || "Erreur lors de l'envoi");
           return;
         }
-
+        if (result.verificationRequired) {
+          router.push(`/verifier-demande/${result.quoteId}`);
+          return;
+        }
+        // Fallback (feature flag off): keep inline success flow
         setProspectId(result.prospectId);
         setQuoteId(result.quoteId || null);
         setSmsSent(result.smsSent || false);
