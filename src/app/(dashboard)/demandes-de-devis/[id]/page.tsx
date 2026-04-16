@@ -200,7 +200,7 @@ export default function LeadDetailPage() {
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">
-            Demande de devis {isUnlocked ? `de ${lead.clientName}` : ""}
+            Demande de devis {isUnlocked && lead.clientFirstName ? `de ${lead.clientLastName?.[0] || ""}. ${lead.clientFirstName}` : ""}
           </h2>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="font-mono text-xs">{lead.prospectId}</Badge>
@@ -269,7 +269,7 @@ export default function LeadDetailPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <MapPin className="h-4 w-4 text-red-500" /> Déménagement de
+                <MapPin className="h-4 w-4 text-red-500" /> Déménagement de {lead.fromPostalCode && <span className="font-normal text-muted-foreground">{lead.fromPostalCode} {lead.fromCity}</span>}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
@@ -298,7 +298,7 @@ export default function LeadDetailPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <MapPin className="h-4 w-4 text-green-500" /> Emménagement à
+                <MapPin className="h-4 w-4 text-green-500" /> Emménagement à {lead.toPostalCode && <span className="font-normal text-muted-foreground">{lead.toPostalCode} {lead.toCity}</span>}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
@@ -331,7 +331,7 @@ export default function LeadDetailPage() {
             <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
               <div>
                 <span className="text-muted-foreground">Nom</span>
-                <p className="font-medium">{isUnlocked ? lead.clientName || "—" : "••••••••"}</p>
+                <p className="font-medium">{isUnlocked ? (lead.clientFirstName ? `${lead.clientLastName?.[0] || ""}. ${lead.clientFirstName}` : lead.clientName || "—") : "••••••••"}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Téléphone</span>

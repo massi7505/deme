@@ -99,13 +99,13 @@ export async function GET() {
       clientSalutation: d.status === "unlocked" ? quote.client_salutation : null,
       clientFirstName: d.status === "unlocked" ? quote.client_first_name : null,
       clientLastName: d.status === "unlocked" ? quote.client_last_name : null,
-      // Adresses - complètes si déverrouillé, ville seulement sinon
+      // Adresses - complètes si déverrouillé, code postal + ville toujours visibles
       fromAddress: d.status === "unlocked" ? quote.from_address : null,
       fromCity: quote.from_city,
-      fromPostalCode: d.status === "unlocked" ? quote.from_postal_code : null,
+      fromPostalCode: quote.from_postal_code,
       toAddress: d.status === "unlocked" ? quote.to_address : null,
       toCity: quote.to_city,
-      toPostalCode: d.status === "unlocked" ? quote.to_postal_code : null,
+      toPostalCode: quote.to_postal_code,
       moveDate: quote.move_date,
       category: quote.category,
       volumeM3: quote.volume_m3,
