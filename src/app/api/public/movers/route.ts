@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { REGIONS, REGION_SLUGS } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   const supabase = createUntypedAdminClient();
   const { searchParams } = request.nextUrl;
 
-  const region = searchParams.get("region");
+  const regionSlug = searchParams.get("region");
+  const department = searchParams.get("department");
   const search = searchParams.get("search");
   const sort = searchParams.get("sort") || "rating";
   const limit = parseInt(searchParams.get("limit") || "20");
@@ -40,12 +42,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Filter by region if specified
+  // Filter by region slug or specific department
   let filtered = data || [];
-  if (region) {
+
+  // Resolve region slug → department codes
+  const regionName = regionSlug ? REGION_SLUGS[regionSlug] : null;
+  const regionDepts = regionName ? REGIONS[regionName] : null;
+
+  if (regionDepts) {
+    const deptFilter = department || null;
     filtered = filtered.filter((c: Record<string, unknown>) => {
-      const regions = c.company_regions as Array<{ department_code: string }>;
-      return regions?.some((r) => r.department_code === region);
+      const companyRegions = c.company_regions as Array<{ department_code: string }>;
+      if (!companyRegions?.length) return false;
+      if (deptFilter) {
+        return companyRegions.some((r) => r.department_code === deptFilter);
+      }
+      return companyRegions.some((r) => regionDepts.includes(r.department_code));
+    });
+  } else if (department) {
+    filtered = filtered.filter((c: Record<string, unknown>) => {
+      const companyRegions = c.company_regions as Array<{ department_code: string }>;
+      return companyRegions?.some((r) => r.department_code === department);
     });
   }
 

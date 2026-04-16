@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, REGION_SLUGS } from "@/lib/utils";
+import RegionPage from "@/components/public/RegionPage";
 
 interface Company {
   id: string; name: string; slug: string; city: string | null; postal_code: string | null;
@@ -33,16 +34,27 @@ function getInitials(name: string) { return name.split(" ").map(w => w[0]).join(
 
 export default function MoverProfilePage() {
   const params = useParams();
+  const slug = params.slug as string;
+
+  // If slug matches a region, render the region page
+  if (REGION_SLUGS[slug]) {
+    return <RegionPage regionSlug={slug} regionName={REGION_SLUGS[slug]} />;
+  }
+
+  return <CompanyProfilePage slug={slug} />;
+}
+
+function CompanyProfilePage({ slug }: { slug: string }) {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/public/movers/${params.slug}`)
+    fetch(`/api/public/movers/${slug}`)
       .then((r) => r.ok ? r.json() : null)
       .then(setCompany)
       .finally(() => setLoading(false));
-  }, [params.slug]);
+  }, [slug]);
 
   if (loading) {
     return (

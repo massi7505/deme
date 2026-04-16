@@ -8,11 +8,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 // Select components available if needed for future enhancements
-import { DEPARTMENTS } from "@/lib/utils";
+import { DEPARTMENTS, REGIONS } from "@/lib/utils";
 import { CoverageMap } from "@/components/dashboard/CoverageMap";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import toast from "react-hot-toast";
-import { Trash2, Loader2, Info, MapPin } from "lucide-react";
+import { Trash2, Loader2, Info, MapPin, ChevronLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Region {
@@ -86,6 +86,7 @@ export function RegionEditModal({ open, onClose, onSaved, regions, radiusRules }
   const [selectedDepts, setSelectedDepts] = useState<Record<string, string[]>>({});
   const [excludedCities, setExcludedCities] = useState<Record<string, string[]>>({});
   const [expandedDept, setExpandedDept] = useState<string | null>(null);
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
 
   // Init selected departments from existing regions
   useEffect(() => {
@@ -295,141 +296,149 @@ export function RegionEditModal({ open, onClose, onSaved, regions, radiusRules }
           <TabsContent value="region" className="flex-1 overflow-hidden flex flex-col mt-4">
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 flex items-start gap-2 mb-4">
               <Info className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>Lors de votre essai gratuit, vous pouvez sélectionner au max. 2 régions. Après, vous pouvez sélectionner autant de régions que vous le souhaitez.</p>
+              <p>Sélectionnez une région, puis cochez les départements où vous intervenez.</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto border rounded-lg">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-gray-50 z-10">
-                  <tr className="border-b">
-                    <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-8"></th>
-                    <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Région</th>
-                    <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Catégorie</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(DEPARTMENTS).map(([code, name]) => {
-                    const isSelected = !!selectedDepts[code];
-                    const cats = selectedDepts[code] || [];
-                    const cities = DEPT_CITIES[code];
-                    const isExpanded = expandedDept === code;
-                    const excluded = excludedCities[code] || [];
-
+            {!activeRegion ? (
+              /* ── STEP 1: Region grid ── */
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {Object.entries(REGIONS).map(([regionName, deptCodes]) => {
+                    const selectedCount = deptCodes.filter((c) => !!selectedDepts[c]).length;
                     return (
-                      <tr key={code} className={cn("border-b transition-colors", isSelected && "bg-green-50/30")}>
-                        <td className="px-4 py-2.5 align-top">
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => toggleDept(code)}
-                          />
-                        </td>
-                        <td className="px-4 py-2.5 align-top">
-                          <div>
-                            <button
-                              className="flex items-center gap-1 text-left"
-                              onClick={() => isSelected && cities ? setExpandedDept(isExpanded ? null : code) : toggleDept(code)}
-                            >
-                              <span className="font-medium">{name}</span>
-                              <span className="text-xs text-muted-foreground">({code})</span>
-                              {isSelected && cities && (
-                                <span className="ml-1 text-xs text-muted-foreground">
-                                  {isExpanded ? "▲" : "▼"} {cities.length} villes
-                                  {excluded.length > 0 && <span className="ml-1 text-red-500">({excluded.length} exclue{excluded.length > 1 ? "s" : ""})</span>}
-                                </span>
-                              )}
-                            </button>
-
-                            {/* Villes du département */}
-                            {isSelected && isExpanded && cities && (
-                              <div className="mt-2 ml-1 space-y-1 rounded-lg border bg-white p-2">
-                                <p className="text-xs font-medium text-muted-foreground mb-1.5">Villes / Codes postaux — décochez pour exclure :</p>
-                                <div className="grid gap-1 sm:grid-cols-2">
-                                  {cities.map((city) => {
-                                    const isExcluded = excluded.includes(city.cp);
-                                    return (
-                                      <label
-                                        key={city.cp}
-                                        className={cn(
-                                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
-                                          isExcluded ? "bg-red-50 line-through text-red-400" : "hover:bg-gray-50"
-                                        )}
-                                      >
-                                        <Checkbox
-                                          checked={!isExcluded}
-                                          onCheckedChange={(checked) => {
-                                            setExcludedCities((prev) => {
-                                              const current = prev[code] || [];
-                                              if (checked) {
-                                                return { ...prev, [code]: current.filter((c) => c !== city.cp) };
-                                              } else {
-                                                return { ...prev, [code]: [...current, city.cp] };
-                                              }
-                                            });
-                                          }}
-                                        />
-                                        <span className="font-medium">{city.name}</span>
-                                        <span className="text-muted-foreground">{city.cp}</span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 align-top">
-                          {isSelected ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {CATEGORY_OPTIONS.map((cat) => (
-                                <button
-                                  key={cat.value}
-                                  onClick={() => toggleDeptCategory(code, cat.value)}
-                                  className={cn(
-                                    "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all",
-                                    cats.includes(cat.value)
-                                      ? cat.color
-                                      : "bg-gray-50 text-gray-400 border-gray-200"
-                                  )}
-                                >
-                                  {cat.label}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Type de déménagement de devis</span>
-                          )}
-                        </td>
-                      </tr>
+                      <button
+                        key={regionName}
+                        onClick={() => { setActiveRegion(regionName); setExpandedDept(null); }}
+                        className={cn(
+                          "relative rounded-xl border p-4 text-left transition-all hover:shadow-md",
+                          selectedCount > 0
+                            ? "border-green-300 bg-green-50/50 ring-1 ring-green-200"
+                            : "hover:border-gray-300"
+                        )}
+                      >
+                        <p className="text-sm font-semibold">{regionName}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{deptCodes.length} départements</p>
+                        {selectedCount > 0 && (
+                          <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                            <Check className="h-3 w-3" /> {selectedCount}/{deptCodes.length}
+                          </span>
+                        )}
+                      </button>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+            ) : (
+              /* ── STEP 2: Departments of selected region ── */
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <button
+                  onClick={() => setActiveRegion(null)}
+                  className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Retour aux régions
+                </button>
+                <h3 className="text-base font-semibold mb-3">{activeRegion}</h3>
+
+                <div className="flex-1 overflow-y-auto border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50 z-10">
+                      <tr className="border-b">
+                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground w-8"></th>
+                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Département</th>
+                        <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Catégorie</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(REGIONS[activeRegion] || []).map((code) => {
+                        const name = DEPARTMENTS[code] || code;
+                        const isSelected = !!selectedDepts[code];
+                        const cats = selectedDepts[code] || [];
+                        const cities = DEPT_CITIES[code];
+                        const isExpanded = expandedDept === code;
+                        const excluded = excludedCities[code] || [];
+
+                        return (
+                          <tr key={code} className={cn("border-b transition-colors", isSelected && "bg-green-50/30")}>
+                            <td className="px-4 py-2.5 align-top">
+                              <Checkbox checked={isSelected} onCheckedChange={() => toggleDept(code)} />
+                            </td>
+                            <td className="px-4 py-2.5 align-top">
+                              <div>
+                                <button
+                                  className="flex items-center gap-1 text-left"
+                                  onClick={() => isSelected && cities ? setExpandedDept(isExpanded ? null : code) : toggleDept(code)}
+                                >
+                                  <span className="font-medium">{name}</span>
+                                  <span className="text-xs text-muted-foreground">({code})</span>
+                                  {isSelected && cities && (
+                                    <span className="ml-1 text-xs text-muted-foreground">
+                                      {isExpanded ? "▲" : "▼"} {cities.length} villes
+                                      {excluded.length > 0 && <span className="ml-1 text-red-500">({excluded.length} exclue{excluded.length > 1 ? "s" : ""})</span>}
+                                    </span>
+                                  )}
+                                </button>
+                                {isSelected && isExpanded && cities && (
+                                  <div className="mt-2 ml-1 space-y-1 rounded-lg border bg-white p-2">
+                                    <p className="text-xs font-medium text-muted-foreground mb-1.5">Villes / Codes postaux — décochez pour exclure :</p>
+                                    <div className="grid gap-1 sm:grid-cols-2">
+                                      {cities.map((city) => {
+                                        const isExcluded = excluded.includes(city.cp);
+                                        return (
+                                          <label key={city.cp} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors", isExcluded ? "bg-red-50 line-through text-red-400" : "hover:bg-gray-50")}>
+                                            <Checkbox
+                                              checked={!isExcluded}
+                                              onCheckedChange={(checked) => {
+                                                setExcludedCities((prev) => {
+                                                  const current = prev[code] || [];
+                                                  return checked
+                                                    ? { ...prev, [code]: current.filter((c) => c !== city.cp) }
+                                                    : { ...prev, [code]: [...current, city.cp] };
+                                                });
+                                              }}
+                                            />
+                                            <span className="font-medium">{city.name}</span>
+                                            <span className="text-muted-foreground">{city.cp}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 align-top">
+                              {isSelected ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {CATEGORY_OPTIONS.map((cat) => (
+                                    <button
+                                      key={cat.value}
+                                      onClick={() => toggleDeptCategory(code, cat.value)}
+                                      className={cn("rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all", cats.includes(cat.value) ? cat.color : "bg-gray-50 text-gray-400 border-gray-200")}
+                                    >
+                                      {cat.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Type de déménagement</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Selected summary */}
             {Object.keys(selectedDepts).length > 0 && (
-              <div className="mt-3 rounded-lg border bg-green-50/50 p-3 text-sm space-y-1">
-                <div>
-                  <span className="font-medium">{Object.keys(selectedDepts).length} département{Object.keys(selectedDepts).length > 1 ? "s" : ""} sélectionné{Object.keys(selectedDepts).length > 1 ? "s" : ""} : </span>
-                  <span className="text-muted-foreground">
-                    {Object.entries(selectedDepts).map(([code, cats]) => (
-                      `${DEPARTMENTS[code]} (${cats.join(", ")})`
-                    )).join(" · ")}
-                  </span>
-                </div>
-                {Object.entries(excludedCities).some(([, cities]) => cities.length > 0) && (
-                  <div className="text-xs text-red-600">
-                    <span className="font-medium">Villes exclues : </span>
-                    {Object.entries(excludedCities)
-                      .filter(([, cities]) => cities.length > 0)
-                      .map(([code, cities]) => {
-                        const deptCities = DEPT_CITIES[code] || [];
-                        const names = cities.map(cp => deptCities.find(c => c.cp === cp)?.name || cp);
-                        return `${DEPARTMENTS[code]}: ${names.join(", ")}`;
-                      })
-                      .join(" · ")}
-                  </div>
-                )}
+              <div className="mt-3 rounded-lg border bg-green-50/50 p-3 text-sm">
+                <span className="font-medium">{Object.keys(selectedDepts).length} département{Object.keys(selectedDepts).length > 1 ? "s" : ""} sélectionné{Object.keys(selectedDepts).length > 1 ? "s" : ""}</span>
+                <span className="text-muted-foreground">
+                  {" : "}{Object.entries(selectedDepts).map(([code, cats]) => `${DEPARTMENTS[code]} (${cats.join(", ")})`).join(" · ")}
+                </span>
               </div>
             )}
           </TabsContent>
