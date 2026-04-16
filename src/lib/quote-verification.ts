@@ -92,15 +92,37 @@ export function maskPhoneForDisplay(phone: string): string {
   return `${digits.slice(0, 2)} ** ** ** ${digits.slice(-2)}`;
 }
 
+export interface QuoteVerificationRow {
+  id: string;
+  created_at: string;
+  distributed_at: string | null;
+  client_name: string | null;
+  client_first_name: string | null;
+  client_last_name: string | null;
+  client_email: string | null;
+  client_phone: string | null;
+  email_verified: boolean | null;
+  email_verification_code: string | null;
+  email_verification_expires: string | null;
+  email_verification_attempts: number | null;
+  email_verification_last_sent_at: string | null;
+  phone_verified: boolean | null;
+  phone_verification_code: string | null;
+  phone_verification_expires: string | null;
+  phone_verification_attempts: number | null;
+  phone_verification_last_sent_at: string | null;
+}
+
 /** Type-safe shortcut for grabbing quote_requests row fields needed everywhere. */
-export async function loadQuoteForVerification(quoteId: string) {
+export async function loadQuoteForVerification(quoteId: string): Promise<QuoteVerificationRow | null> {
   const supabase = createUntypedAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("quote_requests")
     .select(
       "id, created_at, distributed_at, client_name, client_first_name, client_last_name, client_email, client_phone, email_verified, email_verification_code, email_verification_expires, email_verification_attempts, email_verification_last_sent_at, phone_verified, phone_verification_code, phone_verification_expires, phone_verification_attempts, phone_verification_last_sent_at"
     )
     .eq("id", quoteId)
     .single();
-  return data;
+  if (error) console.error("[loadQuoteForVerification]", error.message);
+  return (data as QuoteVerificationRow | null) ?? null;
 }
