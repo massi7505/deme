@@ -87,9 +87,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Erreur lors de la création de la demande" }, { status: 500 });
     }
 
-    // Send verification email
+    // Verification email only goes out when the feature is enabled;
+    // a rollback via LEAD_VERIFICATION_ENABLED=false should not spam
+    // the client with a verification email for an already-distributed lead.
     let emailSent = false;
-    if (body.email) {
+    if (FEATURE_ENABLED && body.email) {
       const verifyUrl = `${baseUrl()}/verifier-demande/${quote.id}`;
       try {
         await sendQuoteVerificationEmail(
@@ -105,7 +107,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send verification SMS
+    // Phone OTP mirrors the pre-feature behavior: always sent (legacy
+    // /devis success screen expects it). When feature is enabled the
+    // /verifier-demande page also accepts it.
     let smsSent = false;
     if (body.phone) {
       try {
