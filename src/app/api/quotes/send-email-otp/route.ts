@@ -8,13 +8,7 @@ import {
   otpExpiryIso,
   OTP_EXPIRY_MS,
 } from "@/lib/quote-verification";
-
-function baseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_URL;
-  if (url && !url.includes("localhost")) return url;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return url || "http://localhost:3000";
-}
+import { emailBaseUrl } from "@/lib/base-url";
 
 export async function POST(request: NextRequest) {
   const { quoteId } = await request.json().catch(() => ({}));
@@ -50,7 +44,7 @@ export async function POST(request: NextRequest) {
     })
     .eq("id", quoteId);
 
-  const verifyUrl = `${baseUrl()}/verifier-demande/${quoteId}`;
+  const verifyUrl = `${emailBaseUrl()}/verifier-demande/${quoteId}`;
   try {
     await sendQuoteVerificationEmail(
       quote.client_email,

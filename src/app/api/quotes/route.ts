@@ -5,15 +5,9 @@ import { sendOtpSMS } from "@/lib/smsfactor";
 import { sendQuoteVerificationEmail } from "@/lib/resend";
 import { distributeLead } from "@/lib/distribute-lead";
 import { generateOtp, otpExpiryIso, OTP_EXPIRY_MS } from "@/lib/quote-verification";
+import { emailBaseUrl } from "@/lib/base-url";
 
 const FEATURE_ENABLED = process.env.LEAD_VERIFICATION_ENABLED !== "false";
-
-function baseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_URL;
-  if (url && !url.includes("localhost")) return url;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return url || "http://localhost:3000";
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,7 +86,7 @@ export async function POST(request: NextRequest) {
     // the client with a verification email for an already-distributed lead.
     let emailSent = false;
     if (FEATURE_ENABLED && body.email) {
-      const verifyUrl = `${baseUrl()}/verifier-demande/${quote.id}`;
+      const verifyUrl = `${emailBaseUrl()}/verifier-demande/${quote.id}`;
       try {
         await sendQuoteVerificationEmail(
           body.email,
