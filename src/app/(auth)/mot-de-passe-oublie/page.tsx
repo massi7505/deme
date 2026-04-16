@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Mail, Send, CheckCircle2, KeyRound, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { OtpInput } from "@/components/ui/otp-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,66 +35,6 @@ const resetSchema = z
     path: ["confirmPassword"],
   });
 type ResetFormData = z.infer<typeof resetSchema>;
-
-function OtpInput({
-  value,
-  onChange,
-  length = OTP_LENGTH,
-  disabled,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  length?: number;
-  disabled?: boolean;
-}) {
-  const refs = useRef<(HTMLInputElement | null)[]>([]);
-  const digits = value.padEnd(length, " ").split("").slice(0, length);
-
-  function setDigit(i: number, d: string) {
-    const clean = d.replace(/\D/g, "").slice(0, 1);
-    const arr = value.padEnd(length, " ").split("");
-    arr[i] = clean || " ";
-    onChange(arr.join("").trim());
-    if (clean && i < length - 1) refs.current[i + 1]?.focus();
-  }
-
-  function handleKey(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Backspace" && !digits[i].trim() && i > 0) {
-      refs.current[i - 1]?.focus();
-    }
-  }
-
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length);
-    if (!pasted) return;
-    onChange(pasted);
-    refs.current[Math.min(pasted.length, length - 1)]?.focus();
-  }
-
-  return (
-    <div className="flex justify-between gap-1.5 sm:gap-2">
-      {digits.map((d, i) => (
-        <input
-          key={i}
-          ref={(el) => {
-            refs.current[i] = el;
-          }}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          value={d.trim()}
-          disabled={disabled}
-          onChange={(e) => setDigit(i, e.target.value)}
-          onKeyDown={(e) => handleKey(i, e)}
-          onPaste={handlePaste}
-          aria-label={`Chiffre ${i + 1}`}
-          className="h-12 w-full min-w-0 rounded-lg border border-input bg-background text-center font-mono text-lg font-semibold text-foreground outline-none ring-offset-background transition focus:border-[var(--brand-green)] focus:ring-2 focus:ring-[var(--brand-green)]/40 disabled:opacity-50 sm:h-14 sm:text-xl"
-        />
-      ))}
-    </div>
-  );
-}
 
 export default function MotDePasseOubliePage() {
   const router = useRouter();
@@ -284,7 +225,7 @@ export default function MotDePasseOubliePage() {
             <form onSubmit={resetForm.handleSubmit(onSubmitReset)} className="space-y-5">
               <div className="space-y-2">
                 <Label>Code à {OTP_LENGTH} chiffres</Label>
-                <OtpInput value={otp} onChange={setOtp} disabled={submitting} />
+                <OtpInput value={otp} onChange={setOtp} length={OTP_LENGTH} disabled={submitting} />
                 <div className="flex items-center justify-between pt-1 text-xs">
                   <span className="text-muted-foreground">
                     Pas reçu ? Pensez à vérifier vos spams.
