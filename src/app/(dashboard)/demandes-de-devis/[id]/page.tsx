@@ -200,7 +200,7 @@ export default function LeadDetailPage() {
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">
-            Demande de devis {isUnlocked && lead.clientFirstName ? `de ${lead.clientLastName?.[0] || ""}. ${lead.clientFirstName}` : ""}
+            Demande de devis {lead.clientFirstName ? `de ${lead.clientLastName || ""} ${lead.clientFirstName}` : ""}
           </h2>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="font-mono text-xs">{lead.prospectId}</Badge>
@@ -331,7 +331,11 @@ export default function LeadDetailPage() {
             <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
               <div>
                 <span className="text-muted-foreground">Nom</span>
-                <p className="font-medium">{isUnlocked ? (lead.clientFirstName ? `${lead.clientLastName?.[0] || ""}. ${lead.clientFirstName}` : lead.clientName || "—") : "••••••••"}</p>
+                <p className="font-medium">
+                  {lead.clientFirstName
+                    ? `${lead.clientLastName || ""} ${lead.clientFirstName}`
+                    : (isUnlocked ? lead.clientName || "—" : "••••••••")}
+                </p>
               </div>
               <div>
                 <span className="text-muted-foreground">Téléphone</span>

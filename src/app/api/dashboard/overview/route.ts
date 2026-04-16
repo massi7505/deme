@@ -93,12 +93,13 @@ export async function GET() {
       createdAt: d.created_at,
       // Quote info
       prospectId: quote.prospect_id,
+      // Avant achat : initiale nom + prénom (B. Massinissa). Après achat : nom complet
       clientName: d.status === "unlocked" ? quote.client_name : null,
       clientPhone: d.status === "unlocked" ? quote.client_phone : null,
       clientEmail: d.status === "unlocked" ? quote.client_email : null,
       clientSalutation: d.status === "unlocked" ? quote.client_salutation : null,
-      clientFirstName: d.status === "unlocked" ? quote.client_first_name : null,
-      clientLastName: d.status === "unlocked" ? quote.client_last_name : null,
+      clientFirstName: quote.client_first_name || null,
+      clientLastName: d.status === "unlocked" ? quote.client_last_name : (quote.client_last_name ? (quote.client_last_name as string)[0] + "." : null),
       // Adresses - complètes si déverrouillé, code postal + ville toujours visibles
       fromAddress: d.status === "unlocked" ? quote.from_address : null,
       fromCity: quote.from_city,
