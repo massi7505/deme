@@ -16,7 +16,7 @@ import {
   Building2,
   ChevronRight,
 } from "lucide-react";
-import { REGIONS } from "@/lib/utils";
+import { REGIONS, regionToSlug } from "@/lib/utils";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -288,7 +288,7 @@ export default function HomePage() {
               custom={i % 4}
             >
               <Link
-                href={`/entreprises-demenagement/${region.toLowerCase().replace(/[^a-z]/g, "-").replace(/-+/g, "-")}`}
+                href={`/entreprises-demenagement/${regionToSlug(region)}`}
                 className="group flex items-center justify-between rounded-xl border bg-white p-4 transition-all hover:border-green-200 hover:shadow-sm"
               >
                 <div className="flex items-center gap-3">
