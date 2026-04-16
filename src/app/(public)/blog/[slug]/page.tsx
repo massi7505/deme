@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import toast from "react-hot-toast";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 interface Section {
   id: string;
@@ -45,6 +46,7 @@ interface RelatedArticle {
 export default function BlogArticlePage() {
   const params = useParams();
   const slug = params?.slug as string;
+  const { siteName, siteUrl } = useSiteSettings();
 
   const [article, setArticle] = useState<Article | null>(null);
   const [related, setRelated] = useState<RelatedArticle[]>([]);
@@ -118,13 +120,13 @@ export default function BlogArticlePage() {
     dateModified: article.published_at,
     publisher: {
       "@type": "Organization",
-      name: "Demenagement24",
-      url: "https://demenagement24.fr",
+      name: siteName,
+      url: siteUrl,
     },
     description: article.excerpt,
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `https://demenagement24.fr/blog/${article.slug}`,
+      "@id": `${siteUrl}/blog/${article.slug}`,
     },
   };
 

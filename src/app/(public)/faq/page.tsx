@@ -9,8 +9,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
-const FAQ_DATA: Record<string, { question: string; answer: string }[]> = {
+const buildFaqData = (siteName: string): Record<string, { question: string; answer: string }[]> => ({
   particuliers: [
     {
       question: "Comment obtenir un devis de demenagement gratuit ?",
@@ -62,7 +63,7 @@ const FAQ_DATA: Record<string, { question: string; answer: string }[]> = {
   ],
   demenageurs: [
     {
-      question: "Comment m'inscrire sur Demenagement24 ?",
+      question: `Comment m'inscrire sur ${siteName} ?`,
       answer:
         "Rendez-vous sur notre page d'inscription demenageur. Remplissez le formulaire avec les informations de votre entreprise (SIRET, assurances, zone d'intervention). Apres verification de vos documents, votre profil sera active sous 48h. Vous pourrez alors recevoir des demandes de devis de clients qualifies.",
     },
@@ -87,7 +88,7 @@ const FAQ_DATA: Record<string, { question: string; answer: string }[]> = {
         "Nos tarifs varient selon le type de lead et la zone geographique. Contactez notre equipe commerciale pour obtenir une grille tarifaire adaptee a votre activite. Nous proposons egalement des formules d'abonnement avec des tarifs prefentiels pour les entreprises regulieres.",
     },
   ],
-};
+});
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -99,6 +100,8 @@ const fadeUp = {
 };
 
 export default function FaqPage() {
+  const { siteName } = useSiteSettings();
+  const FAQ_DATA = buildFaqData(siteName);
   const allFaqItems = Object.values(FAQ_DATA).flat();
 
   const jsonLd = {

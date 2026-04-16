@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { REGIONS, regionToSlug } from "@/lib/utils";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -88,6 +89,7 @@ const SERVICES = [
 ];
 
 export default function HomePage() {
+  const { siteName } = useSiteSettings();
   return (
     <>
       {/* ── HERO ────────────────────────────────────── */}
@@ -232,7 +234,7 @@ export default function HomePage() {
             className="text-center"
           >
             <motion.h2 variants={fadeUp} custom={0} className="font-display text-3xl font-bold sm:text-4xl">
-              Pourquoi choisir Demenagement24 ?
+              Pourquoi choisir {siteName} ?
             </motion.h2>
             <motion.p variants={fadeUp} custom={1} className="mt-3 text-gray-400">
               Une plateforme conçue pour simplifier votre déménagement.

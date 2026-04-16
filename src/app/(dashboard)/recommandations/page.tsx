@@ -16,6 +16,7 @@ import {
   Euro,
   Monitor,
 } from "lucide-react";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 // ---------------------------------------------------------------------------
 // FAQ data
@@ -27,15 +28,15 @@ interface FaqCategory {
   items: { question: string; answer: string }[];
 }
 
-const FAQ_CATEGORIES: FaqCategory[] = [
+const buildFaqCategories = (siteName: string): FaqCategory[] => [
   {
     title: "Notre service",
     icon: Briefcase,
     items: [
       {
-        question: "Comment fonctionne Demenagement24 ?",
+        question: `Comment fonctionne ${siteName} ?`,
         answer:
-          "Demenagement24 met en relation des particuliers recherchant un déménageur avec des entreprises de déménagement qualifiées. Lorsqu'un client remplit un formulaire de devis, sa demande est envoyée aux déménageurs correspondant à ses critères géographiques et de catégorie. Vous pouvez ensuite débloquer les coordonnées du client pour le contacter directement.",
+          `${siteName} met en relation des particuliers recherchant un déménageur avec des entreprises de déménagement qualifiées. Lorsqu'un client remplit un formulaire de devis, sa demande est envoyée aux déménageurs correspondant à ses critères géographiques et de catégorie. Vous pouvez ensuite débloquer les coordonnées du client pour le contacter directement.`,
       },
       {
         question: "Combien de déménageurs reçoivent chaque demande ?",
@@ -150,6 +151,8 @@ const FAQ_CATEGORIES: FaqCategory[] = [
 // ---------------------------------------------------------------------------
 
 export default function RecommandationsPage() {
+  const { siteName } = useSiteSettings();
+  const FAQ_CATEGORIES = buildFaqCategories(siteName);
   return (
     <div className="space-y-8">
       {/* Title */}

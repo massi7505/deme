@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Truck, Lock, Mail } from "lucide-react";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { siteName } = useSiteSettings();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -44,7 +46,7 @@ export default function AdminLoginPage() {
             <Truck className="h-7 w-7 text-white" strokeWidth={2.5} />
           </div>
           <h1 className="mt-4 font-display text-2xl font-bold text-white">
-            Admin Demenagement24
+            Admin {siteName}
           </h1>
           <p className="mt-1 text-sm text-gray-400">
             Connectez-vous pour accéder au panneau d&apos;administration
