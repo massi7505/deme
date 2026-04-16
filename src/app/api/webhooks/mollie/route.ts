@@ -3,7 +3,7 @@ import { getPayment } from "@/lib/mollie";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { generateInvoice } from "@/lib/invoice";
 import { notifyPaymentSuccess } from "@/lib/onesignal";
-import { sendInvoiceEmail, sendPaymentFailedEmail } from "@/lib/resend";
+import { sendInvoiceEmail, sendPaymentFailedEmail, notifyAdminPaymentSuccess, notifyAdminPaymentFailed } from "@/lib/resend";
 import { formatPrice } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
@@ -93,39 +93,52 @@ export async function POST(request: NextRequest) {
         .eq("id", metadata.companyId)
         .single();
 
-      // 4. Generate invoice + send email
+      // 4. Generate invoice + send email (wrapped so a PDF error won't break the webhook)
       if (transaction && company) {
         const description = "Déverrouillage demande de devis";
-        const invoice = await generateInvoice({
-          transactionId: transaction.id,
-          companyId: metadata.companyId,
-          companyName: company.name,
-          companySiret: company.siret ?? "",
-          companyAddress: company.address ?? "",
-          companyCity: company.city ?? "",
-          companyPostalCode: company.postal_code ?? "",
-          description,
-          amountCents: transaction.amount_cents,
-        });
+        try {
+          const invoice = await generateInvoice({
+            transactionId: transaction.id,
+            companyId: metadata.companyId,
+            companyName: company.name,
+            companySiret: company.siret ?? "",
+            companyAddress: company.address ?? "",
+            companyCity: company.city ?? "",
+            companyPostalCode: company.postal_code ?? "",
+            description,
+            amountCents: transaction.amount_cents,
+          });
 
-        // 5. Notify mover (push)
-        await notifyPaymentSuccess(
-          metadata.companyId,
-          formatPrice(transaction.amount_cents),
-          invoice.invoiceNumber
-        ).catch(() => {});
+          // 5. Notify mover (push)
+          await notifyPaymentSuccess(
+            metadata.companyId,
+            formatPrice(transaction.amount_cents),
+            invoice.invoiceNumber
+          ).catch(() => {});
 
-        // 6. Send invoice email
-        const emailTo = company.email_billing || company.email_contact;
-        if (emailTo) {
-          await sendInvoiceEmail(
-            emailTo,
-            company.name,
-            invoice.invoiceNumber,
-            transaction.amount_cents,
-            description
-          ).catch((err) => console.error("Invoice email error:", err));
+          // 6. Send invoice email
+          const emailTo = company.email_billing || company.email_contact;
+          if (emailTo) {
+            await sendInvoiceEmail(
+              emailTo,
+              company.name,
+              invoice.invoiceNumber,
+              transaction.amount_cents,
+              description
+            ).catch((err) => console.error("Invoice email error:", err));
+          }
+        } catch (invoiceErr) {
+          console.error("Invoice generation failed:", invoiceErr);
         }
+      }
+
+      // 6b. Notify admin
+      if (company) {
+        await notifyAdminPaymentSuccess(
+          company.name,
+          transaction?.amount_cents || amountCentsPaid,
+          transaction?.invoice_number || "—"
+        ).catch((err) => console.error("Admin notification error:", err));
       }
 
       // 7. Check if lead reached max 6 unlocks → mark as completed
@@ -222,6 +235,13 @@ export async function POST(request: NextRequest) {
             dateTime
           ).catch((err) => console.error("Failed payment email error:", err));
         }
+
+        // Notify admin
+        await notifyAdminPaymentFailed(
+          company.name,
+          amountCents,
+          dateTime
+        ).catch((err) => console.error("Admin failed notification error:", err));
       }
 
       // Create notification

@@ -6,6 +6,15 @@ function getMollie() {
   });
 }
 
+/** Return a publicly reachable base URL for Mollie webhooks / redirects. */
+function getBaseUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_URL;
+  if (explicit && !explicit.includes("localhost")) return explicit;
+  // Fallback: Vercel auto-provides VERCEL_URL (no protocol)
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return explicit || "http://localhost:3000";
+}
+
 export async function createLeadPayment({
   amountCents,
   companyId,
@@ -25,8 +34,8 @@ export async function createLeadPayment({
     },
     description:
       description ?? `Déverrouillage demande #${distributionId}`,
-    redirectUrl: `${process.env.NEXT_PUBLIC_URL}/demandes-de-devis/${distributionId}?payment=success`,
-    webhookUrl: `${process.env.NEXT_PUBLIC_URL}/api/webhooks/mollie`,
+    redirectUrl: `${getBaseUrl()}/demandes-de-devis/${distributionId}?payment=success`,
+    webhookUrl: `${getBaseUrl()}/api/webhooks/mollie`,
     metadata: {
       companyId,
       distributionId,
@@ -90,7 +99,7 @@ export async function createSubscription({
     interval,
     description,
     metadata: { plan },
-    webhookUrl: `${process.env.NEXT_PUBLIC_URL}/api/webhooks/mollie`,
+    webhookUrl: `${getBaseUrl()}/api/webhooks/mollie`,
   });
 }
 
