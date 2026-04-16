@@ -63,25 +63,45 @@ export async function POST(request: NextRequest) {
       .select("company_id, categories")
       .eq("department_code", departmentCode);
 
-    // 3. Find matching movers by radius (simplified — in production, use PostGIS)
-    const { data: radiusMatches } = await supabase
+    // 3. Find matching movers by radius — check geographic distance
+    const fromLat = parseFloat(body.fromLat) || 0;
+    const fromLng = parseFloat(body.fromLng) || 0;
+
+    const { data: radiusRules } = await supabase
       .from("company_radius")
-      .select("company_id, move_types");
+      .select("company_id, lat, lng, radius_km, move_types");
+
+    // Haversine distance in km
+    const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
 
     // Combine and deduplicate matched company IDs
     const matchedCompanyIds = new Set<string>();
+    const category = body.category ?? "national";
 
     regionMatches?.forEach((m) => {
-      if (m.categories?.includes(body.category ?? "national")) {
+      if (m.categories?.includes(category)) {
         matchedCompanyIds.add(m.company_id);
       }
     });
 
-    radiusMatches?.forEach((m) => {
-      if (m.move_types?.includes(body.category ?? "national")) {
-        matchedCompanyIds.add(m.company_id);
+    // Only add radius matches if we have coordinates AND the quote is within range
+    if (fromLat && fromLng && radiusRules) {
+      for (const rule of radiusRules) {
+        if (!rule.move_types?.includes(category)) continue;
+        const dist = haversineKm(fromLat, fromLng, rule.lat, rule.lng);
+        if (dist <= rule.radius_km) {
+          matchedCompanyIds.add(rule.company_id);
+        }
       }
-    });
+    }
 
     // 4. Get active companies only, limit to 6
     const companyIds = Array.from(matchedCompanyIds).slice(0, 6);
