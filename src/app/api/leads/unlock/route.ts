@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { createLeadPayment } from "@/lib/mollie";
+import { generateInvoice } from "@/lib/invoice";
+import { sendInvoiceEmail } from "@/lib/resend";
 
 const MAX_UNLOCKS_PER_LEAD = 6;
 const TRIAL_DAYS = 3;
@@ -125,13 +127,49 @@ export async function POST(request: NextRequest) {
         .update({ status: "unlocked", unlocked_at: new Date().toISOString() })
         .eq("id", distributionId);
 
-      await supabase.from("transactions").insert({
+      const { data: txn } = await supabase.from("transactions").insert({
         company_id: company.id,
         quote_distribution_id: distributionId,
         amount_cents: distribution.price_cents,
         type: "unlock",
         status: "paid",
-      });
+      }).select().single();
+
+      // Generate invoice
+      if (txn) {
+        const { data: companyInfo } = await supabase
+          .from("companies")
+          .select("name, siret, address, city, postal_code, email_billing, email_contact")
+          .eq("id", company.id)
+          .single();
+
+        if (companyInfo) {
+          const description = "Déverrouillage demande de devis";
+          const invoice = await generateInvoice({
+            transactionId: txn.id,
+            companyId: company.id,
+            companyName: companyInfo.name,
+            companySiret: companyInfo.siret ?? "",
+            companyAddress: companyInfo.address ?? "",
+            companyCity: companyInfo.city ?? "",
+            companyPostalCode: companyInfo.postal_code ?? "",
+            description,
+            amountCents: txn.amount_cents,
+          }).catch(() => null);
+
+          // Send invoice email
+          const emailTo = companyInfo.email_billing || companyInfo.email_contact;
+          if (emailTo && invoice) {
+            await sendInvoiceEmail(
+              emailTo,
+              companyInfo.name,
+              invoice.invoiceNumber,
+              txn.amount_cents,
+              description
+            ).catch(() => {});
+          }
+        }
+      }
 
       // First purchase → activate account permanently
       if (company.account_status === "trial") {

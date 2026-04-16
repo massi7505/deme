@@ -3,6 +3,7 @@ import { getPayment } from "@/lib/mollie";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { generateInvoice } from "@/lib/invoice";
 import { notifyPaymentSuccess } from "@/lib/onesignal";
+import { sendInvoiceEmail, sendPaymentFailedEmail } from "@/lib/resend";
 import { formatPrice } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
@@ -51,12 +52,13 @@ export async function POST(request: NextRequest) {
       // 3. Get company info for invoice
       const { data: company } = await supabase
         .from("companies")
-        .select("name, siret, address, city, postal_code")
+        .select("name, siret, address, city, postal_code, email_billing, email_contact")
         .eq("id", metadata.companyId)
         .single();
 
-      // 4. Generate invoice
+      // 4. Generate invoice + send email
       if (transaction && company) {
+        const description = "Déverrouillage demande de devis";
         const invoice = await generateInvoice({
           transactionId: transaction.id,
           companyId: metadata.companyId,
@@ -65,19 +67,31 @@ export async function POST(request: NextRequest) {
           companyAddress: company.address ?? "",
           companyCity: company.city ?? "",
           companyPostalCode: company.postal_code ?? "",
-          description: `Déverrouillage demande de devis`,
+          description,
           amountCents: transaction.amount_cents,
         });
 
-        // 5. Notify mover
+        // 5. Notify mover (push)
         await notifyPaymentSuccess(
           metadata.companyId,
           formatPrice(transaction.amount_cents),
           invoice.invoiceNumber
-        );
+        ).catch(() => {});
+
+        // 6. Send invoice email
+        const emailTo = company.email_billing || company.email_contact;
+        if (emailTo) {
+          await sendInvoiceEmail(
+            emailTo,
+            company.name,
+            invoice.invoiceNumber,
+            transaction.amount_cents,
+            description
+          ).catch((err) => console.error("Invoice email error:", err));
+        }
       }
 
-      // 6. Check if lead reached max 6 unlocks → mark as completed
+      // 7. Check if lead reached max 6 unlocks → mark as completed
       const { data: dist } = await supabase
         .from("quote_distributions")
         .select("quote_request_id")
@@ -99,7 +113,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 7. First purchase → activate account permanently
+      // 8. First purchase → activate account permanently
       const { data: companyCheck } = await supabase
         .from("companies")
         .select("account_status")
@@ -113,7 +127,7 @@ export async function POST(request: NextRequest) {
           .eq("id", metadata.companyId);
       }
 
-      // 8. Create notification
+      // 9. Create notification
       await supabase.from("notifications").insert({
         company_id: metadata.companyId,
         type: "payment_success",
@@ -124,16 +138,54 @@ export async function POST(request: NextRequest) {
     }
 
     if (payment.status === "failed") {
-      await supabase
-        .from("transactions")
-        .insert({
-          company_id: metadata.companyId,
-          quote_distribution_id: metadata.distributionId,
-          mollie_payment_id: paymentId,
-          amount_cents: Math.round(parseFloat(payment.amount.value) * 100),
-          type: "lead_purchase",
-          status: "failed",
-        });
+      const now = new Date();
+      const dateTime = new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(now);
+
+      const amountCents = Math.round(parseFloat(payment.amount.value) * 100);
+
+      // Record failed transaction
+      await supabase.from("transactions").insert({
+        company_id: metadata.companyId,
+        quote_distribution_id: metadata.distributionId,
+        mollie_payment_id: paymentId,
+        amount_cents: amountCents,
+        type: "lead_purchase",
+        status: "failed",
+      });
+
+      // Send failure email
+      const { data: company } = await supabase
+        .from("companies")
+        .select("name, email_billing, email_contact")
+        .eq("id", metadata.companyId)
+        .single();
+
+      if (company) {
+        const emailTo = company.email_billing || company.email_contact;
+        if (emailTo) {
+          await sendPaymentFailedEmail(
+            emailTo,
+            company.name,
+            amountCents,
+            dateTime
+          ).catch((err) => console.error("Failed payment email error:", err));
+        }
+      }
+
+      // Create notification
+      await supabase.from("notifications").insert({
+        company_id: metadata.companyId,
+        type: "payment_failed",
+        title: "Échec de paiement",
+        body: `Le paiement de ${formatPrice(amountCents)} a échoué le ${dateTime}.`,
+        data: { distributionId: metadata.distributionId, paymentId },
+      });
     }
 
     return NextResponse.json({ received: true });

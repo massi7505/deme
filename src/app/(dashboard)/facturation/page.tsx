@@ -14,6 +14,16 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
+
+function formatDateTime(date: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -40,7 +50,8 @@ interface Transaction {
   amount_cents: number;
   status: string;
   invoice_number?: string;
-  mollie_id?: string;
+  invoice_url?: string;
+  mollie_payment_id?: string;
   created_at: string;
 }
 
@@ -230,21 +241,131 @@ export default function FacturationPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {transactions.map((txn) => (
-                        <TableRow key={txn.id}>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {formatDate(txn.created_at)}
-                          </TableCell>
-                          <TableCell className="text-sm font-medium">
-                            {txn.description || txn.type}
-                          </TableCell>
-                          <TableCell className="text-sm font-semibold">
-                            {formatPrice(Math.abs(txn.amount_cents || 0))}
-                          </TableCell>
-                          <TableCell>
+                      {transactions.map((txn) => {
+                        const desc =
+                          txn.type === "lead_purchase" || txn.type === "unlock"
+                            ? "Achat de lead"
+                            : txn.type === "subscription"
+                            ? "Abonnement"
+                            : txn.type === "refund"
+                            ? "Remboursement"
+                            : txn.description || txn.type;
+                        return (
+                          <TableRow key={txn.id} className={txn.status === "failed" ? "bg-red-50/50" : undefined}>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDateTime(txn.created_at)}
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">
+                              {desc}
+                              {txn.invoice_number && (
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  {txn.invoice_number}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm font-semibold">
+                              {txn.status === "failed" ? (
+                                <span className="text-red-600">{formatPrice(Math.abs(txn.amount_cents || 0))}</span>
+                              ) : (
+                                formatPrice(Math.abs(txn.amount_cents || 0))
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                                  txn.status === "paid"
+                                    ? "bg-green-50 text-green-700"
+                                    : txn.status === "refunded"
+                                    ? "bg-blue-50 text-blue-700"
+                                    : txn.status === "failed"
+                                    ? "bg-red-50 text-red-700"
+                                    : "bg-yellow-50 text-yellow-700"
+                                )}
+                              >
+                                {txn.status === "paid" ? (
+                                  <CheckCircle2 className="h-3 w-3" />
+                                ) : (
+                                  <Clock className="h-3 w-3" />
+                                )}
+                                {txn.status === "paid"
+                                  ? "Payé"
+                                  : txn.status === "refunded"
+                                  ? "Remboursé"
+                                  : txn.status === "failed"
+                                  ? "Échoué"
+                                  : "En attente"}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {txn.invoice_number && txn.invoice_url ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="gap-1.5 text-xs"
+                                  onClick={() => window.open(
+                                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoices/${txn.invoice_url}`,
+                                    "_blank"
+                                  )}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Facture
+                                </Button>
+                              ) : txn.status === "failed" ? (
+                                <span className="text-xs text-red-500 font-medium">
+                                  Échec
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="space-y-3 md:hidden">
+                  {transactions.map((txn) => {
+                    const desc =
+                      txn.type === "lead_purchase" || txn.type === "unlock"
+                        ? "Achat de lead"
+                        : txn.type === "subscription"
+                        ? "Abonnement"
+                        : txn.type === "refund"
+                        ? "Remboursement"
+                        : txn.description || txn.type;
+                    return (
+                      <div
+                        key={txn.id}
+                        className={cn(
+                          "rounded-lg border p-3",
+                          txn.status === "failed" ? "border-red-200 bg-red-50/50" : ""
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{desc}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDateTime(txn.created_at)}
+                            </p>
+                            {txn.invoice_number && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {txn.invoice_number}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className={cn("text-sm font-semibold", txn.status === "failed" && "text-red-600")}>
+                              {formatPrice(Math.abs(txn.amount_cents || 0))}
+                            </p>
                             <div
                               className={cn(
-                                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                                "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
                                 txn.status === "paid"
                                   ? "bg-green-50 text-green-700"
                                   : txn.status === "refunded"
@@ -254,11 +375,6 @@ export default function FacturationPage() {
                                   : "bg-yellow-50 text-yellow-700"
                               )}
                             >
-                              {txn.status === "paid" ? (
-                                <CheckCircle2 className="h-3 w-3" />
-                              ) : (
-                                <Clock className="h-3 w-3" />
-                              )}
                               {txn.status === "paid"
                                 ? "Payé"
                                 : txn.status === "refunded"
@@ -267,71 +383,25 @@ export default function FacturationPage() {
                                 ? "Échoué"
                                 : "En attente"}
                             </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {txn.invoice_number ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1.5 text-xs"
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                                PDF
-                              </Button>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                —
-                              </span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Mobile cards */}
-                <div className="space-y-3 md:hidden">
-                  {transactions.map((txn) => (
-                    <div
-                      key={txn.id}
-                      className="flex items-center justify-between rounded-lg border p-3"
-                    >
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          {txn.description || txn.type}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(txn.created_at)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold">
-                          {formatPrice(Math.abs(txn.amount_cents || 0))}
-                        </p>
-                        <div
-                          className={cn(
-                            "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                            txn.status === "paid"
-                              ? "bg-green-50 text-green-700"
-                              : txn.status === "refunded"
-                              ? "bg-blue-50 text-blue-700"
-                              : txn.status === "failed"
-                              ? "bg-red-50 text-red-700"
-                              : "bg-yellow-50 text-yellow-700"
-                          )}
-                        >
-                          {txn.status === "paid"
-                            ? "Payé"
-                            : txn.status === "refunded"
-                            ? "Remboursé"
-                            : txn.status === "failed"
-                            ? "Échoué"
-                            : "En attente"}
+                          </div>
                         </div>
+                        {txn.invoice_number && txn.invoice_url && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 w-full gap-1.5 text-xs"
+                            onClick={() => window.open(
+                              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoices/${txn.invoice_url}`,
+                              "_blank"
+                            )}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Télécharger la facture
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
