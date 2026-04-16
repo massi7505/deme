@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice, formatDate, maskText, cn } from "@/lib/utils";
+import { formatPrice, formatDate, cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { FileText, Lock, Unlock, ArrowRight, Search, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 
@@ -18,11 +18,31 @@ interface Lead {
   competitorCount: number;
   createdAt: string;
   clientName: string | null;
+  clientFirstName: string | null;
+  clientLastName: string | null;
   fromCity: string | null;
+  fromPostalCode: string | null;
   toCity: string | null;
+  toPostalCode: string | null;
   moveDate: string | null;
   category: string;
   phoneVerified: boolean;
+}
+
+function formatLeadName(lead: Lead): string {
+  const first = lead.clientFirstName?.trim();
+  const last = lead.clientLastName?.trim();
+  if (last && first) return `${last} ${first}`;
+  if (first) return first;
+  if (last) return last;
+  if (lead.status === "unlocked" && lead.clientName) return lead.clientName;
+  return "Client";
+}
+
+function formatLeadRoute(lead: Lead): string {
+  const from = [lead.fromPostalCode, lead.fromCity].filter(Boolean).join(" ") || "?";
+  const to = [lead.toPostalCode, lead.toCity].filter(Boolean).join(" ") || "?";
+  return `${from} → ${to}`;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -105,10 +125,13 @@ export default function DemandesDeDevisPage() {
                         <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", lead.status === "unlocked" ? "bg-green-50" : "bg-gray-100")}>
                           {lead.status === "unlocked" ? <Unlock className="h-5 w-5 text-green-600" /> : <Lock className="h-5 w-5 text-gray-400" />}
                         </div>
-                        <div>
-                          <p className="text-sm font-medium">{lead.status === "unlocked" ? lead.clientName || "Client" : maskText("Client masqué", 0)}</p>
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-xs text-muted-foreground">{lead.fromCity || "?"} → {lead.toCity || "?"}{lead.moveDate && ` · ${formatDate(lead.moveDate)}`}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{formatLeadName(lead)}</p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-xs text-muted-foreground">
+                              {formatLeadRoute(lead)}
+                              {lead.moveDate && ` · ${formatDate(lead.moveDate)}`}
+                            </p>
                             {lead.phoneVerified && (
                               <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
                                 <ShieldCheck className="h-3 w-3" /> Vérifié

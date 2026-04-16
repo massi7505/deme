@@ -283,7 +283,7 @@ export default function LeadDetailPage() {
                 </p>
               </div>
               <div><span className="text-muted-foreground">Ville</span><p className="font-medium">{lead.fromCity || "—"}</p></div>
-              <div><span className="text-muted-foreground">Code postal</span><p className="font-medium">{isUnlocked ? lead.fromPostalCode || "—" : "••••••"}</p></div>
+              <div><span className="text-muted-foreground">Code postal</span><p className="font-medium">{lead.fromPostalCode || "—"}</p></div>
               <div><span className="text-muted-foreground">Type</span><p className="font-medium">{lead.fromHousingType || "Non précisé"}</p></div>
               <div>
                 <span className="text-muted-foreground">Étage / Ascenseur</span>
@@ -312,7 +312,7 @@ export default function LeadDetailPage() {
                 </p>
               </div>
               <div><span className="text-muted-foreground">Ville</span><p className="font-medium">{lead.toCity || "—"}</p></div>
-              <div><span className="text-muted-foreground">Code postal</span><p className="font-medium">{isUnlocked ? lead.toPostalCode || "—" : "••••••"}</p></div>
+              <div><span className="text-muted-foreground">Code postal</span><p className="font-medium">{lead.toPostalCode || "—"}</p></div>
               <div><span className="text-muted-foreground">Type</span><p className="font-medium">{lead.toHousingType || "Non précisé"}</p></div>
               <div>
                 <span className="text-muted-foreground">Ascenseur</span>
