@@ -235,10 +235,12 @@ function CompanyProfilePage({ slug }: { slug: string }) {
                   {company.company_qna.map((qna) => (
                     <AccordionItem key={qna.id} value={qna.id}>
                       <AccordionTrigger className="text-left text-sm font-medium">
-                        <MessageSquare className="mr-2 h-4 w-4 shrink-0 text-[var(--brand-green)]" />
-                        {qna.question}
+                        <span className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 shrink-0 text-[var(--brand-green)]" />
+                          {qna.question}
+                        </span>
                       </AccordionTrigger>
-                      <AccordionContent className="text-sm text-muted-foreground">{qna.answer}</AccordionContent>
+                      <AccordionContent className="text-sm leading-relaxed text-muted-foreground">{qna.answer}</AccordionContent>
                     </AccordionItem>
                   ))}
                 </Accordion>
