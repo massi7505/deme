@@ -63,7 +63,8 @@ export default function DemandesDeDevisPage() {
   }, []);
 
   const filtered = leads.filter((l) => {
-    if (filterStatus !== "all" && l.status !== filterStatus) return false;
+    if (filterStatus === "unlocked" && l.status !== "unlocked") return false;
+    if (filterStatus === "pending" && l.status === "unlocked") return false;
     if (search) {
       const q = search.toLowerCase();
       return (l.fromCity || "").toLowerCase().includes(q) || (l.toCity || "").toLowerCase().includes(q);
