@@ -19,6 +19,8 @@ interface Status {
   phoneMasked: string;
   emailCooldownSec: number;
   phoneCooldownSec: number;
+  emailAttemptsRemaining: number;
+  phoneAttemptsRemaining: number;
   distributed: boolean;
 }
 
@@ -94,6 +96,7 @@ export default function VerifierDemandePage() {
       const body = await r.json().catch(() => ({}));
       if (!r.ok) {
         toast.error(body?.error || "Code invalide");
+        await refresh();
         return;
       }
       toast.success(channel === "email" ? "Email vérifié" : "Téléphone vérifié");
@@ -213,6 +216,7 @@ export default function VerifierDemandePage() {
             otp={emailOtp}
             onOtpChange={setEmailOtp}
             cooldown={emailCooldown}
+            attemptsRemaining={status.emailAttemptsRemaining}
             onSubmit={() => submitCode("email")}
             onResend={() => resend("email")}
             submitting={emailSubmitting}
@@ -225,6 +229,7 @@ export default function VerifierDemandePage() {
             otp={phoneOtp}
             onOtpChange={setPhoneOtp}
             cooldown={phoneCooldown}
+            attemptsRemaining={status.phoneAttemptsRemaining}
             onSubmit={() => submitCode("phone")}
             onResend={() => resend("phone")}
             submitting={phoneSubmitting}
@@ -243,6 +248,7 @@ function ChannelCard({
   otp,
   onOtpChange,
   cooldown,
+  attemptsRemaining,
   onSubmit,
   onResend,
   submitting,
@@ -254,6 +260,7 @@ function ChannelCard({
   otp: string;
   onOtpChange: (v: string) => void;
   cooldown: number;
+  attemptsRemaining: number;
   onSubmit: () => void;
   onResend: () => void;
   submitting: boolean;
@@ -304,6 +311,16 @@ function ChannelCard({
                 {cooldown > 0 ? `Renvoyer dans ${cooldown}s` : "Renvoyer le code"}
               </button>
             </div>
+            {attemptsRemaining < 3 && attemptsRemaining > 0 && (
+              <p className="text-[11px] text-amber-600">
+                Il vous reste {attemptsRemaining} essai{attemptsRemaining > 1 ? "s" : ""}.
+              </p>
+            )}
+            {attemptsRemaining === 0 && (
+              <p className="text-[11px] text-red-600">
+                Trop d&apos;essais. Demandez un nouveau code.
+              </p>
+            )}
             <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Send className="h-3 w-3" /> Pas reçu ? Vérifiez vos spams.
             </p>

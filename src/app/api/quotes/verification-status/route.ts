@@ -4,6 +4,7 @@ import {
   maskEmailForDisplay,
   maskPhoneForDisplay,
   RESEND_COOLDOWN_MS,
+  MAX_ATTEMPTS,
 } from "@/lib/quote-verification";
 
 export async function POST(request: NextRequest) {
@@ -20,6 +21,8 @@ export async function POST(request: NextRequest) {
     return Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
   }
 
+  const emailAttempts = quote.email_verification_attempts ?? 0;
+  const phoneAttempts = quote.phone_verification_attempts ?? 0;
   return NextResponse.json({
     emailVerified: !!quote.email_verified,
     phoneVerified: !!quote.phone_verified,
@@ -27,6 +30,8 @@ export async function POST(request: NextRequest) {
     phoneMasked: maskPhoneForDisplay(quote.client_phone || ""),
     emailCooldownSec: cooldownSec(quote.email_verification_last_sent_at),
     phoneCooldownSec: cooldownSec(quote.phone_verification_last_sent_at),
+    emailAttemptsRemaining: Math.max(0, MAX_ATTEMPTS - emailAttempts),
+    phoneAttemptsRemaining: Math.max(0, MAX_ATTEMPTS - phoneAttempts),
     distributed: !!quote.distributed_at,
   });
 }
