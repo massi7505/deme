@@ -126,6 +126,7 @@ export async function GET() {
   // Stats
   const totalLeads = leads.length;
   const unlockedLeads = leads.filter((l) => l.status === "unlocked").length;
+  const pendingLeads = leads.filter((l) => l.status === "pending").length;
   const conversionRate = totalLeads > 0 ? Math.round((unlockedLeads / totalLeads) * 100) : 0;
 
   // Get notifications
@@ -144,6 +145,7 @@ export async function GET() {
     stats: {
       totalLeads,
       unlockedLeads,
+      pendingLeads,
       conversionRate,
       revenue: leads
         .filter((l) => l.status === "unlocked")

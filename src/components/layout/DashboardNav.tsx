@@ -38,7 +38,7 @@ export function DashboardNav() {
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
         if (d?.company?.name) setCompanyName(d.company.name);
-        if (d?.stats?.totalLeads) setLeadCount(d.stats.totalLeads);
+        setLeadCount(d?.stats?.pendingLeads ?? 0);
       })
       .catch(() => {});
   }, []);
