@@ -39,6 +39,7 @@ export default function ConfigurationsPage() {
   const [radiusRules, setRadiusRules] = useState<RadiusRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [companyCity, setCompanyCity] = useState<string | null>(null);
+  const [accountStatus, setAccountStatus] = useState<string>("trial");
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const fetchRegions = useCallback(() => {
@@ -62,6 +63,7 @@ export default function ConfigurationsPage() {
       .then((data) => {
         if (data?.company) {
           setCompanyCity(data.company.city);
+          setAccountStatus(data.company.account_status || "trial");
         }
       });
 
@@ -146,20 +148,22 @@ export default function ConfigurationsPage() {
         </CardContent>
       </Card>
 
-      {/* Trial info */}
-      <Card className="border-amber-100 bg-amber-50/50">
-        <CardContent className="flex items-start gap-3 p-4">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-          <div>
-            <p className="text-sm font-medium text-amber-900">Limitations de la période d&apos;essai</p>
-            <ul className="mt-2 space-y-1 text-xs text-amber-800">
-              <li>Maximum <strong>2 départements</strong> sélectionnables</li>
-              <li>Rayon maximum de <strong>30 km</strong></li>
-              <li>Passez à un abonnement pour débloquer toutes les zones</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Trial info — only shown during trial/pending */}
+      {(accountStatus === "trial" || accountStatus === "pending") && (
+        <Card className="border-amber-100 bg-amber-50/50">
+          <CardContent className="flex items-start gap-3 p-4">
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">Limitations de la période d&apos;essai</p>
+              <ul className="mt-2 space-y-1 text-xs text-amber-800">
+                <li>Maximum <strong>2 départements</strong> sélectionnables</li>
+                <li>Rayon maximum de <strong>30 km</strong></li>
+                <li>Passez à un abonnement pour débloquer toutes les zones</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Region edit modal */}
       <RegionEditModal

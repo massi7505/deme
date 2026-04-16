@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   // Get company
   const { data: company } = await admin
     .from("companies")
-    .select("id")
+    .select("id, account_status")
     .eq("profile_id", user.id)
     .single();
 
@@ -68,17 +68,20 @@ export async function POST(request: NextRequest) {
   if (action === "add_region") {
     const { department_code, categories } = body;
 
-    // Check trial limit (max 2)
-    const { count } = await admin
-      .from("company_regions")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", company.id);
+    // Check trial limit (max 2) — only for trial/pending accounts
+    const isTrial = company.account_status === "trial" || company.account_status === "pending";
+    if (isTrial) {
+      const { count } = await admin
+        .from("company_regions")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", company.id);
 
-    if ((count || 0) >= 2) {
-      return NextResponse.json(
-        { error: "Maximum 2 départements pendant la période d'essai" },
-        { status: 400 }
-      );
+      if ((count || 0) >= 2) {
+        return NextResponse.json(
+          { error: "Maximum 2 départements pendant la période d'essai" },
+          { status: 400 }
+        );
+      }
     }
 
     const { data, error } = await admin.from("company_regions").insert({
