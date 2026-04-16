@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { distributeLead } from "@/lib/distribute-lead";
 import { loadQuoteForVerification, verifyCode, MAX_ATTEMPTS } from "@/lib/quote-verification";
+import { notifyAdminDistributionFailed } from "@/lib/resend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +56,16 @@ export async function POST(request: NextRequest) {
     try {
       await distributeLead(quoteId);
     } catch (err) {
-      console.error("[verify-email] distributeLead error:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[verify-email] distributeLead error for ${quoteId}:`, message);
+      const clientName = `${quote.client_first_name || ""} ${quote.client_last_name || ""}`.trim() || quote.client_name || "Client";
+      await notifyAdminDistributionFailed(
+        quoteId,
+        clientName,
+        "",
+        "",
+        message
+      ).catch((e) => console.error("[verify-email] admin notify error:", e));
     }
 
     return NextResponse.json({ success: true });

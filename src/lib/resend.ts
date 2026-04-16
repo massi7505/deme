@@ -159,3 +159,19 @@ export async function sendQuoteVerificationEmail(
     verifyUrl,
   });
 }
+
+export async function notifyAdminDistributionFailed(
+  quoteId: string,
+  clientName: string,
+  fromCity: string,
+  toCity: string,
+  errorMessage: string
+) {
+  return sendTemplated("adminDistributionFailed", ADMIN_EMAIL, {
+    quoteId,
+    clientName,
+    fromCity,
+    toCity,
+    errorMessage,
+  });
+}
