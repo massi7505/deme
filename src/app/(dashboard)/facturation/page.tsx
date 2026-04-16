@@ -77,6 +77,7 @@ export default function FacturationPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -220,6 +221,35 @@ export default function FacturationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Status filter */}
+            {transactions.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {[
+                  { value: "all", label: "Tout", color: "" },
+                  { value: "paid", label: "Payé", color: "bg-green-50 text-green-700 border-green-200" },
+                  { value: "failed", label: "Échoué", color: "bg-red-50 text-red-700 border-red-200" },
+                  { value: "pending", label: "En attente", color: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+                  { value: "refunded", label: "Remboursé", color: "bg-blue-50 text-blue-700 border-blue-200" },
+                ].map((f) => {
+                  const count = f.value === "all" ? transactions.length : transactions.filter((t) => t.status === f.value).length;
+                  if (f.value !== "all" && count === 0) return null;
+                  return (
+                    <button
+                      key={f.value}
+                      onClick={() => setStatusFilter(f.value)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-medium transition-all",
+                        statusFilter === f.value
+                          ? f.value === "all" ? "bg-gray-900 text-white border-gray-900" : f.color + " ring-1 ring-offset-1"
+                          : "hover:bg-gray-50"
+                      )}
+                    >
+                      {f.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {transactions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <FileX className="h-10 w-10 text-muted-foreground/40" />
@@ -242,7 +272,7 @@ export default function FacturationPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {transactions.map((txn) => {
+                      {transactions.filter((t) => statusFilter === "all" || t.status === statusFilter).map((txn) => {
                         const desc =
                           txn.type === "lead_purchase" || txn.type === "unlock"
                             ? "Achat de lead"
@@ -331,7 +361,7 @@ export default function FacturationPage() {
 
                 {/* Mobile cards */}
                 <div className="space-y-3 md:hidden">
-                  {transactions.map((txn) => {
+                  {transactions.filter((t) => statusFilter === "all" || t.status === statusFilter).map((txn) => {
                     const desc =
                       txn.type === "lead_purchase" || txn.type === "unlock"
                         ? "Achat de lead"

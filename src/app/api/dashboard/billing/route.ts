@@ -74,9 +74,42 @@ export async function GET() {
     unlockTotal += (t.amount_cents as number) || 0;
   }
 
+  // Deduplicate transaction list: keep one transaction per lead (best status wins)
+  // Priority: paid > failed > pending. Refunds and subscriptions always kept.
+  const statusPriority: Record<string, number> = { paid: 3, refunded: 2, failed: 1, pending: 0 };
+  const bestByDist = new Map<string, Record<string, unknown>>();
+  const otherTxns: Record<string, unknown>[] = [];
+
+  for (const t of (transactions || []) as Record<string, unknown>[]) {
+    const distId = t.quote_distribution_id as string | null;
+    const type = t.type as string;
+
+    // Keep refunds and subscriptions as-is (no dedup)
+    if (type === "refund" || type === "subscription") {
+      otherTxns.push(t);
+      continue;
+    }
+
+    if (!distId) {
+      otherTxns.push(t);
+      continue;
+    }
+
+    const existing = bestByDist.get(distId);
+    const currentPriority = statusPriority[t.status as string] ?? 0;
+    const existingPriority = existing ? (statusPriority[existing.status as string] ?? 0) : -1;
+
+    if (currentPriority > existingPriority) {
+      bestByDist.set(distId, t);
+    }
+  }
+
+  const dedupedTransactions = [...otherTxns, ...Array.from(bestByDist.values())]
+    .sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime());
+
   // Build full invoice URLs server-side
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const enrichedTransactions = (transactions || []).map((t: Record<string, unknown>) => ({
+  const enrichedTransactions = dedupedTransactions.map((t) => ({
     ...t,
     invoice_full_url: t.invoice_url
       ? `${supabaseUrl}/storage/v1/object/public/invoices/${t.invoice_url}`
