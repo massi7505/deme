@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
+import { sendWelcomeEmail } from "@/lib/resend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,6 +95,11 @@ export async function POST(request: NextRequest) {
       }));
       await supabase.from("company_regions").insert(regions);
     }
+
+    // Send welcome email
+    await sendWelcomeEmail(email, companyName).catch((err) =>
+      console.error("Welcome email error:", err)
+    );
 
     return NextResponse.json({
       success: true,

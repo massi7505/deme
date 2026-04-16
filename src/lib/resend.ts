@@ -205,6 +205,181 @@ export async function sendPaymentFailedEmail(
   });
 }
 
+/** KYC approved — tell mover they can now buy leads */
+export async function sendKycApprovedEmail(to: string, companyName: string) {
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: "Votre identité a été vérifiée avec succès",
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Demenagement24</h1>
+        </div>
+        <div style="padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="margin-top: 0;">Félicitations, ${companyName} !</h2>
+          <p>Votre vérification d'identité a été <strong style="color: #16a34a;">approuvée</strong>. Votre compte est maintenant actif.</p>
+          <div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <strong style="color: #16a34a;">Vous pouvez maintenant :</strong>
+            <ul style="margin: 8px 0 0; padding-left: 20px; color: #374151;">
+              <li>Consulter et déverrouiller des demandes de devis</li>
+              <li>Contacter directement les clients</li>
+              <li>Développer votre activité</li>
+            </ul>
+          </div>
+          <a href="${emailBaseUrl()}/demandes-de-devis" style="display: inline-block; background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Voir les demandes disponibles
+          </a>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/** KYC rejected — tell mover to retry */
+export async function sendKycRejectedEmail(to: string, companyName: string, reason: string) {
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: "Vérification d'identité refusée",
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Demenagement24</h1>
+        </div>
+        <div style="padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="margin-top: 0;">Bonjour ${companyName},</h2>
+          <p>Votre vérification d'identité a été <strong style="color: #dc2626;">refusée</strong>.</p>
+          <div style="background: #fef2f2; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0;"><strong>Motif :</strong> ${reason}</p>
+          </div>
+          <p>Veuillez vérifier vos documents et réessayer. Assurez-vous que les images sont lisibles et que les informations correspondent.</p>
+          <a href="${emailBaseUrl()}/verification-identite" style="display: inline-block; background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Réessayer la vérification
+          </a>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/** Claim received — acknowledge to mover */
+export async function sendClaimReceivedEmail(to: string, companyName: string, reason: string, claimId: string) {
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Réclamation reçue — ${reason}`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Demenagement24</h1>
+        </div>
+        <div style="padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="margin-top: 0;">Bonjour ${companyName},</h2>
+          <p>Votre réclamation a bien été enregistrée.</p>
+          <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 24px 0; border: 1px solid #e5e7eb;">
+            <p style="margin: 0;"><strong>Référence :</strong> ${claimId.slice(0, 8).toUpperCase()}</p>
+            <p style="margin: 8px 0 0;"><strong>Motif :</strong> ${reason}</p>
+          </div>
+          <p>Notre équipe examinera votre réclamation sous 48 heures ouvrées. Vous recevrez un email dès qu'une décision sera prise.</p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/** Notify admin of new claim */
+export async function notifyAdminNewClaim(companyName: string, reason: string, claimId: string) {
+  return getResend().emails.send({
+    from: FROM,
+    to: ADMIN_EMAIL,
+    subject: `Nouvelle réclamation de ${companyName} — ${reason}`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Demenagement24 — Admin</h1>
+        </div>
+        <div style="padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="margin-top: 0;">Nouvelle réclamation</h2>
+          <div style="background: #fffbeb; border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 0;"><strong>Entreprise :</strong> ${companyName}</p>
+            <p style="margin: 8px 0 0;"><strong>Motif :</strong> ${reason}</p>
+            <p style="margin: 8px 0 0;"><strong>Réf :</strong> ${claimId.slice(0, 8).toUpperCase()}</p>
+          </div>
+          <a href="${emailBaseUrl()}/admin/claims" style="display: inline-block; background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Traiter la réclamation
+          </a>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/** Claim resolved — tell mover the decision */
+export async function sendClaimResolvedEmail(
+  to: string, companyName: string, status: "approved" | "rejected" | "refunded", reason: string
+) {
+  const statusLabels: Record<string, { label: string; color: string; bg: string }> = {
+    approved: { label: "Approuvée", color: "#16a34a", bg: "#f0fdf4" },
+    rejected: { label: "Rejetée", color: "#dc2626", bg: "#fef2f2" },
+    refunded: { label: "Remboursée", color: "#2563eb", bg: "#eff6ff" },
+  };
+  const s = statusLabels[status] || statusLabels.approved;
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Réclamation ${s.label.toLowerCase()} — ${reason}`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Demenagement24</h1>
+        </div>
+        <div style="padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="margin-top: 0;">Bonjour ${companyName},</h2>
+          <p>Votre réclamation pour <strong>${reason}</strong> a été traitée.</p>
+          <div style="background: ${s.bg}; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: ${s.color};">${s.label}</p>
+            ${status === "refunded" ? '<p style="margin: 8px 0 0;">Le remboursement sera crédité sous 5 à 10 jours ouvrés.</p>' : ""}
+          </div>
+          <a href="${emailBaseUrl()}/facturation" style="display: inline-block; background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Voir ma facturation
+          </a>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/** Refund processed — tell mover */
+export async function sendRefundEmail(to: string, companyName: string, amountCents: number) {
+  const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Remboursement de ${amount} effectué`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Demenagement24</h1>
+        </div>
+        <div style="padding: 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="margin-top: 0;">Bonjour ${companyName},</h2>
+          <p>Un remboursement de <strong>${amount}</strong> a été effectué sur votre compte.</p>
+          <div style="background: #eff6ff; border-radius: 8px; padding: 16px; margin: 24px 0;">
+            <p style="margin: 0;"><strong>Montant :</strong> ${amount}</p>
+            <p style="margin: 8px 0 0;">Le crédit apparaîtra sur votre moyen de paiement sous 5 à 10 jours ouvrés.</p>
+          </div>
+          <a href="${emailBaseUrl()}/facturation" style="display: inline-block; background: #22c55e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Voir ma facturation
+          </a>
+        </div>
+      </div>
+    `,
+  });
+}
+
 /** Notify admin of a successful payment */
 export async function notifyAdminPaymentSuccess(
   companyName: string,

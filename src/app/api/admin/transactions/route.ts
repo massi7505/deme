@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { refundPayment } from "@/lib/mollie";
+import { sendRefundEmail } from "@/lib/resend";
 
 export async function GET() {
   try {
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
           .eq("id", txn.quote_distribution_id);
       }
 
-      // Notify mover
+      // Notify mover (in-app)
       await supabase.from("notifications").insert({
         company_id: txn.company_id,
         type: "refund",
@@ -174,6 +175,20 @@ export async function POST(request: NextRequest) {
         body: `Un remboursement de ${(txn.amount_cents / 100).toFixed(2)} € a été effectué sur votre compte.`,
         data: { transactionId },
       });
+
+      // Send refund email to mover
+      const { data: refundCompany } = await supabase
+        .from("companies")
+        .select("name, email_billing, email_contact")
+        .eq("id", txn.company_id)
+        .single();
+      if (refundCompany) {
+        const emailTo = refundCompany.email_billing || refundCompany.email_contact;
+        if (emailTo) {
+          await sendRefundEmail(emailTo, refundCompany.name, txn.amount_cents)
+            .catch((err) => console.error("Refund email error:", err));
+        }
+      }
 
       return NextResponse.json({ success: true });
     }

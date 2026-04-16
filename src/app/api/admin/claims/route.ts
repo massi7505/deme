@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { sendClaimResolvedEmail } from "@/lib/resend";
 
 export async function GET() {
   const supabase = createUntypedAdminClient();
@@ -79,6 +80,26 @@ export async function POST(request: NextRequest) {
       .eq("id", body.id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Send resolution email to mover
+    if (["approved", "rejected", "refunded"].includes(body.status)) {
+      const { data: claimForEmail } = await supabase.from("claims").select("company_id, reason").eq("id", body.id).single();
+      if (claimForEmail) {
+        const { data: comp } = await supabase
+          .from("companies")
+          .select("name, email_contact")
+          .eq("id", claimForEmail.company_id)
+          .single();
+        if (comp?.email_contact) {
+          await sendClaimResolvedEmail(
+            comp.email_contact,
+            comp.name,
+            body.status as "approved" | "rejected" | "refunded",
+            claimForEmail.reason || "Réclamation"
+          ).catch((err) => console.error("Claim resolved email error:", err));
+        }
+      }
+    }
 
     // If refunded, create refund transaction + update distribution
     if (body.status === "refunded") {

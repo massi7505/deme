@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { sendClaimReceivedEmail, notifyAdminNewClaim } from "@/lib/resend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,6 +93,22 @@ export async function POST(request: NextRequest) {
         { error: "Erreur lors de la création de la réclamation" },
         { status: 500 }
       );
+    }
+
+    // Send confirmation email to mover + notify admin
+    const { data: companyInfo } = await admin
+      .from("companies")
+      .select("name, email_contact")
+      .eq("id", company.id)
+      .single();
+
+    if (companyInfo?.email_contact && claim) {
+      await sendClaimReceivedEmail(companyInfo.email_contact, companyInfo.name, reason, claim.id)
+        .catch((err) => console.error("Claim received email error:", err));
+    }
+    if (claim) {
+      await notifyAdminNewClaim(companyInfo?.name || "Inconnu", reason, claim.id)
+        .catch((err) => console.error("Admin claim notification error:", err));
     }
 
     return NextResponse.json({ success: true, claim });

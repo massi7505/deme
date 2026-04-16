@@ -5,6 +5,7 @@ import {
 } from "@/lib/sumsub";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { notifyKycApproved } from "@/lib/onesignal";
+import { sendKycApprovedEmail, sendKycRejectedEmail } from "@/lib/resend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,6 +49,17 @@ export async function POST(request: NextRequest) {
           });
 
           await notifyKycApproved(companyId);
+
+          // Send KYC approved email
+          const { data: approvedCompany } = await supabase
+            .from("companies")
+            .select("name, email_contact")
+            .eq("id", companyId)
+            .single();
+          if (approvedCompany?.email_contact) {
+            await sendKycApprovedEmail(approvedCompany.email_contact, approvedCompany.name)
+              .catch((err) => console.error("KYC approved email error:", err));
+          }
         } else if (reviewAnswer === "RED") {
           // KYC rejected
           const rejectReason =
@@ -64,6 +76,17 @@ export async function POST(request: NextRequest) {
             title: "Vérification refusée",
             body: `Votre vérification a été refusée : ${rejectReason}. Veuillez réessayer.`,
           });
+
+          // Send KYC rejected email
+          const { data: rejectedCompany } = await supabase
+            .from("companies")
+            .select("name, email_contact")
+            .eq("id", companyId)
+            .single();
+          if (rejectedCompany?.email_contact) {
+            await sendKycRejectedEmail(rejectedCompany.email_contact, rejectedCompany.name, rejectReason)
+              .catch((err) => console.error("KYC rejected email error:", err));
+          }
         }
         break;
       }
