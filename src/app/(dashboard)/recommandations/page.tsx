@@ -28,7 +28,14 @@ interface FaqCategory {
   items: { question: string; answer: string }[];
 }
 
-const buildFaqCategories = (siteName: string): FaqCategory[] => [
+interface FaqContext {
+  siteName: string;
+  siteHost: string;
+  contactEmail: string;
+  contactPhone: string;
+}
+
+const buildFaqCategories = ({ siteName, siteHost, contactEmail, contactPhone }: FaqContext): FaqCategory[] => [
   {
     title: "Notre service",
     icon: Briefcase,
@@ -130,7 +137,7 @@ const buildFaqCategories = (siteName: string): FaqCategory[] => [
       {
         question: "Comment accéder à mon tableau de bord ?",
         answer:
-          "Connectez-vous avec vos identifiants sur demenagement24.fr. Vous accéderez directement à votre tableau de bord avec une vue d'ensemble de votre activité, vos demandes récentes et vos statistiques.",
+          `Connectez-vous avec vos identifiants sur ${siteHost}. Vous accéderez directement à votre tableau de bord avec une vue d'ensemble de votre activité, vos demandes récentes et vos statistiques.`,
       },
       {
         question: "Puis-je gérer mon compte depuis mobile ?",
@@ -140,7 +147,7 @@ const buildFaqCategories = (siteName: string): FaqCategory[] => [
       {
         question: "Comment contacter le support ?",
         answer:
-          "Vous pouvez contacter votre responsable de compte directement depuis la plateforme via le bouton 'Contacter' présent sur chaque page. Vous pouvez également nous écrire à support@demenagement24.fr ou appeler le 01 23 45 67 89.",
+          `Vous pouvez contacter votre responsable de compte directement depuis la plateforme via le bouton 'Contacter' présent sur chaque page. Vous pouvez également nous écrire à ${contactEmail} ou appeler le ${contactPhone}.`,
       },
     ],
   },
@@ -151,8 +158,9 @@ const buildFaqCategories = (siteName: string): FaqCategory[] => [
 // ---------------------------------------------------------------------------
 
 export default function RecommandationsPage() {
-  const { siteName } = useSiteSettings();
-  const FAQ_CATEGORIES = buildFaqCategories(siteName);
+  const { siteName, siteUrl, contactEmail, contactPhone } = useSiteSettings();
+  const siteHost = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const FAQ_CATEGORIES = buildFaqCategories({ siteName, siteHost, contactEmail, contactPhone });
   return (
     <div className="space-y-8">
       {/* Title */}
@@ -223,9 +231,9 @@ export default function RecommandationsPage() {
                 Vous n&apos;avez pas trouvé votre réponse ?
               </p>
               <p className="mt-1 text-xs text-green-700">
-                Contactez votre responsable de compte Marie Dupont directement
-                depuis votre tableau de bord, ou envoyez un email à{" "}
-                <span className="font-medium">support@demenagement24.fr</span>.
+                Contactez votre responsable de compte directement depuis
+                votre tableau de bord, ou envoyez un email à{" "}
+                <span className="font-medium">{contactEmail}</span>.
               </p>
             </div>
           </CardContent>
