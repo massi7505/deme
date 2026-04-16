@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       email_verification_code: code,
       email_verification_expires: otpExpiryIso(),
       email_verification_last_sent_at: new Date().toISOString(),
+      email_verification_attempts: 0,
     })
     .eq("id", quoteId);
 

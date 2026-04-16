@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       phone_verification_code: code,
       phone_verification_expires: otpExpiryIso(),
       phone_verification_last_sent_at: new Date().toISOString(),
+      phone_verification_attempts: 0,
     })
     .eq("id", quoteId);
 
