@@ -129,6 +129,22 @@ export async function GET() {
   const pendingLeads = leads.filter((l) => l.status === "pending").length;
   const conversionRate = totalLeads > 0 ? Math.round((unlockedLeads / totalLeads) * 100) : 0;
 
+  // Revenue from actual paid transactions (deduplicated per lead, same logic as billing)
+  const { data: paidTxns } = await admin
+    .from("transactions")
+    .select("quote_distribution_id, amount_cents, status, type")
+    .eq("company_id", company.id)
+    .eq("status", "paid")
+    .in("type", ["unlock", "lead_purchase"]);
+
+  const seenDists = new Set<string>();
+  let revenue = 0;
+  for (const t of (paidTxns || []) as Array<{ quote_distribution_id: string; amount_cents: number }>) {
+    if (t.quote_distribution_id && seenDists.has(t.quote_distribution_id)) continue;
+    if (t.quote_distribution_id) seenDists.add(t.quote_distribution_id);
+    if (t.amount_cents > 0) revenue += t.amount_cents;
+  }
+
   // Get notifications
   const { data: notifications } = await admin
     .from("notifications")
@@ -147,9 +163,7 @@ export async function GET() {
       unlockedLeads,
       pendingLeads,
       conversionRate,
-      revenue: leads
-        .filter((l) => l.status === "unlocked")
-        .reduce((sum: number, l) => sum + (Number(l.priceCents) || 0), 0),
+      revenue,
     },
     notifications: notifications || [],
   });
