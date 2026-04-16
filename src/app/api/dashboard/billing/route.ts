@@ -49,21 +49,30 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Calculate monthly summary
+  // Calculate monthly summary — only count PAID, deduplicate per lead
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const thisMonthTxns = (transactions || []).filter(
+  const thisMonthPaid = (transactions || []).filter(
     (t: Record<string, unknown>) =>
-      t.status === "paid" && (t.created_at as string) >= firstOfMonth
+      t.status === "paid" &&
+      (t.created_at as string) >= firstOfMonth &&
+      (t.amount_cents as number) > 0 // exclude refund credits
   );
 
-  const subscriptionTotal = thisMonthTxns
+  const subscriptionTotal = thisMonthPaid
     .filter((t: Record<string, unknown>) => t.type === "subscription")
     .reduce((sum: number, t: Record<string, unknown>) => sum + ((t.amount_cents as number) || 0), 0);
 
-  const unlockTotal = thisMonthTxns
-    .filter((t: Record<string, unknown>) => t.type === "unlock" || t.type === "lead_purchase")
-    .reduce((sum: number, t: Record<string, unknown>) => sum + ((t.amount_cents as number) || 0), 0);
+  // Deduplicate lead purchases: only count one paid transaction per distribution
+  const seenDistributions = new Set<string>();
+  let unlockTotal = 0;
+  for (const t of thisMonthPaid) {
+    if (t.type !== "unlock" && t.type !== "lead_purchase") continue;
+    const distId = t.quote_distribution_id as string;
+    if (distId && seenDistributions.has(distId)) continue; // skip duplicate
+    if (distId) seenDistributions.add(distId);
+    unlockTotal += (t.amount_cents as number) || 0;
+  }
 
   // Build full invoice URLs server-side
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
