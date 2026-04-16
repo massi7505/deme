@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 
 type Step = "email" | "otp" | "done";
 
+const OTP_LENGTH = 8;
+
 const emailSchema = z.object({
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
 });
@@ -36,21 +38,23 @@ type ResetFormData = z.infer<typeof resetSchema>;
 function OtpInput({
   value,
   onChange,
+  length = OTP_LENGTH,
   disabled,
 }: {
   value: string;
   onChange: (v: string) => void;
+  length?: number;
   disabled?: boolean;
 }) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
-  const digits = value.padEnd(6, " ").split("").slice(0, 6);
+  const digits = value.padEnd(length, " ").split("").slice(0, length);
 
   function setDigit(i: number, d: string) {
     const clean = d.replace(/\D/g, "").slice(0, 1);
-    const arr = value.padEnd(6, " ").split("");
+    const arr = value.padEnd(length, " ").split("");
     arr[i] = clean || " ";
     onChange(arr.join("").trim());
-    if (clean && i < 5) refs.current[i + 1]?.focus();
+    if (clean && i < length - 1) refs.current[i + 1]?.focus();
   }
 
   function handleKey(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
@@ -61,14 +65,14 @@ function OtpInput({
 
   function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
     e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length);
     if (!pasted) return;
     onChange(pasted);
-    refs.current[Math.min(pasted.length, 5)]?.focus();
+    refs.current[Math.min(pasted.length, length - 1)]?.focus();
   }
 
   return (
-    <div className="flex justify-between gap-2">
+    <div className="flex justify-between gap-1.5 sm:gap-2">
       {digits.map((d, i) => (
         <input
           key={i}
@@ -84,7 +88,7 @@ function OtpInput({
           onKeyDown={(e) => handleKey(i, e)}
           onPaste={handlePaste}
           aria-label={`Chiffre ${i + 1}`}
-          className="h-14 w-full rounded-lg border border-input bg-background text-center font-mono text-xl font-semibold text-foreground outline-none ring-offset-background transition focus:border-[var(--brand-green)] focus:ring-2 focus:ring-[var(--brand-green)]/40 disabled:opacity-50"
+          className="h-12 w-full min-w-0 rounded-lg border border-input bg-background text-center font-mono text-lg font-semibold text-foreground outline-none ring-offset-background transition focus:border-[var(--brand-green)] focus:ring-2 focus:ring-[var(--brand-green)]/40 disabled:opacity-50 sm:h-14 sm:text-xl"
         />
       ))}
     </div>
@@ -156,8 +160,8 @@ export default function MotDePasseOubliePage() {
   }
 
   async function onSubmitReset(data: ResetFormData) {
-    if (otp.length !== 6) {
-      toast.error("Saisissez le code à 6 chiffres reçu par email");
+    if (otp.length !== OTP_LENGTH) {
+      toast.error(`Saisissez le code à ${OTP_LENGTH} chiffres reçu par email`);
       return;
     }
     setSubmitting(true);
@@ -203,7 +207,7 @@ export default function MotDePasseOubliePage() {
                 Mot de passe oublié
               </h1>
               <p className="text-sm text-muted-foreground">
-                Entrez votre email pour recevoir un code de vérification à 6 chiffres
+                Entrez votre email pour recevoir un code de vérification à {OTP_LENGTH} chiffres
               </p>
             </div>
 
@@ -272,14 +276,14 @@ export default function MotDePasseOubliePage() {
                 Entrez le code de vérification
               </h1>
               <p className="text-sm text-muted-foreground">
-                Un code à 6 chiffres a été envoyé à{" "}
+                Un code à {OTP_LENGTH} chiffres a été envoyé à{" "}
                 <span className="font-medium text-foreground">{email}</span>. Il expire dans 60 minutes.
               </p>
             </div>
 
             <form onSubmit={resetForm.handleSubmit(onSubmitReset)} className="space-y-5">
               <div className="space-y-2">
-                <Label>Code à 6 chiffres</Label>
+                <Label>Code à {OTP_LENGTH} chiffres</Label>
                 <OtpInput value={otp} onChange={setOtp} disabled={submitting} />
                 <div className="flex items-center justify-between pt-1 text-xs">
                   <span className="text-muted-foreground">
@@ -346,7 +350,7 @@ export default function MotDePasseOubliePage() {
 
               <Button
                 type="submit"
-                disabled={submitting || otp.length !== 6}
+                disabled={submitting || otp.length !== OTP_LENGTH}
                 className="w-full bg-brand-gradient text-white shadow-lg shadow-green-500/20 hover:brightness-110"
                 size="lg"
               >

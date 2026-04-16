@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
   const normalizedEmail = String(email).trim().toLowerCase();
   const normalizedOtp = String(otp).trim();
 
-  if (!/^\d{6}$/.test(normalizedOtp)) {
+  if (!/^\d{6,8}$/.test(normalizedOtp)) {
     return NextResponse.json(
-      { error: "Le code doit contenir 6 chiffres" },
+      { error: "Le code doit contenir 6 à 8 chiffres" },
       { status: 400 }
     );
   }
