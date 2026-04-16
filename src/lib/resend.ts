@@ -144,3 +144,18 @@ export async function sendPasswordResetEmail(to: string, otpCode: string, expiry
     expiryMinutes: String(expiryMinutes),
   });
 }
+
+export async function sendQuoteVerificationEmail(
+  to: string,
+  clientName: string,
+  otpCode: string,
+  expiryMinutes: number,
+  verifyUrl: string
+) {
+  return sendTemplated("quoteVerification", to, {
+    clientName,
+    otpCode,
+    expiryMinutes: String(expiryMinutes),
+    verifyUrl,
+  });
+}
