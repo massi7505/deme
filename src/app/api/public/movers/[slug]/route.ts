@@ -16,7 +16,6 @@ export async function GET(
       created_at,
       company_regions(department_code, department_name, categories),
       company_photos(id, url, caption, order_index),
-      company_qna(id, question, answer, order_index),
       reviews(id, rating, comment, reviewer_name, is_anonymous, is_verified, created_at)
     `)
     .eq("slug", params.slug)
@@ -26,5 +25,13 @@ export async function GET(
     return NextResponse.json({ error: "Entreprise non trouvée" }, { status: 404 });
   }
 
-  return NextResponse.json(company);
+  // Fetch Q&A separately — ordered and only with non-empty answers
+  const { data: company_qna } = await supabase
+    .from("company_qna")
+    .select("id, question, answer, order_index")
+    .eq("company_id", company.id)
+    .neq("answer", "")
+    .order("order_index", { ascending: true });
+
+  return NextResponse.json({ ...company, company_qna: company_qna || [] });
 }
