@@ -114,15 +114,19 @@ export function verifyWebhook(args: {
   signatureHeader: string | null;
   timestampHeader: string | null;
 }): DiditWebhookPayload {
-  if (!args.signatureHeader) throw new Error("missing x-signature-v2 header");
-  if (!args.timestampHeader) throw new Error("missing x-timestamp header");
+  if (!args.signatureHeader) throw new Error("missing signature header");
 
-  const ts = parseInt(args.timestampHeader, 10);
-  if (!Number.isFinite(ts)) throw new Error("invalid x-timestamp");
-
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (Math.abs(nowSec - ts) > 300) {
-    throw new Error(`stale webhook: timestamp skew ${Math.abs(nowSec - ts)}s`);
+  // Timestamp is optional — some didit setups don't send it. If present,
+  // enforce a 300s replay window.
+  if (args.timestampHeader) {
+    const ts = parseInt(args.timestampHeader, 10);
+    if (!Number.isFinite(ts)) throw new Error("invalid x-timestamp");
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSec - ts) > 300) {
+      throw new Error(
+        `stale webhook: timestamp skew ${Math.abs(nowSec - ts)}s`
+      );
+    }
   }
 
   const expected = crypto
@@ -130,13 +134,18 @@ export function verifyWebhook(args: {
     .update(args.rawBody)
     .digest("hex");
 
-  const given = args.signatureHeader.trim();
+  // Accept signature as raw hex, optionally prefixed with "sha256=" (Stripe-
+  // style).
+  const given = args.signatureHeader.trim().replace(/^sha256=/, "");
+
   const sameLen = given.length === expected.length;
   if (
     !sameLen ||
     !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))
   ) {
-    throw new Error("signature mismatch");
+    throw new Error(
+      `signature mismatch (expected=${expected.slice(0, 8)}… given=${given.slice(0, 8)}…)`
+    );
   }
 
   return JSON.parse(args.rawBody) as DiditWebhookPayload;

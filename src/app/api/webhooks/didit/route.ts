@@ -11,15 +11,28 @@ import { sendKycApprovedEmail, sendKycRejectedEmail } from "@/lib/resend";
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
+  // Accept either header name — didit has shipped both across versions.
+  const signatureHeader =
+    request.headers.get("x-signature-v2") ??
+    request.headers.get("x-signature") ??
+    request.headers.get("X-Signature");
+  const timestampHeader =
+    request.headers.get("x-timestamp") ?? request.headers.get("X-Timestamp");
+
   let payload: DiditWebhookPayload;
   try {
     payload = verifyWebhook({
       rawBody,
-      signatureHeader: request.headers.get("x-signature-v2"),
-      timestampHeader: request.headers.get("x-timestamp"),
+      signatureHeader,
+      timestampHeader,
     });
   } catch (err) {
-    console.warn("[didit webhook] verification failed:", (err as Error).message);
+    console.warn(
+      "[didit webhook] verification failed:",
+      (err as Error).message,
+      "headers:",
+      JSON.stringify(Object.fromEntries(request.headers.entries()))
+    );
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

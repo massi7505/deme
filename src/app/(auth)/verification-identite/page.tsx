@@ -42,12 +42,29 @@ function VerificationIdentiteInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isReturning = searchParams.get("return") === "1";
+  // didit appends ?status=Approved|Declined|... on the callback URL. Use it
+  // as the immediate UI state, while the webhook persists the true kyc_status
+  // asynchronously.
+  const diditStatus = searchParams.get("status");
+  const urlHintedStatus: KycStatus | null =
+    diditStatus === "Approved"
+      ? "approved"
+      : diditStatus === "Declined"
+      ? "rejected"
+      : diditStatus === "In Review"
+      ? "in_review"
+      : null;
 
   const [starting, setStarting] = useState(false);
-  const [returnStatus, setReturnStatus] = useState<KycStatus | null>(null);
+  const [returnStatus, setReturnStatus] = useState<KycStatus | null>(
+    urlHintedStatus
+  );
 
   useEffect(() => {
     if (!isReturning) return;
+    // If we already have a terminal status from the URL, skip polling.
+    if (urlHintedStatus === "approved" || urlHintedStatus === "rejected") return;
+
     let stopped = false;
     let attempts = 0;
 
@@ -72,7 +89,7 @@ function VerificationIdentiteInner() {
     return () => {
       stopped = true;
     };
-  }, [isReturning]);
+  }, [isReturning, urlHintedStatus]);
 
   async function handleStart() {
     setStarting(true);
