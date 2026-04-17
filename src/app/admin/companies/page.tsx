@@ -209,13 +209,7 @@ export default function AdminCompanies() {
       });
       const data = await res.json();
       if (!res.ok) {
-        if ((data.error || "").includes("wallet_transactions")) {
-          toast.error("Base de données incomplète — ouvrez /admin/setup", {
-            duration: 6000,
-          });
-        } else {
-          toast.error(data.error || "Erreur de remboursement");
-        }
+        toast.error(data.error || "Erreur de remboursement");
         return;
       }
       toast.success(
