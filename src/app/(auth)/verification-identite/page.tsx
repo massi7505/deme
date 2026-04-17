@@ -59,10 +59,29 @@ function VerificationIdentiteInner() {
   const [returnStatus, setReturnStatus] = useState<KycStatus | null>(
     urlHintedStatus
   );
+  // Initial status fetched on mount. If the company is already approved or
+  // stuck in_review (and reconciled via self-heal), render the return UI
+  // instead of the start UI.
+  const [initialStatus, setInitialStatus] = useState<KycStatus | null>(null);
+
+  useEffect(() => {
+    // Always check current status on mount — catches the case where the mover
+    // navigates back here after a completed verification whose webhook was
+    // dropped (/api/kyc/status self-heals against didit).
+    let cancelled = false;
+    fetch("/api/kyc/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { kyc_status: KycStatus } | null) => {
+        if (!cancelled && data) setInitialStatus(data.kyc_status);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isReturning) return;
-    // If we already have a terminal status from the URL, skip polling.
     if (urlHintedStatus === "approved" || urlHintedStatus === "rejected") return;
 
     let stopped = false;
@@ -91,6 +110,15 @@ function VerificationIdentiteInner() {
     };
   }, [isReturning, urlHintedStatus]);
 
+  // Treat as "returning" (show status UI) if the URL says so, OR if we just
+  // learned the mover is already approved / has a terminal status.
+  const effectiveReturn =
+    isReturning ||
+    initialStatus === "approved" ||
+    initialStatus === "rejected" ||
+    initialStatus === "in_review";
+  const effectiveStatus = returnStatus ?? initialStatus;
+
   async function handleStart() {
     setStarting(true);
     try {
@@ -108,8 +136,9 @@ function VerificationIdentiteInner() {
     }
   }
 
-  // Return UI
-  if (isReturning) {
+  // Return UI — shown either on the didit callback (?return=1) OR when the
+  // mover navigates here with a non-pending status (approved, rejected, in_review).
+  if (effectiveReturn) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -118,11 +147,11 @@ function VerificationIdentiteInner() {
         className="space-y-6"
       >
         <div className="flex justify-center">
-          {returnStatus === "approved" ? (
+          {effectiveStatus === "approved" ? (
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-green-100">
               <CheckCircle2 className="h-10 w-10 text-green-600" />
             </div>
-          ) : returnStatus === "rejected" ? (
+          ) : effectiveStatus === "rejected" ? (
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-red-100">
               <XCircle className="h-10 w-10 text-red-600" />
             </div>
@@ -134,21 +163,21 @@ function VerificationIdentiteInner() {
         </div>
         <div className="space-y-3 text-center">
           <h1 className="font-display text-2xl font-bold tracking-tight">
-            {returnStatus === "approved"
+            {effectiveStatus === "approved"
               ? "Vérification approuvée"
-              : returnStatus === "rejected"
+              : effectiveStatus === "rejected"
               ? "Vérification refusée"
               : "Vérification en cours d'analyse"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {returnStatus === "approved"
+            {effectiveStatus === "approved"
               ? "Votre identité est confirmée. Votre compte est maintenant actif."
-              : returnStatus === "rejected"
+              : effectiveStatus === "rejected"
               ? "Votre vérification n'a pas pu être validée. Vous pouvez réessayer."
               : "Cela prend en général moins d'une minute."}
           </p>
         </div>
-        {returnStatus === "approved" ? (
+        {effectiveStatus === "approved" ? (
           <Button
             className="w-full bg-brand-gradient text-white"
             size="lg"
@@ -156,11 +185,15 @@ function VerificationIdentiteInner() {
           >
             Accéder à mon compte <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
-        ) : returnStatus === "rejected" ? (
+        ) : effectiveStatus === "rejected" ? (
           <Button
             className="w-full bg-brand-gradient text-white"
             size="lg"
-            onClick={() => router.replace("/verification-identite")}
+            onClick={() => {
+              setInitialStatus(null);
+              setReturnStatus(null);
+              router.replace("/verification-identite");
+            }}
           >
             Réessayer <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
