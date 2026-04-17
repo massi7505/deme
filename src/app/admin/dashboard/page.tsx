@@ -236,17 +236,39 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <>
-              <div className="flex h-32 items-end gap-[2px]">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  Total :{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatPrice(stats.revenue30d)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  Pic : {formatPrice(sparkMax)}
+                </span>
+              </div>
+              <div className="mt-3 flex h-32 items-end gap-[3px] rounded-lg bg-muted/20 p-2">
                 {stats.sparkline.map((p) => {
-                  const h =
-                    p.cents > 0 ? Math.max(4, Math.round((p.cents / sparkMax) * 100)) : 2;
+                  const hasData = p.cents > 0;
+                  const h = hasData
+                    ? Math.max(10, Math.round((p.cents / sparkMax) * 100))
+                    : 100;
                   return (
                     <div
                       key={p.date}
-                      className="flex-1 rounded-t bg-[var(--brand-green)]/30 transition-colors hover:bg-[var(--brand-green)]"
-                      style={{ height: `${h}%` }}
-                      title={`${p.date} : ${formatPrice(p.cents)}`}
-                    />
+                      className="group relative flex-1"
+                      title={`${p.date} · ${formatPrice(p.cents)}`}
+                    >
+                      <div
+                        className={cn(
+                          "w-full rounded-t transition-colors",
+                          hasData
+                            ? "bg-[var(--brand-green)] group-hover:bg-[var(--brand-green-dark)]"
+                            : "bg-muted-foreground/10"
+                        )}
+                        style={{ height: `${h}%` }}
+                      />
+                    </div>
                   );
                 })}
               </div>

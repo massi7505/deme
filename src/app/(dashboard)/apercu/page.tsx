@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccountManagerCard } from "@/components/dashboard/AccountManagerCard";
 import { motion } from "framer-motion";
-import { formatPrice, formatDate, maskText } from "@/lib/utils";
+import { formatPrice, formatDate, maskText, cn } from "@/lib/utils";
 import {
   FileText,
   Unlock,
@@ -196,23 +196,46 @@ export default function ApercuPage() {
             </CardHeader>
             <CardContent>
               {stats.revenue30d === 0 ? (
-                <div className="flex h-28 items-center justify-center rounded-lg bg-muted/30">
+                <div className="flex h-32 items-center justify-center rounded-lg bg-muted/30">
                   <p className="text-sm text-muted-foreground">
                     Aucun achat de lead sur les 30 derniers jours
                   </p>
                 </div>
               ) : (
                 <>
-                  <div className="flex h-28 items-end gap-[2px]">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      Total :{" "}
+                      <span className="font-semibold text-foreground">
+                        {formatPrice(stats.revenue30d)}
+                      </span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Pic : {formatPrice(sparkMax)}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex h-32 items-end gap-[3px] rounded-lg bg-muted/20 p-2">
                     {stats.sparkline.map((p) => {
-                      const h = p.cents > 0 ? Math.max(4, Math.round((p.cents / sparkMax) * 100)) : 2;
+                      const hasData = p.cents > 0;
+                      const h = hasData
+                        ? Math.max(10, Math.round((p.cents / sparkMax) * 100))
+                        : 100;
                       return (
                         <div
                           key={p.date}
-                          className="flex-1 rounded-t bg-[var(--brand-green)]/20 transition-colors hover:bg-[var(--brand-green)]"
-                          style={{ height: `${h}%` }}
-                          title={`${p.date} : ${formatPrice(p.cents)}`}
-                        />
+                          className="group relative flex-1"
+                          title={`${p.date} · ${formatPrice(p.cents)}`}
+                        >
+                          <div
+                            className={cn(
+                              "w-full rounded-t transition-colors",
+                              hasData
+                                ? "bg-[var(--brand-green)] group-hover:bg-[var(--brand-green-dark)]"
+                                : "bg-muted-foreground/10"
+                            )}
+                            style={{ height: `${h}%` }}
+                          />
+                        </div>
                       );
                     })}
                   </div>
