@@ -6,7 +6,7 @@ import { downloadCSV } from "@/lib/csv-export";
 import {
   Search, CheckCircle2, Clock, XCircle, Shield, Ban,
   Eye, RefreshCw, Download, Trash2, ChevronLeft, MapPin,
-  Mail, Phone, Globe, Building2, Star, Play, Wallet, Plus, Loader2,
+  Mail, Phone, Globe, Building2, Star, Play, Wallet,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -78,14 +78,11 @@ export default function AdminCompanies() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [refundsEnabled, setRefundsEnabled] = useState(false);
-  const [walletDefaults, setWalletDefaults] = useState({ validityDays: 365, percent: 30 });
   const [walletData, setWalletData] = useState<{
     balance: number;
     transactions: Array<{ id: string; amount_cents: number; type: string; reason: string | null; expires_at: string | null; created_at: string }>;
   } | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
-  const [creditForm, setCreditForm] = useState({ amount: "", reason: "", validityDays: "365" });
-  const [crediting, setCrediting] = useState(false);
 
   async function fetchCompanies() {
     setLoading(true);
@@ -98,18 +95,13 @@ export default function AdminCompanies() {
 
   useEffect(() => { fetchCompanies(); }, []);
 
-  // Load refund settings (to know if wallet panel should show + defaults)
+  // Load refund settings to know whether to show the wallet panel
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((r) => (r.ok ? r.json() : null))
       .then((s) => {
         if (!s) return;
         setRefundsEnabled(!!s.refundsEnabled);
-        setWalletDefaults({
-          validityDays: parseInt(s.walletValidityDays || "365", 10),
-          percent: parseInt(s.refundDefaultPercent || "30", 10),
-        });
-        setCreditForm((f) => ({ ...f, validityDays: String(s.walletValidityDays || "365") }));
       })
       .catch(() => {});
   }, []);
@@ -126,42 +118,6 @@ export default function AdminCompanies() {
       .then((d) => setWalletData(d))
       .finally(() => setWalletLoading(false));
   }, [selectedCompany, refundsEnabled]);
-
-  async function handleCreditWallet() {
-    if (!selectedCompany) return;
-    const amount = parseFloat(creditForm.amount.replace(",", "."));
-    if (!amount || amount <= 0) {
-      toast.error("Montant invalide");
-      return;
-    }
-    setCrediting(true);
-    try {
-      const res = await fetch("/api/admin/wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "credit",
-          companyId: selectedCompany.id,
-          amountCents: Math.round(amount * 100),
-          reason: creditForm.reason || "Remboursement admin",
-          validityDays: parseInt(creditForm.validityDays, 10) || walletDefaults.validityDays,
-          type: "refund",
-        }),
-      });
-      if (res.ok) {
-        toast.success("Portefeuille crédité — email envoyé");
-        setCreditForm((f) => ({ ...f, amount: "", reason: "" }));
-        // refresh
-        const wRes = await fetch(`/api/admin/wallet?companyId=${selectedCompany.id}`);
-        if (wRes.ok) setWalletData(await wRes.json());
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Erreur");
-      }
-    } finally {
-      setCrediting(false);
-    }
-  }
 
   async function handleDeleteRegion(regionId: string) {
     if (!confirm("Supprimer cette région ?")) return;
@@ -485,46 +441,12 @@ export default function AdminCompanies() {
                     </span>
                   </div>
 
-                  {/* Quick credit form */}
-                  <div className="space-y-2 rounded-lg border p-3">
-                    <p className="text-xs font-semibold">Créditer le portefeuille</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Montant (€)"
-                        value={creditForm.amount}
-                        onChange={(e) => setCreditForm((f) => ({ ...f, amount: e.target.value }))}
-                        className="flex-1 rounded-md border px-2 py-1.5 text-sm outline-none focus:border-[var(--brand-green)]"
-                        disabled={crediting}
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="Jours"
-                        value={creditForm.validityDays}
-                        onChange={(e) => setCreditForm((f) => ({ ...f, validityDays: e.target.value }))}
-                        className="w-20 rounded-md border px-2 py-1.5 text-sm outline-none focus:border-[var(--brand-green)]"
-                        disabled={crediting}
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Raison (visible par le déménageur)"
-                      value={creditForm.reason}
-                      onChange={(e) => setCreditForm((f) => ({ ...f, reason: e.target.value }))}
-                      className="w-full rounded-md border px-2 py-1.5 text-sm outline-none focus:border-[var(--brand-green)]"
-                      disabled={crediting}
-                    />
-                    <button
-                      onClick={handleCreditWallet}
-                      disabled={crediting || !creditForm.amount}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--brand-green)] px-3 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
-                    >
-                      {crediting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                      {crediting ? "En cours..." : "Créditer + email"}
-                    </button>
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-900">
+                    Tous les remboursements (wallet ou bancaire) se font depuis{" "}
+                    <a href="/admin/transactions" className="font-semibold underline">
+                      /admin/transactions
+                    </a>
+                    . Le plafond % est appliqué automatiquement.
                   </div>
 
                   {/* Recent transactions */}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
-import { refundPayment } from "@/lib/mollie";
-import { sendRefundEmail } from "@/lib/resend";
+import { createRefund, type RefundMethod } from "@/lib/wallet";
+import { sendRefundEmail, sendWalletRefundEmail } from "@/lib/resend";
 
 export async function GET() {
   try {
@@ -114,83 +114,78 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, transactionId } = await request.json();
+    const body = await request.json();
+    const action = body.action as string;
     const supabase = createUntypedAdminClient();
 
+    // Unified refund entry — replaces the old bank-only refund path.
+    // Body: { action: "refund", transactionId, amountCents, method, reason, adminNote? }
     if (action === "refund") {
-      const { data: txn } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("id", transactionId)
-        .single();
+      const {
+        transactionId,
+        amountCents,
+        method = "wallet",
+        reason,
+        adminNote,
+      } = body as {
+        transactionId?: string;
+        amountCents?: number;
+        method?: RefundMethod;
+        reason?: string;
+        adminNote?: string;
+      };
 
-      if (!txn) {
-        return NextResponse.json({ error: "Transaction introuvable" }, { status: 404 });
+      if (!transactionId) {
+        return NextResponse.json({ error: "transactionId requis" }, { status: 400 });
+      }
+      if (!amountCents || amountCents <= 0) {
+        return NextResponse.json({ error: "Montant invalide" }, { status: 400 });
+      }
+      if (method !== "wallet" && method !== "bank") {
+        return NextResponse.json({ error: "Méthode invalide" }, { status: 400 });
       }
 
-      if (txn.status !== "paid") {
-        return NextResponse.json({ error: "Seules les transactions payées peuvent être remboursées" }, { status: 400 });
-      }
+      try {
+        const result = await createRefund(supabase, {
+          sourceTransactionId: transactionId,
+          amountCents: Math.round(amountCents),
+          method,
+          reason: (reason || "Geste commercial").trim(),
+          adminNote: adminNote || null,
+        });
 
-      // Refund via Mollie if we have a payment ID
-      if (txn.mollie_payment_id) {
-        try {
-          await refundPayment(txn.mollie_payment_id, txn.amount_cents, "Remboursement admin");
-        } catch (err) {
-          console.error("Mollie refund error:", err);
-          return NextResponse.json({ error: "Erreur Mollie lors du remboursement" }, { status: 500 });
-        }
-      }
-
-      // Update transaction status
-      await supabase
-        .from("transactions")
-        .update({ status: "refunded" })
-        .eq("id", transactionId);
-
-      // Create refund transaction record
-      await supabase.from("transactions").insert({
-        company_id: txn.company_id,
-        quote_distribution_id: txn.quote_distribution_id,
-        mollie_payment_id: txn.mollie_payment_id,
-        amount_cents: -txn.amount_cents,
-        currency: txn.currency || "EUR",
-        type: "refund",
-        status: "paid",
-      });
-
-      // Revert the lead to pending
-      if (txn.quote_distribution_id) {
-        await supabase
-          .from("quote_distributions")
-          .update({ status: "refunded" })
-          .eq("id", txn.quote_distribution_id);
-      }
-
-      // Notify mover (in-app)
-      await supabase.from("notifications").insert({
-        company_id: txn.company_id,
-        type: "refund",
-        title: "Remboursement effectué",
-        body: `Un remboursement de ${(txn.amount_cents / 100).toFixed(2)} € a été effectué sur votre compte.`,
-        data: { transactionId },
-      });
-
-      // Send refund email to mover
-      const { data: refundCompany } = await supabase
-        .from("companies")
-        .select("name, email_billing, email_contact")
-        .eq("id", txn.company_id)
-        .single();
-      if (refundCompany) {
-        const emailTo = refundCompany.email_billing || refundCompany.email_contact;
+        // Email — different template per method
+        const emailTo = result.company.email_contact;
         if (emailTo) {
-          await sendRefundEmail(emailTo, refundCompany.name, txn.amount_cents)
-            .catch((err) => console.error("Refund email error:", err));
+          if (method === "wallet" && result.expiresAt) {
+            await sendWalletRefundEmail(
+              emailTo,
+              result.company.name,
+              result.amountCents,
+              result.expiresAt,
+              result.newBalance
+            ).catch((err) => console.error("[refund] wallet email error:", err));
+          } else if (method === "bank") {
+            await sendRefundEmail(
+              emailTo,
+              result.company.name,
+              result.amountCents
+            ).catch((err) => console.error("[refund] bank email error:", err));
+          }
         }
-      }
 
-      return NextResponse.json({ success: true });
+        return NextResponse.json({
+          success: true,
+          method: result.method,
+          amountCents: result.amountCents,
+          percent: result.percent,
+          newBalance: result.newBalance,
+        });
+      } catch (err) {
+        const msg = (err as Error).message;
+        console.error("[refund] createRefund failed:", msg);
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
     }
 
     return NextResponse.json({ error: "Action inconnue" }, { status: 400 });

@@ -24,6 +24,8 @@ interface PerCompany {
   name: string;
   revenueCents: number;
   refundedCents: number;
+  refundedWalletCents: number;
+  refundedBankCents: number;
   liabilityCents: number;
   netCents: number;
 }
@@ -43,12 +45,17 @@ interface AccountingData {
     unlockRevenueCents: number;
     subscriptionRevenueCents: number;
     refundsIssuedCents: number;
+    refundsWalletCents: number;
+    refundsBankCents: number;
     walletConsumedCents: number;
     netRevenueCents: number;
     liabilityCents: number;
     expiredCreditsCents: number;
     transactionCount: number;
     refundCount: number;
+    walletRefundCount: number;
+    bankRefundCount: number;
+    avgRefundPercent: number | null;
   };
   perCompany: PerCompany[];
   soonExpiring: SoonExpiring[];
@@ -143,8 +150,10 @@ export default function AdminComptabilite() {
                 perCompany.map((c) => ({
                   Déménageur: c.name,
                   "Revenu brut (€)": (c.revenueCents / 100).toFixed(2),
-                  "Remboursé (€)": (c.refundedCents / 100).toFixed(2),
-                  "Solde portefeuille (€)": (c.liabilityCents / 100).toFixed(2),
+                  "Remb. wallet (€)": (c.refundedWalletCents / 100).toFixed(2),
+                  "Remb. banque (€)": (c.refundedBankCents / 100).toFixed(2),
+                  "Remb. total (€)": (c.refundedCents / 100).toFixed(2),
+                  "Solde wallet (€)": (c.liabilityCents / 100).toFixed(2),
                   "Net (€)": (c.netCents / 100).toFixed(2),
                 })),
                 `comptabilite-${period}`
@@ -192,6 +201,30 @@ export default function AdminComptabilite() {
         </div>
       )}
 
+      {/* Refund split */}
+      {kpis && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <SubKpi
+            label={`Wallet (${kpis.walletRefundCount})`}
+            value={formatPrice(kpis.refundsWalletCents)}
+            icon={Wallet}
+            tooltip="Crédits portefeuille — l'argent reste sur la plateforme"
+          />
+          <SubKpi
+            label={`Banque (${kpis.bankRefundCount})`}
+            value={formatPrice(kpis.refundsBankCents)}
+            icon={TrendingDown}
+            tooltip="Remboursements carte via Mollie — argent sorti de la plateforme"
+          />
+          <SubKpi
+            label="% moyen appliqué"
+            value={kpis.avgRefundPercent != null ? `${kpis.avgRefundPercent.toFixed(1)} %` : "—"}
+            icon={TrendingUp}
+            tooltip="Moyenne du % remboursé par transaction source"
+          />
+        </div>
+      )}
+
       {/* Sub KPIs */}
       {kpis && (
         <div className="grid gap-3 sm:grid-cols-3">
@@ -233,8 +266,9 @@ export default function AdminComptabilite() {
                 <tr className="border-b bg-gray-50/50">
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">Déménageur</th>
                   <th className="px-4 py-3 text-right font-medium text-muted-foreground">Revenu</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Remboursé</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Portefeuille</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground" title="Crédits portefeuille">R. wallet</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground" title="Remboursement carte">R. banque</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Solde wallet</th>
                   <th className="px-4 py-3 text-right font-medium text-muted-foreground">Net</th>
                 </tr>
               </thead>
@@ -246,7 +280,10 @@ export default function AdminComptabilite() {
                       {formatPrice(c.revenueCents)}
                     </td>
                     <td className="px-4 py-3 text-right text-amber-600">
-                      {c.refundedCents > 0 ? `-${formatPrice(c.refundedCents)}` : "—"}
+                      {c.refundedWalletCents > 0 ? `-${formatPrice(c.refundedWalletCents)}` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right text-red-600">
+                      {c.refundedBankCents > 0 ? `-${formatPrice(c.refundedBankCents)}` : "—"}
                     </td>
                     <td className="px-4 py-3 text-right text-purple-600">
                       {c.liabilityCents > 0 ? formatPrice(c.liabilityCents) : "—"}

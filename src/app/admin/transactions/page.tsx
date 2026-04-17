@@ -151,7 +151,6 @@ export default function AdminTransactions() {
     }
     setRefunding(true);
     try {
-      // Rare case: refund on the original card via Mollie (full or partial).
       if (refundCardMode) {
         if (!confirm(
           `Cas exceptionnel : rembourser ${amount.toFixed(2)} € sur la carte du déménageur via Mollie ? Cette action est définitive.`
@@ -159,37 +158,16 @@ export default function AdminTransactions() {
           setRefunding(false);
           return;
         }
-        const res = await fetch("/api/admin/transactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "refund",
-            transactionId: refundTarget.id,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          toast.error(data.error || "Erreur Mollie");
-          return;
-        }
-        toast.success("Remboursement carte effectué");
-        closeRefund();
-        fetchTransactions();
-        return;
       }
-
-      // Default path: credit the wallet + send email
-      const res = await fetch("/api/admin/wallet", {
+      const res = await fetch("/api/admin/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "credit",
-          companyId: refundTarget.company_id,
+          action: "refund",
+          transactionId: refundTarget.id,
           amountCents: Math.round(amount * 100),
+          method: refundCardMode ? "bank" : "wallet",
           reason: refundReason || "Geste commercial",
-          sourceTransactionId: refundTarget.id,
-          quoteDistributionId: refundTarget.quote_distribution_id || null,
-          type: "refund",
         }),
       });
       const data = await res.json();
@@ -197,7 +175,11 @@ export default function AdminTransactions() {
         toast.error(data.error || "Erreur de remboursement");
         return;
       }
-      toast.success("Remboursement crédité — email envoyé");
+      toast.success(
+        refundCardMode
+          ? "Remboursement carte effectué"
+          : "Crédit portefeuille envoyé — email envoyé"
+      );
       closeRefund();
       fetchTransactions();
     } catch {
