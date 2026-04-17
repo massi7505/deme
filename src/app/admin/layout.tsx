@@ -17,6 +17,7 @@ import {
   Truck,
   LogOut,
   ChevronLeft,
+  BookOpenCheck,
 } from "lucide-react";
 
 const ADMIN_NAV = [
@@ -24,6 +25,7 @@ const ADMIN_NAV = [
   { href: "/admin/companies", label: "Déménageurs", icon: Building2 },
   { href: "/admin/leads", label: "Leads", icon: FileText },
   { href: "/admin/transactions", label: "Paiements", icon: CreditCard },
+  { href: "/admin/comptabilite", label: "Comptabilité", icon: BookOpenCheck },
   { href: "/admin/claims", label: "Réclamations", icon: AlertTriangle },
   { href: "/admin/blog", label: "Blog", icon: Newspaper },
   { href: "/admin/pages", label: "Pages CMS", icon: FileEdit },

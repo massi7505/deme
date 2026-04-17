@@ -151,6 +151,94 @@ export default function RefundsTab({ settings, onUpdate }: Props) {
           </div>
         </div>
 
+        {/* Guardrails — protect the company from over-refunding */}
+        <div className="mt-4 rounded-xl border bg-white shadow-sm">
+          <div className="border-b px-5 py-4">
+            <h3 className="font-display text-base font-semibold">Limites de sécurité</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Empêchent tout remboursement excessif, même par erreur. Bloquent l&apos;admin au moment du crédit.
+            </p>
+          </div>
+          <div className="space-y-4 p-5">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">% max par remboursement</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={settings.refundMaxPercent}
+                  onChange={(e) => onUpdate("refundMaxPercent", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Jamais plus de X % du montant de la transaction.
+                </p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Plafond mensuel / déménageur (€)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={settings.refundMaxPerMoverMonthly}
+                  onChange={(e) => onUpdate("refundMaxPerMoverMonthly", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Somme max cumulée sur le mois civil en cours. 0 = illimité.
+                </p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Plafond annuel / déménageur (€)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={settings.refundMaxPerMoverYearly}
+                  onChange={(e) => onUpdate("refundMaxPerMoverYearly", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Cumul sur les 365 derniers jours. 0 = illimité.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Délai entre deux remboursements (jours)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={settings.refundCooldownDays}
+                  onChange={(e) => onUpdate("refundCooldownDays", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pour un même déménageur. 0 = pas de cooldown.
+                </p>
+              </div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-gray-50/50 p-4 hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={settings.refundOncePerTransaction}
+                  onChange={(e) => onUpdate("refundOncePerTransaction", e.target.checked)}
+                  className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--brand-green)]"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">Une seule fois par transaction</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Empêche de rembourser deux fois la même transaction.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
           <div className="flex items-start gap-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />

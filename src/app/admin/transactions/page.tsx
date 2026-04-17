@@ -90,6 +90,12 @@ export default function AdminTransactions() {
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [refundsEnabled, setRefundsEnabled] = useState(false);
+  const [refundCardMode, setRefundCardMode] = useState(false);
+  const [walletCaps, setWalletCaps] = useState<{
+    monthRemaining: number;
+    yearRemaining: number;
+    maxPercent: number;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -98,7 +104,7 @@ export default function AdminTransactions() {
       .catch(() => {});
   }, []);
 
-  function openRefund(tx: Transaction) {
+  async function openRefund(tx: Transaction) {
     setRefundTarget(tx);
     setRefundAmount((Math.abs(tx.amount_cents) / 100).toFixed(2));
     setRefundReason(
@@ -106,6 +112,21 @@ export default function AdminTransactions() {
         ? `Geste commercial — lead ${tx.lead_prospect_id}`
         : "Geste commercial"
     );
+    setRefundCardMode(false);
+    // Load wallet caps to warn admin before they hit the ceiling
+    try {
+      const res = await fetch(`/api/admin/wallet?companyId=${tx.company_id}`);
+      if (res.ok) {
+        const d = await res.json();
+        setWalletCaps({
+          monthRemaining: d.caps?.monthRemainingCents ?? -1,
+          yearRemaining: d.caps?.yearRemainingCents ?? -1,
+          maxPercent: d.caps?.maxPercent ?? 100,
+        });
+      }
+    } catch {
+      setWalletCaps(null);
+    }
   }
 
   function closeRefund() {
@@ -113,6 +134,8 @@ export default function AdminTransactions() {
     setRefundTarget(null);
     setRefundAmount("");
     setRefundReason("");
+    setRefundCardMode(false);
+    setWalletCaps(null);
   }
 
   async function submitRefund() {
@@ -128,6 +151,34 @@ export default function AdminTransactions() {
     }
     setRefunding(true);
     try {
+      // Rare case: refund on the original card via Mollie (full or partial).
+      if (refundCardMode) {
+        if (!confirm(
+          `Cas exceptionnel : rembourser ${amount.toFixed(2)} € sur la carte du déménageur via Mollie ? Cette action est définitive.`
+        )) {
+          setRefunding(false);
+          return;
+        }
+        const res = await fetch("/api/admin/transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "refund",
+            transactionId: refundTarget.id,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.error || "Erreur Mollie");
+          return;
+        }
+        toast.success("Remboursement carte effectué");
+        closeRefund();
+        fetchTransactions();
+        return;
+      }
+
+      // Default path: credit the wallet + send email
       const res = await fetch("/api/admin/wallet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -295,9 +346,61 @@ export default function AdminTransactions() {
                 />
               </div>
 
-              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-900">
-                Le montant est crédité sur le portefeuille du déménageur. Un email « Vous avez reçu un remboursement » est envoyé automatiquement. Le crédit sera consommé sur ses prochains achats de leads.
-              </div>
+              {!refundCardMode && (
+                <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-900">
+                  <p>
+                    Le montant est crédité sur le <strong>portefeuille</strong> du déménageur. Un email « Vous avez reçu un remboursement » est envoyé automatiquement. Le crédit sera consommé sur ses prochains achats de leads.
+                  </p>
+                  {walletCaps && (
+                    <div className="mt-2 space-y-0.5 border-t border-blue-200 pt-2 text-[11px]">
+                      {walletCaps.maxPercent > 0 && walletCaps.maxPercent < 100 && (
+                        <p>
+                          Plafond par transaction :{" "}
+                          <strong>{walletCaps.maxPercent} %</strong> (soit max{" "}
+                          {((Math.abs(refundTarget.amount_cents) * walletCaps.maxPercent) / 10000).toFixed(2)} €)
+                        </p>
+                      )}
+                      {walletCaps.monthRemaining >= 0 && (
+                        <p>
+                          Reste ce mois : <strong>{(walletCaps.monthRemaining / 100).toFixed(2)} €</strong>
+                        </p>
+                      )}
+                      {walletCaps.yearRemaining >= 0 && (
+                        <p>
+                          Reste sur 365 j : <strong>{(walletCaps.yearRemaining / 100).toFixed(2)} €</strong>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {refundCardMode && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  <p className="font-semibold">⚠ Cas exceptionnel</p>
+                  <p className="mt-0.5">
+                    Le montant sera remboursé sur la <strong>carte bancaire</strong> du déménageur via Mollie. Action irréversible.
+                  </p>
+                </div>
+              )}
+
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={refundCardMode}
+                  onChange={(e) => setRefundCardMode(e.target.checked)}
+                  disabled={refunding || !refundTarget.mollie_payment_id}
+                  className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-amber-600"
+                />
+                <span className="flex-1 text-muted-foreground">
+                  <strong className="text-amber-700">Cas exceptionnel</strong> — rembourser sur la carte (Mollie) au lieu du portefeuille
+                  {!refundTarget.mollie_payment_id && (
+                    <span className="ml-1 text-[10px] italic">
+                      (indisponible : transaction sans paiement Mollie)
+                    </span>
+                  )}
+                </span>
+              </label>
             </div>
 
             <div className="mt-5 flex justify-end gap-2">
@@ -311,14 +414,23 @@ export default function AdminTransactions() {
               <button
                 onClick={submitRefund}
                 disabled={refunding || !refundAmount}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-md shadow-green-500/20 hover:brightness-110 disabled:opacity-50"
+                className={
+                  "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-md hover:brightness-110 disabled:opacity-50 " +
+                  (refundCardMode
+                    ? "bg-amber-600 shadow-amber-500/20"
+                    : "bg-brand-gradient shadow-green-500/20")
+                }
               >
                 {refunding ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Wallet className="h-3.5 w-3.5" />
                 )}
-                {refunding ? "En cours..." : "Rembourser + envoyer email"}
+                {refunding
+                  ? "En cours..."
+                  : refundCardMode
+                    ? "Rembourser sur carte"
+                    : "Rembourser + envoyer email"}
               </button>
             </div>
           </div>

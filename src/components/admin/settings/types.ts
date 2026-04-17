@@ -98,9 +98,15 @@ export interface Settings {
   // Refunds / wallet
   refundsEnabled: boolean;
   refundMode: "percentage" | "wallet";
-  refundDefaultPercent: string; // 0-100
-  walletValidityDays: string;   // integer, default 365
+  refundDefaultPercent: string;            // 0-100
+  walletValidityDays: string;              // integer, default 365
   refundAllowPartial: boolean;
+  // Safeguards so the company never over-refunds
+  refundMaxPercent: string;                // max % of a transaction per refund
+  refundMaxPerMoverMonthly: string;        // euros cap / mover / calendar month
+  refundMaxPerMoverYearly: string;         // euros cap / mover / rolling 365d
+  refundOncePerTransaction: boolean;       // one wallet refund per source transaction
+  refundCooldownDays: string;              // days between two refunds for same mover
 }
 
 export const EMAIL_TEMPLATE_DEFS: {
@@ -252,4 +258,9 @@ export const DEFAULT_SETTINGS: Settings = {
   refundDefaultPercent: "30",
   walletValidityDays: "365",
   refundAllowPartial: true,
+  refundMaxPercent: "50",
+  refundMaxPerMoverMonthly: "50.00",
+  refundMaxPerMoverYearly: "200.00",
+  refundOncePerTransaction: true,
+  refundCooldownDays: "3",
 };
