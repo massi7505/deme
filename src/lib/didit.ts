@@ -13,8 +13,12 @@ export type DiditStatus =
 
 export type DiditSession = {
   session_id: string;
-  session_token: string;
-  verification_url: string;
+  url: string;
+  // Optional fields returned by didit v3 — kept as unknown so we don't
+  // couple to the full response shape.
+  session_number?: number;
+  status?: string;
+  workflow_id?: string;
 };
 
 export type DiditWebhookPayload = {
@@ -72,7 +76,20 @@ export async function createSession(args: {
     throw new Error(`didit createSession failed ${response.status}: ${errText}`);
   }
 
-  return (await response.json()) as DiditSession;
+  const data = (await response.json()) as DiditSession & {
+    verification_url?: string;
+  };
+
+  // didit v3 returns `url`; older/alternate doc mentions `verification_url`.
+  // Support both so we don't break if the API shape shifts.
+  const verificationUrl = data.url ?? data.verification_url;
+  if (!verificationUrl || !data.session_id) {
+    throw new Error(
+      `didit createSession returned unexpected shape: ${JSON.stringify(data)}`
+    );
+  }
+
+  return { ...data, url: verificationUrl };
 }
 
 export async function getSession(

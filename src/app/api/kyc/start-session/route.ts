@@ -54,5 +54,5 @@ export async function POST(request: NextRequest) {
     })
     .eq("id", company.id);
 
-  return NextResponse.json({ verificationUrl: session.verification_url });
+  return NextResponse.json({ verificationUrl: session.url });
 }
