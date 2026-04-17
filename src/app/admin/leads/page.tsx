@@ -86,6 +86,10 @@ export default function AdminLeads() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterVerif, setFilterVerif] = useState("all");
+  const [filterDistribution, setFilterDistribution] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState<"created_desc" | "created_asc" | "distributions_desc" | "unlocked_desc">("created_desc");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [distributeLeadId, setDistributeLeadId] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState("");
@@ -196,17 +200,46 @@ export default function AdminLeads() {
       if (filterVerif === "phone-only" && !phoneV) return false;
       if (filterVerif === "none" && (emailV || phoneV)) return false;
     }
+    if (filterDistribution === "zero" && l.distributions > 0) return false;
+    if (filterDistribution === "with" && l.distributions === 0) return false;
+    if (filterDistribution === "unlocked" && l.unlocked === 0) return false;
+    if (filterDistribution === "full" && l.distributions < 6) return false;
+    if (dateFrom) {
+      if (new Date(l.created_at) < new Date(dateFrom)) return false;
+    }
+    if (dateTo) {
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      if (new Date(l.created_at) > end) return false;
+    }
     if (search) {
       const q = search.toLowerCase();
       return (
         l.prospect_id.toLowerCase().includes(q) ||
         (l.from_city || "").toLowerCase().includes(q) ||
         (l.to_city || "").toLowerCase().includes(q) ||
+        (l.from_postal_code || "").toLowerCase().includes(q) ||
+        (l.to_postal_code || "").toLowerCase().includes(q) ||
         (l.client_name || "").toLowerCase().includes(q) ||
-        (l.client_email || "").toLowerCase().includes(q)
+        (l.client_email || "").toLowerCase().includes(q) ||
+        (l.client_phone || "").toLowerCase().includes(q)
       );
     }
     return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case "created_asc":
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case "distributions_desc":
+        return b.distributions - a.distributions;
+      case "unlocked_desc":
+        return b.unlocked - a.unlocked;
+      case "created_desc":
+      default:
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
   });
 
   // Refresh selectedLead data when leads change
@@ -401,7 +434,7 @@ export default function AdminLeads() {
           <button onClick={fetchLeads} className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </button>
-          <button onClick={() => downloadCSV(filtered.map(l => ({ "Prospect ID": l.prospect_id, Client: l.client_name, Email: l.client_email, Téléphone: l.client_phone, "De": `${l.from_address || ""} ${l.from_city || ""}`, "Vers": `${l.to_address || ""} ${l.to_city || ""}`, Catégorie: l.category, Statut: l.status, Distributions: l.distributions, Date: formatDateShort(l.created_at) })), "leads")} className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
+          <button onClick={() => downloadCSV(sorted.map(l => ({ "Prospect ID": l.prospect_id, Client: l.client_name, Email: l.client_email, Téléphone: l.client_phone, "De": `${l.from_address || ""} ${l.from_city || ""}`, "Vers": `${l.to_address || ""} ${l.to_city || ""}`, Catégorie: l.category, Statut: l.status, Distributions: l.distributions, Date: formatDateShort(l.created_at) })), "leads")} className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
             <Download className="h-4 w-4" /> Export CSV
           </button>
         </div>
@@ -435,10 +468,40 @@ export default function AdminLeads() {
         </select>
       </div>
 
+      <div className="flex flex-wrap gap-3">
+        <select value={filterDistribution} onChange={(e) => setFilterDistribution(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+          <option value="all">Distrib. : toutes</option>
+          <option value="zero">Sans distribution</option>
+          <option value="with">Avec distribution</option>
+          <option value="unlocked">Au moins 1 débloqué</option>
+          <option value="full">Complet (6/6)</option>
+        </select>
+        <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm">
+          <span className="text-muted-foreground">Du</span>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent outline-none" />
+          <span className="text-muted-foreground">au</span>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent outline-none" />
+          {(dateFrom || dateTo) && (
+            <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="ml-1 text-xs text-muted-foreground hover:text-foreground">×</button>
+          )}
+        </div>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="ml-auto rounded-lg border bg-white px-3 py-2 text-sm">
+          <option value="created_desc">Plus récents d&apos;abord</option>
+          <option value="created_asc">Plus anciens d&apos;abord</option>
+          <option value="distributions_desc">Plus distribués</option>
+          <option value="unlocked_desc">Plus débloqués</option>
+        </select>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {sorted.length} lead{sorted.length !== 1 ? "s" : ""} affiché{sorted.length !== 1 ? "s" : ""}
+        {sorted.length !== leads.length && ` sur ${leads.length}`}
+      </p>
+
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-green-500 border-t-transparent" /></div>
-        ) : filtered.length === 0 ? (
+        ) : sorted.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">{search ? "Aucun résultat" : "Aucune demande de devis"}</div>
         ) : (
           <table className="w-full text-sm">
@@ -456,7 +519,7 @@ export default function AdminLeads() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((lead) => {
+              {sorted.map((lead) => {
                 const status = statusMap[lead.status] || statusMap.new;
                 const category = categoryMap[lead.category] || categoryMap.national;
 
