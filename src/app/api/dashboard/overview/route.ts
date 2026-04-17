@@ -19,12 +19,20 @@ export async function GET() {
     return NextResponse.json({ error: "Impossible d'initialiser le compte" }, { status: 500 });
   }
 
-  // Give brand-new movers something to look at on first dashboard hit.
-  const { count: existingDistributions } = await admin
+  // Auto-backfill for movers with little recent activity. Runs when they
+  // have less than 3 pending leads in the last 14 days, so the dashboard is
+  // never empty — critical for new signups who need to see demand to finish
+  // KYC + make their first purchase.
+  const fourteenDaysAgo = new Date(
+    Date.now() - 14 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const { count: recentPending } = await admin
     .from("quote_distributions")
     .select("id", { count: "exact", head: true })
-    .eq("company_id", company.id);
-  if ((existingDistributions ?? 0) === 0) {
+    .eq("company_id", company.id)
+    .eq("status", "pending")
+    .gte("created_at", fourteenDaysAgo);
+  if ((recentPending ?? 0) < 3) {
     await backfillLeadsForCompany(admin, company.id as string).catch(() => {});
   }
 

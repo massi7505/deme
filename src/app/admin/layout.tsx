@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronLeft,
   BookOpenCheck,
+  Wrench,
 } from "lucide-react";
 
 const ADMIN_NAV = [
@@ -31,6 +32,7 @@ const ADMIN_NAV = [
   { href: "/admin/pages", label: "Pages CMS", icon: FileEdit },
   { href: "/admin/reviews", label: "Avis", icon: Star },
   { href: "/admin/settings", label: "Paramètres", icon: Settings },
+  { href: "/admin/setup", label: "Installation", icon: Wrench },
 ];
 
 function getAdminToken(): string | null {
@@ -51,6 +53,7 @@ export default function AdminLayout({
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [siteName, setSiteName] = useState("Admin");
+  const [setupReady, setSetupReady] = useState<boolean | null>(null);
 
   // Skip auth check for login page
   const isLoginPage = pathname === "/admin/login";
@@ -60,7 +63,14 @@ export default function AdminLayout({
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.siteName) setSiteName(data.siteName); })
       .catch(() => {});
-  }, []);
+    // Check DB migration health once per session
+    if (!isLoginPage) {
+      fetch("/api/admin/setup")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d) setSetupReady(!!d.ready); })
+        .catch(() => {});
+    }
+  }, [isLoginPage]);
 
   useEffect(() => {
     if (isLoginPage) {
@@ -171,7 +181,27 @@ export default function AdminLayout({
             </button>
           </div>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6">
+          {setupReady === false && pathname !== "/admin/setup" && (
+            <div className="mb-4 flex items-center justify-between rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-red-900">
+                <span className="text-red-600">⚠</span>
+                <span>
+                  Base de données incomplète : la table{" "}
+                  <code className="rounded bg-white px-1">wallet_transactions</code>{" "}
+                  manque. Les remboursements ne fonctionnent pas.
+                </span>
+              </div>
+              <Link
+                href="/admin/setup"
+                className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+              >
+                Ouvrir l&apos;installation →
+              </Link>
+            </div>
+          )}
+          {children}
+        </div>
       </main>
     </div>
   );

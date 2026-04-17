@@ -1,7 +1,33 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, PostgrestError } from "@supabase/supabase-js";
 import { refundPayment } from "@/lib/mollie";
 
 type Admin = SupabaseClient;
+
+/**
+ * Returns true if the error indicates the wallet_transactions table does not
+ * exist yet (migration not applied). Used to degrade gracefully so the rest
+ * of the app keeps working while the operator runs the SQL.
+ */
+function isMissingTable(err: PostgrestError | null | undefined): boolean {
+  if (!err) return false;
+  // PostgREST: PGRST205 = Could not find the table in schema cache
+  // Postgres: 42P01 = undefined_table
+  if (err.code === "PGRST205" || err.code === "42P01") return true;
+  const msg = (err.message || "").toLowerCase();
+  return (
+    msg.includes("wallet_transactions") &&
+    (msg.includes("not find") || msg.includes("does not exist"))
+  );
+}
+
+export class WalletTableMissingError extends Error {
+  constructor() {
+    super(
+      "Table wallet_transactions absente. Appliquez la migration SQL 010_wallet.sql + 012_refund_method.sql dans Supabase."
+    );
+    this.name = "WalletTableMissingError";
+  }
+}
 
 export type RefundMethod = "wallet" | "bank";
 
@@ -57,11 +83,12 @@ export async function getWalletBalanceCents(
   admin: Admin,
   companyId: string
 ): Promise<number> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("wallet_transactions")
     .select("amount_cents, expires_at, refund_method")
     .eq("company_id", companyId);
 
+  if (isMissingTable(error)) return 0; // degrade gracefully
   if (!data || data.length === 0) return 0;
 
   const now = Date.now();
@@ -303,6 +330,7 @@ export async function createRefund(
     .select("id")
     .single();
 
+  if (isMissingTable(error)) throw new WalletTableMissingError();
   if (error || !inserted) {
     throw new Error(
       error?.message || "Échec de l'écriture dans wallet_transactions"
@@ -383,6 +411,7 @@ export async function debitWallet(
     .select("id")
     .single();
 
+  if (isMissingTable(error)) throw new WalletTableMissingError();
   if (error || !data) {
     throw new Error(error?.message || "Failed to debit wallet");
   }

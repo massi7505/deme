@@ -49,9 +49,6 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false }),
     getWalletBalanceCents(admin, companyId),
     readSettings(admin),
-    // Refundable source transactions (paid unlocks). Used to let admins
-    // pick a source and open a pre-filled refund modal from the company
-    // detail page without jumping to /admin/transactions.
     admin
       .from("transactions")
       .select(
@@ -63,6 +60,13 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
+
+  // If wallet_transactions doesn't exist yet, surface a single clear flag
+  // rather than returning 500s. Admin UI can warn the operator.
+  const walletTableMissing =
+    txnRes.error &&
+    ((txnRes.error as { code?: string }).code === "PGRST205" ||
+      (txnRes.error as { code?: string }).code === "42P01");
 
   // Mark transactions already refunded so the UI can disable the button
   const refundedSourceIds = new Set<string>();
@@ -107,6 +111,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     balance,
+    walletTableMissing: !!walletTableMissing,
     transactions: txnRes.data || [],
     refundableTransactions: paidTxns,
     caps: {
