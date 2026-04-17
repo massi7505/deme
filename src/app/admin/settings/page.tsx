@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Save, Loader2, Globe, CreditCard, Tag, Mail, Shield, Server, FileCode2, Receipt } from "lucide-react";
+import { Save, Loader2, Globe, CreditCard, Tag, Mail, Shield, Server, FileCode2, Receipt, Wallet } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import toast from "react-hot-toast";
 import type { Settings } from "@/components/admin/settings/types";
@@ -14,6 +14,7 @@ import SmtpTab from "@/components/admin/settings/SmtpTab";
 import SecurityTab from "@/components/admin/settings/SecurityTab";
 import EmailTemplatesTab from "@/components/admin/settings/EmailTemplatesTab";
 import InvoiceTab from "@/components/admin/settings/InvoiceTab";
+import RefundsTab from "@/components/admin/settings/RefundsTab";
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -117,6 +118,13 @@ export default function AdminSettings() {
             Facturation
           </TabsTrigger>
           <TabsTrigger
+            value="refunds"
+            className="gap-1.5 rounded-lg border border-transparent px-3 py-2 text-sm data-[state=active]:border-gray-200 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <Wallet className="h-4 w-4" />
+            Remboursements
+          </TabsTrigger>
+          <TabsTrigger
             value="notifications"
             className="gap-1.5 rounded-lg border border-transparent px-3 py-2 text-sm data-[state=active]:border-gray-200 data-[state=active]:bg-white data-[state=active]:shadow-sm"
           >
@@ -160,6 +168,10 @@ export default function AdminSettings() {
 
         <TabsContent value="invoice">
           <InvoiceTab settings={settings} onUpdate={updateStringField} />
+        </TabsContent>
+
+        <TabsContent value="refunds">
+          <RefundsTab settings={settings} onUpdate={updateField} />
         </TabsContent>
 
         <TabsContent value="notifications">

@@ -95,6 +95,12 @@ export interface Settings {
   invoiceConditions: string;
   // Security
   adminEmail: string;
+  // Refunds / wallet
+  refundsEnabled: boolean;
+  refundMode: "percentage" | "wallet";
+  refundDefaultPercent: string; // 0-100
+  walletValidityDays: string;   // integer, default 365
+  refundAllowPartial: boolean;
 }
 
 export const EMAIL_TEMPLATE_DEFS: {
@@ -113,6 +119,7 @@ export const EMAIL_TEMPLATE_DEFS: {
   { key: "claimReceived", label: "Réclamation reçue", category: "Déménageur", variables: ["siteName", "companyName", "reason", "claimRef"] },
   { key: "claimResolved", label: "Réclamation résolue", category: "Déménageur", variables: ["siteName", "companyName", "reason", "statusLabel", "statusColor", "statusBg", "baseUrl"] },
   { key: "refund", label: "Remboursement", category: "Déménageur", variables: ["siteName", "companyName", "amount", "baseUrl"] },
+  { key: "walletRefund", label: "Remboursement portefeuille", category: "Déménageur", variables: ["siteName", "companyName", "amount", "expiryDate", "balance", "baseUrl"] },
   { key: "adminPaymentSuccess", label: "Paiement reçu", category: "Admin", variables: ["siteName", "companyName", "amount", "invoiceNumber", "baseUrl"] },
   { key: "adminPaymentFailed", label: "Paiement échoué", category: "Admin", variables: ["siteName", "companyName", "amount", "dateTime", "baseUrl"] },
   { key: "adminNewClaim", label: "Nouvelle réclamation", category: "Admin", variables: ["siteName", "companyName", "reason", "claimRef", "baseUrl"] },
@@ -161,6 +168,10 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
   refund: {
     subject: "Remboursement de {{amount}} effectué",
     body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Un remboursement de <strong>{{amount}}</strong> a été effectué sur votre compte.</p><div style="background:#eff6ff;border-radius:8px;padding:16px;margin:24px 0"><p style="margin:0"><strong>Montant :</strong> {{amount}}</p><p style="margin:8px 0 0">Le crédit apparaîtra sur votre moyen de paiement sous 5 à 10 jours ouvrés.</p></div><a href="{{baseUrl}}/facturation" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir ma facturation</a></div></div>`,
+  },
+  walletRefund: {
+    subject: "Vous avez reçu un remboursement de {{amount}}",
+    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0;text-align:center"><h1 style="color:white;margin:0;font-size:24px;font-weight:700">{{siteName}}</h1></div><div style="padding:32px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0;font-size:20px;color:#111827">Bonjour {{companyName}},</h2><p style="color:#374151;line-height:1.6">Un remboursement vient d&apos;être crédité sur votre portefeuille {{siteName}}.</p><div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:24px 0;text-align:center"><p style="margin:0 0 4px;color:#166534;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Montant crédité</p><p style="margin:0;font-size:36px;font-weight:700;color:#166534">{{amount}}</p><p style="margin:12px 0 0;color:#166534;font-size:13px">Utilisable jusqu&apos;au <strong>{{expiryDate}}</strong></p></div><div style="background:#f9fafb;border-radius:8px;padding:16px;margin:16px 0"><p style="margin:0;color:#374151"><strong>Solde du portefeuille :</strong> {{balance}}</p><p style="margin:6px 0 0;color:#6b7280;font-size:13px">Ce crédit sera automatiquement utilisé lors de votre prochain achat de lead.</p></div><div style="text-align:center;margin-top:24px"><a href="{{baseUrl}}/facturation" style="display:inline-block;background:#22c55e;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Voir mon portefeuille</a></div></div></div>`,
   },
   adminPaymentSuccess: {
     subject: "Paiement reçu — {{amount}} de {{companyName}}",
@@ -236,4 +247,9 @@ export const DEFAULT_SETTINGS: Settings = {
   invoiceFooter: "Paiement effectue par carte bancaire via Mollie.",
   invoiceConditions: "",
   adminEmail: "",
+  refundsEnabled: false,
+  refundMode: "wallet",
+  refundDefaultPercent: "30",
+  walletValidityDays: "365",
+  refundAllowPartial: true,
 };

@@ -27,6 +27,8 @@ import {
   Clock,
   Loader2,
   FileX,
+  Wallet,
+  ArrowDownLeft,
 } from "lucide-react";
 
 function formatDateTime(date: string): string {
@@ -68,6 +70,21 @@ interface Summary {
   unlockCents: number;
 }
 
+interface WalletTxn {
+  id: string;
+  amount_cents: number;
+  type: string;
+  reason: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+interface Wallet {
+  enabled: boolean;
+  balanceCents: number;
+  transactions: WalletTxn[];
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -76,6 +93,7 @@ export default function FacturationPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -89,6 +107,7 @@ export default function FacturationPage() {
       setTransactions(data.transactions || []);
       setPlan(data.plan || null);
       setSummary(data.summary || null);
+      setWallet(data.wallet || null);
     } catch {
       toast.error("Impossible de charger la facturation");
     } finally {
@@ -121,6 +140,100 @@ export default function FacturationPage() {
           Gérez votre abonnement et consultez vos transactions.
         </p>
       </motion.div>
+
+      {/* Wallet */}
+      {wallet?.enabled && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <Card className="border-green-200 bg-gradient-to-br from-green-50/60 to-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Wallet className="h-4 w-4 text-[var(--brand-green)]" />
+                Mon portefeuille
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-1 rounded-lg bg-white/80 p-4">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Solde disponible
+                </span>
+                <span className="text-3xl font-bold text-[var(--brand-green-dark)]">
+                  {formatPrice(wallet.balanceCents)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Utilisé automatiquement lors de vos prochains achats de leads.
+                </span>
+              </div>
+
+              {wallet.transactions.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Historique récent
+                  </p>
+                  <div className="space-y-1">
+                    {wallet.transactions.slice(0, 5).map((t) => {
+                      const isCredit = t.amount_cents > 0;
+                      return (
+                        <div
+                          key={t.id}
+                          className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className={cn(
+                                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                                isCredit
+                                  ? "bg-green-50 text-green-600"
+                                  : "bg-gray-100 text-gray-500"
+                              )}
+                            >
+                              {isCredit ? (
+                                <ArrowDownLeft className="h-3.5 w-3.5" />
+                              ) : (
+                                <ArrowUpRight className="h-3.5 w-3.5" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium">
+                                {t.reason ||
+                                  (isCredit ? "Crédit" : "Achat lead")}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {formatDateTime(t.created_at)}
+                                {isCredit && t.expires_at && (
+                                  <>
+                                    {" · Expire le "}
+                                    {new Date(t.expires_at).toLocaleDateString(
+                                      "fr-FR",
+                                      { day: "2-digit", month: "2-digit", year: "numeric" }
+                                    )}
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              "text-sm font-semibold",
+                              isCredit ? "text-green-600" : "text-gray-700"
+                            )}
+                          >
+                            {isCredit ? "+" : ""}
+                            {formatPrice(t.amount_cents)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Plan card + summary */}
       <div className="grid gap-4 sm:grid-cols-2">

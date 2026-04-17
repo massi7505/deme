@@ -129,6 +129,24 @@ export async function sendRefundEmail(to: string, companyName: string, amountCen
   return sendTemplated("refund", to, { companyName, amount });
 }
 
+export async function sendWalletRefundEmail(
+  to: string,
+  companyName: string,
+  amountCents: number,
+  expiresAt: string,
+  balanceCents: number
+) {
+  const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+  const amount = fmt.format(amountCents / 100);
+  const balance = fmt.format(balanceCents / 100);
+  const expiryDate = new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(expiresAt));
+  return sendTemplated("walletRefund", to, { companyName, amount, expiryDate, balance });
+}
+
 export async function notifyAdminPaymentSuccess(companyName: string, amountCents: number, invoiceNumber: string) {
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
   return sendTemplated("adminPaymentSuccess", ADMIN_EMAIL, { companyName, amount, invoiceNumber });

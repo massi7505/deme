@@ -4,6 +4,7 @@ import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { createLeadPayment } from "@/lib/mollie";
 import { generateInvoice } from "@/lib/invoice";
 import { sendInvoiceEmail } from "@/lib/resend";
+import { getWalletBalanceCents, debitWallet } from "@/lib/wallet";
 
 const MAX_UNLOCKS_PER_LEAD = 6;
 const TRIAL_DAYS = 3;
@@ -116,6 +117,99 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 }
       );
+    }
+
+    // Wallet-first: if the mover has enough credit, settle the unlock from
+    // the wallet and skip Mollie entirely.
+    const walletBalance = await getWalletBalanceCents(supabase, company.id);
+    if (walletBalance >= distribution.price_cents) {
+      await supabase
+        .from("quote_distributions")
+        .update({ status: "unlocked", unlocked_at: new Date().toISOString() })
+        .eq("id", distributionId);
+
+      await debitWallet(supabase, {
+        companyId: company.id,
+        amountCents: distribution.price_cents,
+        reason: "Achat lead (portefeuille)",
+        quoteDistributionId: distributionId,
+      });
+
+      const { data: txn } = await supabase
+        .from("transactions")
+        .insert({
+          company_id: company.id,
+          quote_distribution_id: distributionId,
+          amount_cents: distribution.price_cents,
+          type: "unlock",
+          status: "paid",
+          description: "Achat lead (portefeuille)",
+        })
+        .select()
+        .single();
+
+      if (txn) {
+        const { data: companyInfo } = await supabase
+          .from("companies")
+          .select("name, siret, address, city, postal_code, email_billing, email_contact")
+          .eq("id", company.id)
+          .single();
+        if (companyInfo) {
+          let prospectId = "";
+          const { data: qr } = await supabase
+            .from("quote_requests")
+            .select("prospect_id")
+            .eq("id", distribution.quote_request_id)
+            .single();
+          if (qr) prospectId = qr.prospect_id;
+          const description = prospectId
+            ? `Déverrouillage demande de devis — ${prospectId}`
+            : "Déverrouillage demande de devis";
+          const invoice = await generateInvoice({
+            transactionId: txn.id,
+            companyId: company.id,
+            companyName: companyInfo.name,
+            companySiret: companyInfo.siret ?? "",
+            companyAddress: companyInfo.address ?? "",
+            companyCity: companyInfo.city ?? "",
+            companyPostalCode: companyInfo.postal_code ?? "",
+            description,
+            amountCents: txn.amount_cents,
+          }).catch(() => null);
+
+          const emailTo = companyInfo.email_billing || companyInfo.email_contact;
+          if (emailTo && invoice) {
+            await sendInvoiceEmail(
+              emailTo,
+              companyInfo.name,
+              invoice.invoiceNumber,
+              txn.amount_cents,
+              description
+            ).catch(() => {});
+          }
+        }
+      }
+
+      if (company.account_status === "trial") {
+        await supabase
+          .from("companies")
+          .update({ account_status: "active" })
+          .eq("id", company.id);
+      }
+
+      const { count: totalAfterWallet } = await supabase
+        .from("quote_distributions")
+        .select("id", { count: "exact", head: true })
+        .eq("quote_request_id", distribution.quote_request_id)
+        .eq("status", "unlocked");
+      if ((totalAfterWallet || 0) >= MAX_UNLOCKS_PER_LEAD) {
+        await supabase
+          .from("quote_requests")
+          .update({ status: "completed" })
+          .eq("id", distribution.quote_request_id);
+      }
+
+      return NextResponse.json({ success: true, paidFromWallet: true });
     }
 
     // ALL unlocks require payment

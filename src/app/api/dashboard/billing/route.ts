@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
+import { getWalletBalanceCents } from "@/lib/wallet";
 
 export async function GET() {
   const supabase = await createClient();
@@ -111,6 +112,29 @@ export async function GET() {
       : null,
   }));
 
+  // Wallet
+  const { data: settingsRow } = await admin
+    .from("site_settings")
+    .select("data")
+    .eq("id", 1)
+    .maybeSingle();
+  const settings = (settingsRow?.data || {}) as {
+    refundsEnabled?: boolean;
+  };
+
+  let walletBalance = 0;
+  let walletTxns: Record<string, unknown>[] = [];
+  if (settings.refundsEnabled) {
+    walletBalance = await getWalletBalanceCents(admin, company.id as string);
+    const { data: wtxns } = await admin
+      .from("wallet_transactions")
+      .select("*")
+      .eq("company_id", company.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    walletTxns = wtxns || [];
+  }
+
   return NextResponse.json({
     plan: {
       name: subscription?.plan || "Aucun",
@@ -122,6 +146,11 @@ export async function GET() {
       totalCents: subscriptionTotal + unlockTotal,
       subscriptionCents: subscriptionTotal,
       unlockCents: unlockTotal,
+    },
+    wallet: {
+      enabled: !!settings.refundsEnabled,
+      balanceCents: walletBalance,
+      transactions: walletTxns,
     },
   });
 }
