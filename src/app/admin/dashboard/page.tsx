@@ -13,6 +13,9 @@ import {
   Receipt,
   Unlock,
   Clock,
+  ShieldCheck,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { cn, formatPrice, formatDateShort } from "@/lib/utils";
 
@@ -37,12 +40,25 @@ interface SparkPoint {
   cents: number;
 }
 
+interface VerificationStats {
+  total: number;
+  distributed: number;
+  emailOnly: number;
+  phoneOnly: number;
+  both: number;
+  none: number;
+  rate: number;
+}
+
 interface Stats {
   companies: number;
   companiesActive: number;
   companiesTrial: number;
   leads: number;
   leadsPendingVerif: number;
+  leadsEmailVerified: number;
+  leadsPhoneVerified: number;
+  leadsBothVerified: number;
   distributionsUnlocked: number;
   distributionsPending: number;
   conversionRate: number;
@@ -51,6 +67,7 @@ interface Stats {
   pendingClaims: number;
   sparkline: SparkPoint[];
   topMovers: TopMover[];
+  verification30d: VerificationStats;
 }
 
 interface RecentCompany {
@@ -76,6 +93,9 @@ const DEFAULT_STATS: Stats = {
   companiesTrial: 0,
   leads: 0,
   leadsPendingVerif: 0,
+  leadsEmailVerified: 0,
+  leadsPhoneVerified: 0,
+  leadsBothVerified: 0,
   distributionsUnlocked: 0,
   distributionsPending: 0,
   conversionRate: 0,
@@ -84,6 +104,7 @@ const DEFAULT_STATS: Stats = {
   pendingClaims: 0,
   sparkline: [],
   topMovers: [],
+  verification30d: { total: 0, distributed: 0, emailOnly: 0, phoneOnly: 0, both: 0, none: 0, rate: 0 },
 };
 
 export default function AdminDashboard() {
@@ -327,6 +348,79 @@ export default function AdminDashboard() {
             </ul>
           )}
         </div>
+      </div>
+
+      {/* Verification funnel (last 30 days) */}
+      <div className="rounded-xl border bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[var(--brand-green)]" />
+            <h3 className="font-display text-base font-semibold">Vérifications sur 30 jours</h3>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {stats.verification30d.total} lead{stats.verification30d.total !== 1 ? "s" : ""} créé{stats.verification30d.total !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {stats.verification30d.total === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Aucun lead créé ces 30 derniers jours</p>
+        ) : (
+          <>
+            <div className="mb-5 grid gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border bg-green-50/50 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-green-700">
+                  <ShieldCheck className="h-3 w-3" /> Email + Tél
+                </div>
+                <div className="mt-1 text-2xl font-bold text-green-700">{stats.verification30d.both}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {stats.verification30d.total > 0 ? Math.round((stats.verification30d.both / stats.verification30d.total) * 100) : 0}% du total
+                </div>
+              </div>
+              <div className="rounded-lg border bg-emerald-50/50 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                  <Mail className="h-3 w-3" /> Email uniquement
+                </div>
+                <div className="mt-1 text-2xl font-bold text-emerald-700">{stats.verification30d.emailOnly}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {stats.verification30d.total > 0 ? Math.round((stats.verification30d.emailOnly / stats.verification30d.total) * 100) : 0}% du total
+                </div>
+              </div>
+              <div className="rounded-lg border bg-blue-50/50 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-700">
+                  <Phone className="h-3 w-3" /> Tél uniquement
+                </div>
+                <div className="mt-1 text-2xl font-bold text-blue-700">{stats.verification30d.phoneOnly}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {stats.verification30d.total > 0 ? Math.round((stats.verification30d.phoneOnly / stats.verification30d.total) * 100) : 0}% du total
+                </div>
+              </div>
+              <div className="rounded-lg border bg-red-50/50 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-red-700">
+                  <AlertTriangle className="h-3 w-3" /> Non vérifiés
+                </div>
+                <div className="mt-1 text-2xl font-bold text-red-700">{stats.verification30d.none}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {stats.verification30d.total > 0 ? Math.round((stats.verification30d.none / stats.verification30d.total) * 100) : 0}% du total
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Taux de complétion (au moins un canal vérifié → distribué)
+              </span>
+              <span className="text-lg font-bold text-foreground">
+                {stats.verification30d.rate}%
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-[var(--brand-green)] transition-all"
+                style={{ width: `${stats.verification30d.rate}%` }}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">

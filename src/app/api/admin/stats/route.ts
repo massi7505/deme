@@ -12,22 +12,30 @@ export async function GET() {
     companiesTrialRes,
     leadsRes,
     leadsPendingVerifRes,
+    leadsEmailVerifiedRes,
+    leadsPhoneVerifiedRes,
+    leadsBothVerifiedRes,
     distributionsUnlockedRes,
     distributionsPendingRes,
     transactionsAllRes,
     transactions30dRes,
     claimsRes,
+    verification30dRes,
   ] = await Promise.all([
     supabase.from("companies").select("id", { count: "exact", head: true }),
     supabase.from("companies").select("id", { count: "exact", head: true }).eq("account_status", "active"),
     supabase.from("companies").select("id", { count: "exact", head: true }).eq("account_status", "trial"),
     supabase.from("quote_requests").select("id", { count: "exact", head: true }),
     supabase.from("quote_requests").select("id", { count: "exact", head: true }).is("distributed_at", null),
+    supabase.from("quote_requests").select("id", { count: "exact", head: true }).eq("email_verified", true),
+    supabase.from("quote_requests").select("id", { count: "exact", head: true }).eq("phone_verified", true),
+    supabase.from("quote_requests").select("id", { count: "exact", head: true }).eq("email_verified", true).eq("phone_verified", true),
     supabase.from("quote_distributions").select("id", { count: "exact", head: true }).eq("status", "unlocked"),
     supabase.from("quote_distributions").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("transactions").select("amount_cents, company_id").eq("status", "paid").in("type", ["unlock", "lead_purchase"]),
     supabase.from("transactions").select("amount_cents, created_at").eq("status", "paid").in("type", ["unlock", "lead_purchase"]).gte("created_at", cutoff30dIso),
     supabase.from("claims").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("quote_requests").select("created_at, distributed_at, email_verified, phone_verified").gte("created_at", cutoff30dIso),
   ]);
 
   // Total revenue (all-time, deduped per company would be too heavy — sum raw)
@@ -104,6 +112,23 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(5);
 
+  // Verification stats: only meaningful for leads created after the feature
+  // shipped (005 migration added verification columns). Past leads have
+  // email_verified/phone_verified = false by backfill default.
+  const verif30d = (verification30dRes.data || []) as Array<{
+    created_at: string;
+    distributed_at: string | null;
+    email_verified: boolean | null;
+    phone_verified: boolean | null;
+  }>;
+  const v30Total = verif30d.length;
+  const v30Distributed = verif30d.filter((l) => l.distributed_at).length;
+  const v30EmailOnly = verif30d.filter((l) => l.email_verified && !l.phone_verified).length;
+  const v30PhoneOnly = verif30d.filter((l) => !l.email_verified && l.phone_verified).length;
+  const v30Both = verif30d.filter((l) => l.email_verified && l.phone_verified).length;
+  const v30None = verif30d.filter((l) => !l.email_verified && !l.phone_verified).length;
+  const verificationRate30d = v30Total > 0 ? Math.round((v30Distributed / v30Total) * 100) : 0;
+
   return NextResponse.json({
     stats: {
       companies: companiesRes.count || 0,
@@ -111,6 +136,9 @@ export async function GET() {
       companiesTrial: companiesTrialRes.count || 0,
       leads: leadsRes.count || 0,
       leadsPendingVerif: leadsPendingVerifRes.count || 0,
+      leadsEmailVerified: leadsEmailVerifiedRes.count || 0,
+      leadsPhoneVerified: leadsPhoneVerifiedRes.count || 0,
+      leadsBothVerified: leadsBothVerifiedRes.count || 0,
       distributionsUnlocked: totalUnlocked,
       distributionsPending: totalPending,
       conversionRate,
@@ -119,6 +147,15 @@ export async function GET() {
       pendingClaims: claimsRes.count || 0,
       sparkline,
       topMovers,
+      verification30d: {
+        total: v30Total,
+        distributed: v30Distributed,
+        emailOnly: v30EmailOnly,
+        phoneOnly: v30PhoneOnly,
+        both: v30Both,
+        none: v30None,
+        rate: verificationRate30d,
+      },
     },
     recentCompanies: recentCompanies || [],
     recentLeads: recentLeads || [],
