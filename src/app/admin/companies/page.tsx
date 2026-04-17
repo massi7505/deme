@@ -74,6 +74,9 @@ export default function AdminCompanies() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Company | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   async function fetchCompanies() {
     setLoading(true);
@@ -113,6 +116,38 @@ export default function AdminCompanies() {
     }
   }
 
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    if (deleteConfirmText.trim() !== deleteTarget.name.trim()) {
+      toast.error("Le nom saisi ne correspond pas");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/admin/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          id: deleteTarget.id,
+          confirmName: deleteConfirmText.trim(),
+        }),
+      });
+      if (res.ok) {
+        toast.success("Déménageur supprimé définitivement");
+        if (selectedCompany?.id === deleteTarget.id) setSelectedCompany(null);
+        setDeleteTarget(null);
+        setDeleteConfirmText("");
+        fetchCompanies();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Erreur lors de la suppression");
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   // Refresh selected when companies change
   useEffect(() => {
     if (selectedCompany) {
@@ -130,6 +165,78 @@ export default function AdminCompanies() {
     return true;
   });
 
+  // ─── DELETE CONFIRMATION MODAL ───────────────────────────
+  const deleteModal = deleteTarget && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteConfirmText(""); } }}
+    >
+      <div
+        className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+            <Trash2 className="h-5 w-5 text-red-600" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-bold text-gray-900">
+              Suppression définitive
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cette action est <span className="font-semibold text-red-600">irréversible</span>.
+              Elle supprime l&apos;entreprise, ses leads, transactions, factures, avis,
+              photos, notifications, le compte utilisateur et les fichiers stockés.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-xs text-red-900">
+            Pour confirmer, copiez le nom exact de l&apos;entreprise ci-dessous :
+          </p>
+          <div className="mt-2 flex items-center justify-between gap-2 rounded bg-white px-3 py-2 font-mono text-sm">
+            <span className="truncate">{deleteTarget.name}</span>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(deleteTarget.name)}
+              className="shrink-0 rounded bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
+            >
+              Copier
+            </button>
+          </div>
+        </div>
+
+        <input
+          type="text"
+          value={deleteConfirmText}
+          onChange={(e) => setDeleteConfirmText(e.target.value)}
+          placeholder="Collez le nom exact ici"
+          className="mt-3 w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+          autoFocus
+          disabled={deleting}
+        />
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={() => { setDeleteTarget(null); setDeleteConfirmText(""); }}
+            disabled={deleting}
+            className="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={confirmDelete}
+            disabled={deleting || deleteConfirmText.trim() !== deleteTarget.name.trim()}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {deleting ? "Suppression..." : "Supprimer définitivement"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── DETAIL VIEW ─────────────────────────────────────────
   if (selectedCompany) {
     const c = selectedCompany;
@@ -139,6 +246,7 @@ export default function AdminCompanies() {
 
     return (
       <div className="space-y-6">
+        {deleteModal}
         <button onClick={() => setSelectedCompany(null)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" /> Retour à la liste
         </button>
@@ -217,7 +325,7 @@ export default function AdminCompanies() {
             ) : (
               <button onClick={() => handleAction(c.id, "reactivate")} className="flex items-center gap-1.5 rounded-lg border bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"><Play className="h-3 w-3" /> Réactiver</button>
             )}
-            <button onClick={() => { if (confirm("Supprimer définitivement cette entreprise ?")) handleAction(c.id, "delete"); }} className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"><Trash2 className="h-3 w-3" /> Supprimer</button>
+            <button onClick={() => { setDeleteTarget(c); setDeleteConfirmText(""); }} className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"><Trash2 className="h-3 w-3" /> Supprimer</button>
           </div>
         </div>
 
@@ -288,6 +396,25 @@ export default function AdminCompanies() {
               </div>
             </div>
 
+            {/* Distribution stats */}
+            <div className="rounded-xl border bg-white shadow-sm">
+              <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Distribution de leads</h3></div>
+              <div className="grid grid-cols-3 divide-x p-4 text-center text-sm">
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{(c.quote_distributions || []).length}</p>
+                  <p className="text-xs text-muted-foreground">Reçus</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-[var(--brand-green)]">{(c.quote_distributions || []).filter(d => d.status === "unlocked").length}</p>
+                  <p className="text-xs text-muted-foreground">Achetés</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-amber-600">{(c.quote_distributions || []).filter(d => d.status === "pending").length}</p>
+                  <p className="text-xs text-muted-foreground">En attente</p>
+                </div>
+              </div>
+            </div>
+
             {/* Leads achetés */}
             <div className="rounded-xl border bg-white shadow-sm">
               <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Leads achetés ({(c.quote_distributions || []).filter(d => d.status === "unlocked").length})</h3></div>
@@ -345,6 +472,7 @@ export default function AdminCompanies() {
   // ─── LIST VIEW ───────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {deleteModal}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold">Déménageurs</h2>
@@ -387,6 +515,7 @@ export default function AdminCompanies() {
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">SIRET</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Statut</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">KYC</th>
+                <th className="px-5 py-3 text-left font-medium text-muted-foreground">Leads</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Note</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Inscrit le</th>
                 <th className="px-5 py-3 text-right font-medium text-muted-foreground">Actions</th>
@@ -397,6 +526,9 @@ export default function AdminCompanies() {
                 const status = statusConfig[company.account_status] || statusConfig.pending;
                 const kyc = kycConfig[company.kyc_status] || kycConfig.pending;
                 const KycIcon = kyc.icon;
+                const dists = company.quote_distributions || [];
+                const unlockedCount = dists.filter((d) => d.status === "unlocked").length;
+                const totalCount = dists.length;
 
                 return (
                   <tr key={company.id} className="border-b last:border-0 hover:bg-gray-50/50">
@@ -407,6 +539,10 @@ export default function AdminCompanies() {
                     <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{company.siret}</td>
                     <td className="px-5 py-3"><span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold", status.color)}>{status.label}</span></td>
                     <td className="px-5 py-3"><span className={cn("flex items-center gap-1 text-xs font-semibold", kyc.color)}><KycIcon className="h-3.5 w-3.5" />{kyc.label}</span></td>
+                    <td className="px-5 py-3">
+                      <span className="text-xs font-semibold text-foreground">{unlockedCount}</span>
+                      <span className="text-xs text-muted-foreground"> / {totalCount} reçus</span>
+                    </td>
                     <td className="px-5 py-3">{company.rating > 0 ? <span className="text-sm font-semibold">{Number(company.rating).toFixed(1)}/10</span> : <span className="text-xs text-muted-foreground">—</span>}</td>
                     <td className="px-5 py-3 text-muted-foreground">{formatDateShort(company.created_at)}</td>
                     <td className="px-5 py-3 text-right">
@@ -417,7 +553,7 @@ export default function AdminCompanies() {
                         ) : (
                           <button onClick={() => handleAction(company.id, "reactivate")} className="rounded-md p-1.5 text-muted-foreground hover:bg-green-50 hover:text-green-600" title="Réactiver"><Play className="h-4 w-4" /></button>
                         )}
-                        <button onClick={() => { if (confirm("Supprimer ?")) handleAction(company.id, "delete"); }} className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Supprimer"><Trash2 className="h-4 w-4" /></button>
+                        <button onClick={() => { setDeleteTarget(company); setDeleteConfirmText(""); }} className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Supprimer"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>

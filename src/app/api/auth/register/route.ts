@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
 import { sendWelcomeEmail } from "@/lib/resend";
+import { backfillLeadsForCompany } from "@/lib/backfill-leads";
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,13 +61,14 @@ export async function POST(request: NextRequest) {
     // 3. Create company
     const companyName =
       company.companyName || company.name || "Mon entreprise";
+    const fallbackSiret = "TEMP-" + userId.replace(/-/g, "").slice(0, 13);
     const { data: newCompany, error: companyError } = await supabase
       .from("companies")
       .insert({
         profile_id: userId,
         name: companyName,
         slug: slugify(companyName) + "-" + Date.now().toString(36),
-        siret: company.siret || "00000000000000",
+        siret: company.siret || fallbackSiret,
         address: company.address || null,
         postal_code: company.postalCode || company.postal_code || null,
         city: company.city || null,
@@ -94,6 +96,11 @@ export async function POST(request: NextRequest) {
         categories: types,
       }));
       await supabase.from("company_regions").insert(regions);
+
+      // 5. Seed matching recent leads so the new mover sees demand immediately.
+      await backfillLeadsForCompany(supabase, newCompany.id).catch((err) =>
+        console.error("[register] backfill error:", err)
+      );
     }
 
     // Send welcome email

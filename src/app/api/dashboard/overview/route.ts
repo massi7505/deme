@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { ensureCompanyForUser } from "@/lib/ensure-company";
+import { backfillLeadsForCompany } from "@/lib/backfill-leads";
 
 export async function GET() {
   const supabase = await createClient();
@@ -12,15 +14,18 @@ export async function GET() {
 
   const admin = createUntypedAdminClient();
 
-  // Get company
-  const { data: company } = await admin
-    .from("companies")
-    .select("*")
-    .eq("profile_id", user.id)
-    .single();
-
+  const company = await ensureCompanyForUser(admin, user.id, user.email || "");
   if (!company) {
-    return NextResponse.json({ error: "Aucune entreprise trouvée" }, { status: 404 });
+    return NextResponse.json({ error: "Impossible d'initialiser le compte" }, { status: 500 });
+  }
+
+  // Give brand-new movers something to look at on first dashboard hit.
+  const { count: existingDistributions } = await admin
+    .from("quote_distributions")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", company.id);
+  if ((existingDistributions ?? 0) === 0) {
+    await backfillLeadsForCompany(admin, company.id as string).catch(() => {});
   }
 
   // Get profile

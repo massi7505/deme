@@ -90,21 +90,106 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  // Delete company
+  // Delete company (full purge: DB + storage + auth user)
   if (body.action === "delete") {
-    // Delete regions + radius first
-    await supabase.from("company_regions").delete().eq("company_id", body.id);
-    await supabase.from("company_radius").delete().eq("company_id", body.id);
-    await supabase.from("company_photos").delete().eq("company_id", body.id);
-    await supabase.from("company_qna").delete().eq("company_id", body.id);
-    await supabase.from("notifications").delete().eq("company_id", body.id);
+    const { data: target } = await supabase
+      .from("companies")
+      .select("id, name, profile_id")
+      .eq("id", body.id)
+      .single();
 
-    const { error } = await supabase
+    if (!target) {
+      return NextResponse.json(
+        { error: "Entreprise introuvable" },
+        { status: 404 }
+      );
+    }
+
+    // Require exact name match to prevent accidental deletion
+    const typed = (body.confirmName || "").toString().trim();
+    if (typed !== (target.name || "").trim()) {
+      return NextResponse.json(
+        { error: "Le nom saisi ne correspond pas au nom de l'entreprise" },
+        { status: 400 }
+      );
+    }
+
+    const companyId = target.id as string;
+    const profileId = target.profile_id as string | null;
+
+    // Storage cleanup — list + remove everything under {companyId}/
+    const purgeBucket = async (bucket: string) => {
+      try {
+        const { data: folders } = await supabase.storage
+          .from(bucket)
+          .list(companyId, { limit: 1000 });
+        const paths: string[] = [];
+        for (const entry of folders || []) {
+          if (entry.name === ".emptyFolderPlaceholder") continue;
+          // Files directly under {companyId}/
+          paths.push(`${companyId}/${entry.name}`);
+          // Subfolders (logos/, photos/) — list their contents too
+          const { data: sub } = await supabase.storage
+            .from(bucket)
+            .list(`${companyId}/${entry.name}`, { limit: 1000 });
+          if (sub && sub.length > 0) {
+            for (const f of sub) {
+              if (f.name === ".emptyFolderPlaceholder") continue;
+              paths.push(`${companyId}/${entry.name}/${f.name}`);
+            }
+          }
+        }
+        if (paths.length > 0) {
+          await supabase.storage.from(bucket).remove(paths);
+        }
+      } catch (err) {
+        console.error(`[delete] storage purge failed for ${bucket}:`, err);
+      }
+    };
+
+    await purgeBucket("company-assets");
+    await purgeBucket("invoices");
+
+    // Child tables — order matters only if FKs have no cascade.
+    // We clear everything by company_id to be safe.
+    await supabase.from("quote_distributions").delete().eq("company_id", companyId);
+    await supabase.from("transactions").delete().eq("company_id", companyId);
+    await supabase.from("subscriptions").delete().eq("company_id", companyId);
+    await supabase.from("reviews").delete().eq("company_id", companyId);
+    await supabase.from("claims").delete().eq("company_id", companyId);
+    await supabase.from("company_regions").delete().eq("company_id", companyId);
+    await supabase.from("company_radius").delete().eq("company_id", companyId);
+    await supabase.from("company_photos").delete().eq("company_id", companyId);
+    await supabase.from("company_qna").delete().eq("company_id", companyId);
+    await supabase.from("notifications").delete().eq("company_id", companyId);
+
+    const { error: companyDeleteError } = await supabase
       .from("companies")
       .delete()
-      .eq("id", body.id);
+      .eq("id", companyId);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (companyDeleteError) {
+      return NextResponse.json(
+        { error: companyDeleteError.message },
+        { status: 500 }
+      );
+    }
+
+    // Profile + auth user — only if this profile has no other companies
+    if (profileId) {
+      const { count: remaining } = await supabase
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .eq("profile_id", profileId);
+
+      if (!remaining) {
+        await supabase.from("profiles").delete().eq("id", profileId);
+        await supabase.auth.admin.deleteUser(profileId).catch((err) =>
+          console.error("[delete] auth.admin.deleteUser failed:", err)
+        );
+      }
+    }
+
     return NextResponse.json({ success: true });
   }
 

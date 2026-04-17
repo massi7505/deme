@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { ensureCompanyForUser } from "@/lib/ensure-company";
 
 export async function GET() {
   const supabase = await createClient();
@@ -14,17 +15,11 @@ export async function GET() {
 
   const admin = createUntypedAdminClient();
 
-  // Get company
-  const { data: company, error: companyError } = await admin
-    .from("companies")
-    .select("*")
-    .eq("profile_id", user.id)
-    .single();
-
-  if (companyError || !company) {
+  const company = await ensureCompanyForUser(admin, user.id, user.email || "");
+  if (!company) {
     return NextResponse.json(
-      { error: "Aucune entreprise trouvée" },
-      { status: 404 }
+      { error: "Impossible d'initialiser le compte" },
+      { status: 500 }
     );
   }
 
@@ -70,17 +65,11 @@ export async function POST(request: NextRequest) {
   const admin = createUntypedAdminClient();
   const body = await request.json();
 
-  // Get the company for this user
-  const { data: company } = await admin
-    .from("companies")
-    .select("id")
-    .eq("profile_id", user.id)
-    .single();
-
+  const company = await ensureCompanyForUser(admin, user.id, user.email || "");
   if (!company) {
     return NextResponse.json(
-      { error: "Aucune entreprise trouvée" },
-      { status: 404 }
+      { error: "Impossible d'initialiser le compte" },
+      { status: 500 }
     );
   }
 
