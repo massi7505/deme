@@ -52,6 +52,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  // Reset KYC to pending and clear the didit session id. The mover can then
+  // start a fresh verification from /verification-identite.
+  if (body.action === "reset_kyc") {
+    const { error } = await supabase
+      .from("companies")
+      .update({
+        kyc_status: "pending",
+        didit_session_id: null,
+        is_verified: false,
+      })
+      .eq("id", body.id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   // Suspend company
   if (body.action === "suspend") {
     const { error } = await supabase

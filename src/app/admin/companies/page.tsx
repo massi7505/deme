@@ -199,6 +199,18 @@ export default function AdminCompanies() {
             {c.kyc_status === "approved" && (
               <button onClick={() => { if (confirm("Révoquer la vérification KYC ?")) handleAction(c.id, "update_kyc", { kyc_status: "pending" }); }} className="flex items-center gap-1.5 rounded-lg border bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"><Shield className="h-3 w-3" /> Révoquer KYC</button>
             )}
+            {/* KYC: re-demander une nouvelle vérification (reset session) */}
+            {(c.kyc_status === "approved" || c.kyc_status === "rejected") && (
+              <button
+                onClick={() => {
+                  if (confirm("Re-demander une nouvelle vérification KYC ? Le déménageur devra la refaire depuis le début."))
+                    handleAction(c.id, "reset_kyc");
+                }}
+                className="flex items-center gap-1.5 rounded-lg border bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              >
+                <Shield className="h-3 w-3" /> Re-demander KYC
+              </button>
+            )}
             {/* Suspendre / Réactiver */}
             {c.account_status !== "suspended" ? (
               <button onClick={() => { if (confirm("Suspendre ce compte ?")) handleAction(c.id, "suspend"); }} className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"><Ban className="h-3 w-3" /> Suspendre</button>

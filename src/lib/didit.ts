@@ -1,0 +1,143 @@
+import crypto from "crypto";
+import { BRAND } from "@/lib/brand";
+
+const DIDIT_BASE_URL = "https://verification.didit.me";
+
+export type DiditStatus =
+  | "Not Started"
+  | "In Progress"
+  | "In Review"
+  | "Approved"
+  | "Declined"
+  | "Abandoned"
+  | "Expired";
+
+export type DiditSession = {
+  session_id: string;
+  session_token: string;
+  verification_url: string;
+};
+
+export type DiditWebhookPayload = {
+  session_id: string;
+  status: DiditStatus;
+  vendor_data: string;
+  webhook_type?: string;
+  decision?: {
+    status?: string;
+    reject_reason?: string;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+};
+
+function apiKey(): string {
+  const k = process.env.DIDIT_API_KEY;
+  if (!k) throw new Error("DIDIT_API_KEY not set");
+  return k;
+}
+
+function webhookSecret(): string {
+  const s = process.env.DIDIT_WEBHOOK_SECRET;
+  if (!s) throw new Error("DIDIT_WEBHOOK_SECRET not set");
+  return s;
+}
+
+function workflowId(): string {
+  const w = process.env.DIDIT_WORKFLOW_ID;
+  if (!w) throw new Error("DIDIT_WORKFLOW_ID not set");
+  return w;
+}
+
+export async function createSession(args: {
+  companyId: string;
+  email: string;
+}): Promise<DiditSession> {
+  const callback = `${BRAND.siteUrl}/verification-identite?return=1`;
+
+  const response = await fetch(`${DIDIT_BASE_URL}/v3/session/`, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      workflow_id: workflowId(),
+      vendor_data: args.companyId,
+      callback,
+      contact_details: { email: args.email },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`didit createSession failed ${response.status}: ${errText}`);
+  }
+
+  return (await response.json()) as DiditSession;
+}
+
+export async function getSession(
+  sessionId: string
+): Promise<{ status: DiditStatus; [k: string]: unknown }> {
+  const response = await fetch(
+    `${DIDIT_BASE_URL}/v3/session/${sessionId}/decision/`,
+    {
+      method: "GET",
+      headers: { "x-api-key": apiKey() },
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`didit getSession failed ${response.status}: ${errText}`);
+  }
+  return await response.json();
+}
+
+export function verifyWebhook(args: {
+  rawBody: string;
+  signatureHeader: string | null;
+  timestampHeader: string | null;
+}): DiditWebhookPayload {
+  if (!args.signatureHeader) throw new Error("missing x-signature-v2 header");
+  if (!args.timestampHeader) throw new Error("missing x-timestamp header");
+
+  const ts = parseInt(args.timestampHeader, 10);
+  if (!Number.isFinite(ts)) throw new Error("invalid x-timestamp");
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSec - ts) > 300) {
+    throw new Error(`stale webhook: timestamp skew ${Math.abs(nowSec - ts)}s`);
+  }
+
+  const expected = crypto
+    .createHmac("sha256", webhookSecret())
+    .update(args.rawBody)
+    .digest("hex");
+
+  const given = args.signatureHeader.trim();
+  const sameLen = given.length === expected.length;
+  if (
+    !sameLen ||
+    !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))
+  ) {
+    throw new Error("signature mismatch");
+  }
+
+  return JSON.parse(args.rawBody) as DiditWebhookPayload;
+}
+
+export function mapDiditStatus(
+  s: DiditStatus
+): "pending" | "in_review" | "approved" | "rejected" {
+  switch (s) {
+    case "Approved":
+      return "approved";
+    case "Declined":
+      return "rejected";
+    case "In Review":
+      return "in_review";
+    default:
+      return "pending";
+  }
+}
