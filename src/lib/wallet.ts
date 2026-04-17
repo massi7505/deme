@@ -187,17 +187,22 @@ export async function createRefund(
   const sourceAbs = Math.abs(source.amount_cents);
   if (sourceAbs === 0) throw new Error("Transaction source de montant nul");
 
-  // ── Guardrail 1: max percent of source transaction ───────────────────────
-  const maxPercent = parseInt(settings.refundMaxPercent || "100", 10);
+  // ── Guardrail 1: max percent of source transaction (ALWAYS enforced) ─────
+  const maxPercent = Math.max(0, Math.min(100, parseInt(settings.refundMaxPercent || "30", 10)));
   const capCents = Math.floor((sourceAbs * maxPercent) / 100);
+  if (capCents === 0) {
+    throw new Error(
+      `Pourcentage de remboursement à 0 % dans les paramètres. Augmentez-le pour autoriser ce remboursement.`
+    );
+  }
   if (amountCents > capCents) {
     throw new Error(
       `Plafond dépassé : ${maxPercent} % max de la transaction (${(capCents / 100).toFixed(2)} €).`
     );
   }
 
-  // ── Guardrail 2: once per transaction ────────────────────────────────────
-  if (settings.refundOncePerTransaction) {
+  // ── Guardrail 2: once per transaction (ALWAYS enforced — anti-double-click) ─
+  {
     const { count } = await admin
       .from("wallet_transactions")
       .select("id", { count: "exact", head: true })

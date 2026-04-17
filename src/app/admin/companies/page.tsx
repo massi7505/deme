@@ -162,12 +162,12 @@ export default function AdminCompanies() {
     amount_cents: number;
     mollie_payment_id: string | null;
   }) {
-    const maxPct = walletData?.caps?.maxPercent ?? 100;
+    const maxPct = walletData?.caps?.maxPercent ?? 30;
     const abs = Math.abs(txn.amount_cents);
-    // Pre-fill the suggested cap so admins see immediately what's allowed
-    const suggested = Math.floor((abs * maxPct) / 100) / 100;
+    // Pre-fill at exactly the configured %, admin can lower but never exceed
+    const capCents = Math.floor((abs * maxPct) / 100);
     setRefundTarget(txn);
-    setRefundAmount(suggested.toFixed(2));
+    setRefundAmount((capCents / 100).toFixed(2));
     setRefundReason("Geste commercial");
     setRefundBankMode(false);
   }
@@ -432,24 +432,13 @@ export default function AdminCompanies() {
                 )}
                 disabled={refundBusy}
               />
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {[25, 50, 100].map((pct) => (
-                  <button
-                    key={pct}
-                    type="button"
-                    onClick={() =>
-                      setRefundAmount(((capCents * pct) / 10000).toFixed(2))
-                    }
-                    disabled={refundBusy}
-                    className="rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-medium hover:border-[var(--brand-green)] hover:text-[var(--brand-green-dark)]"
-                  >
-                    {pct}% du plafond
-                  </button>
-                ))}
-              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Maximum autorisé : <strong className="text-foreground">{(capCents / 100).toFixed(2)} €</strong>{" "}
+                ({maxPct} % de {formatPrice(sourceAbs)})
+              </p>
               {overCap && (
                 <p className="mt-1 text-xs font-medium text-red-600">
-                  Dépasse le plafond {maxPct} % ({(capCents / 100).toFixed(2)} €).
+                  Dépasse le plafond {maxPct} %.
                 </p>
               )}
             </div>

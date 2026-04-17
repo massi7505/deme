@@ -106,25 +106,30 @@ export default function AdminTransactions() {
 
   async function openRefund(tx: Transaction) {
     setRefundTarget(tx);
-    setRefundAmount((Math.abs(tx.amount_cents) / 100).toFixed(2));
     setRefundReason(
       tx.lead_prospect_id
         ? `Geste commercial — lead ${tx.lead_prospect_id}`
         : "Geste commercial"
     );
     setRefundCardMode(false);
-    // Load wallet caps to warn admin before they hit the ceiling
+    // Load the configured % and pre-fill the amount at exactly that cap
     try {
       const res = await fetch(`/api/admin/wallet?companyId=${tx.company_id}`);
       if (res.ok) {
         const d = await res.json();
+        const pct = d.caps?.maxPercent ?? 30;
+        const capCents = Math.floor((Math.abs(tx.amount_cents) * pct) / 100);
+        setRefundAmount((capCents / 100).toFixed(2));
         setWalletCaps({
           monthRemaining: d.caps?.monthRemainingCents ?? -1,
           yearRemaining: d.caps?.yearRemainingCents ?? -1,
-          maxPercent: d.caps?.maxPercent ?? 100,
+          maxPercent: pct,
         });
+      } else {
+        setRefundAmount((Math.abs(tx.amount_cents) * 0.3 / 100).toFixed(2));
       }
     } catch {
+      setRefundAmount((Math.abs(tx.amount_cents) * 0.3 / 100).toFixed(2));
       setWalletCaps(null);
     }
   }
@@ -145,8 +150,12 @@ export default function AdminTransactions() {
       toast.error("Montant invalide");
       return;
     }
-    if (amount * 100 > Math.abs(refundTarget.amount_cents) + 1) {
-      toast.error("Le remboursement dépasse le montant de la transaction");
+    const maxPct = walletCaps?.maxPercent ?? 30;
+    const capCents = Math.floor((Math.abs(refundTarget.amount_cents) * maxPct) / 100);
+    if (amount * 100 > capCents + 0.5) {
+      toast.error(
+        `Maximum autorisé : ${(capCents / 100).toFixed(2)} € (${maxPct} %)`
+      );
       return;
     }
     setRefunding(true);
@@ -295,23 +304,12 @@ export default function AdminTransactions() {
                   className="w-full rounded-lg border px-3 py-2 text-base font-semibold outline-none focus:border-[var(--brand-green)]"
                   disabled={refunding}
                 />
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {[25, 50, 100].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() =>
-                        setRefundAmount(
-                          ((Math.abs(refundTarget.amount_cents) * pct) / 10000).toFixed(2)
-                        )
-                      }
-                      disabled={refunding}
-                      className="rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-medium hover:border-[var(--brand-green)] hover:text-[var(--brand-green-dark)]"
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
+                {walletCaps && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Maximum autorisé : <strong>{((Math.abs(refundTarget.amount_cents) * walletCaps.maxPercent) / 10000).toFixed(2)} €</strong>{" "}
+                    ({walletCaps.maxPercent} % de {formatPrice(Math.abs(refundTarget.amount_cents))})
+                  </p>
+                )}
               </div>
 
               <div>
