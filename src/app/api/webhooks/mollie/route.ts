@@ -248,7 +248,12 @@ export async function POST(request: NextRequest) {
         .eq("id", metadata.companyId)
         .single();
 
-      if (company) {
+      // Only notify on actual bank/card failures. "canceled" and "expired"
+      // are user abandonments (closed the tab, clicked cancel) — sending
+      // an alarming "Paiement échoué" email for those is noise.
+      const isRealFailure = payment.status === "failed";
+
+      if (isRealFailure && company) {
         const emailTo = company.email_billing || company.email_contact;
         if (emailTo) {
           await sendPaymentFailedEmail(
@@ -267,14 +272,16 @@ export async function POST(request: NextRequest) {
         ).catch((err) => console.error("Admin failed notification error:", err));
       }
 
-      // Create notification
-      await supabase.from("notifications").insert({
-        company_id: metadata.companyId,
-        type: "payment_failed",
-        title: "Échec de paiement",
-        body: `Le paiement de ${formatPrice(amountCents)} a échoué le ${dateTime}.`,
-        data: { distributionId: metadata.distributionId, paymentId },
-      });
+      // In-app notification — only for real failures too, keep the bell clean.
+      if (isRealFailure) {
+        await supabase.from("notifications").insert({
+          company_id: metadata.companyId,
+          type: "payment_failed",
+          title: "Échec de paiement",
+          body: `Le paiement de ${formatPrice(amountCents)} a échoué le ${dateTime}.`,
+          data: { distributionId: metadata.distributionId, paymentId },
+        });
+      }
     }
 
     return NextResponse.json({ received: true });
