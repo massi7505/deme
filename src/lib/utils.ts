@@ -134,3 +134,25 @@ export function regionToSlug(name: string): string {
   }
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
+
+export const HEAVY_ITEM_LABELS: Record<string, string> = {
+  piano: "Piano",
+  "coffre-fort": "Coffre-fort",
+  billard: "Billard",
+  aquarium: "Aquarium",
+};
+
+export const SERVICE_LABELS: Record<string, string> = {
+  emballage: "Emballage",
+  "demontage-remontage": "Démontage / Remontage",
+  "garde-meuble": "Garde-meuble",
+  nettoyage: "Nettoyage",
+};
+
+export function heavyItemLabel(value: string): string {
+  return HEAVY_ITEM_LABELS[value] || value;
+}
+
+export function serviceLabel(value: string): string {
+  return SERVICE_LABELS[value] || value;
+}

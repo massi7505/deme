@@ -119,6 +119,11 @@ export async function GET() {
       toElevator: quote.to_elevator,
       emailVerified: quote.email_verified ?? false,
       phoneVerified: quote.phone_verified ?? false,
+      heavyItems: Array.isArray(quote.heavy_items) ? quote.heavy_items : [],
+      services: Array.isArray(quote.services) ? quote.services : [],
+      notes: d.status === "unlocked" ? (quote.notes || null) : null,
+      moveDateEnd: quote.move_date_end || null,
+      dateMode: quote.date_mode || null,
     };
   });
 

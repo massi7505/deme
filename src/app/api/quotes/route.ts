@@ -72,6 +72,11 @@ export async function POST(request: NextRequest) {
         phone_verification_code: phoneCode,
         phone_verification_expires: otpExpires,
         phone_verification_last_sent_at: nowIso,
+        heavy_items: Array.isArray(body.heavyItems) ? body.heavyItems : [],
+        services: Array.isArray(body.services) ? body.services : [],
+        notes: typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null,
+        move_date_end: body.moveDateEnd || null,
+        date_mode: body.dateMode === "flexible" ? "flexible" : body.dateMode === "precise" ? "precise" : null,
       })
       .select()
       .single();

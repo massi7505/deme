@@ -25,12 +25,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AccountManagerCard } from "@/components/dashboard/AccountManagerCard";
-import { maskPhone, maskEmail, formatDate, formatPrice } from "@/lib/utils";
+import { maskPhone, maskEmail, formatDate, formatPrice, heavyItemLabel, serviceLabel } from "@/lib/utils";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, ShieldCheck, Users,
   Truck, MapPin, Clock,
-  Hash, User, Phone, Mail, Unlock, AlertTriangle, Flag,
+  Hash, User, Unlock, AlertTriangle, Flag, Package,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -69,6 +69,11 @@ interface Lead {
   toElevator: boolean;
   emailVerified: boolean;
   phoneVerified: boolean;
+  heavyItems: string[];
+  services: string[];
+  notes: string | null;
+  moveDateEnd: string | null;
+  dateMode: "precise" | "flexible" | null;
 }
 
 export default function LeadDetailPage() {
@@ -191,6 +196,13 @@ export default function LeadDetailPage() {
 
   const isUnlocked = lead.status === "unlocked";
 
+  function copyToClipboard(text: string, label: string) {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success(`${label} copié`),
+      () => toast.error("Impossible de copier")
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Link href="/demandes-de-devis" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -266,7 +278,19 @@ export default function LeadDetailPage() {
             </CardHeader>
             <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
               <div><span className="text-muted-foreground">Catégorie</span><p className="font-medium capitalize">{lead.category}</p></div>
-              <div><span className="text-muted-foreground">Date envisagée</span><p className="font-medium">{lead.moveDate ? formatDate(lead.moveDate) : "Non précisée"}</p></div>
+              <div>
+                <span className="text-muted-foreground">Date envisagée</span>
+                <p className="font-medium">
+                  {lead.moveDate
+                    ? lead.dateMode === "flexible" && lead.moveDateEnd
+                      ? `Du ${formatDate(lead.moveDate)} au ${formatDate(lead.moveDateEnd)}`
+                      : formatDate(lead.moveDate)
+                    : "Non précisée"}
+                </p>
+                {lead.dateMode === "flexible" && (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Dates flexibles</p>
+                )}
+              </div>
               <div><span className="text-muted-foreground">Volume</span><p className="font-medium">{lead.volumeM3 ? `${lead.volumeM3} m³` : lead.roomCount ? `${lead.roomCount} pièces` : "Non précisé"}</p></div>
             </CardContent>
           </Card>
@@ -335,40 +359,111 @@ export default function LeadDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
-              <div>
-                <span className="text-muted-foreground">Nom</span>
-                <p className="font-medium">
-                  {lead.clientFirstName
-                    ? `${lead.clientLastName || ""} ${lead.clientFirstName}`
-                    : (isUnlocked ? lead.clientName || "—" : "••••••••")}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Téléphone</span>
-                <p className="font-medium flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5" />
-                  {isUnlocked ? lead.clientPhone || "—" : maskPhone("0600000000")}
-                  {lead.phoneVerified && (
-                    <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
-                      <ShieldCheck className="h-3 w-3" /> Tél
-                    </span>
-                  )}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Email</span>
-                <p className="font-medium flex items-center gap-1.5">
-                  <Mail className="h-3.5 w-3.5" />
-                  {isUnlocked ? lead.clientEmail || "—" : maskEmail("client@email.com")}
-                  {lead.emailVerified && (
-                    <span className="inline-flex items-center gap-0.5 rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
-                      <ShieldCheck className="h-3 w-3" /> Email
-                    </span>
-                  )}
-                </p>
-              </div>
+              {isUnlocked ? (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Nom</span>
+                    <p className="font-medium">{lead.clientName || "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Téléphone</span>
+                    <div className="flex items-center gap-2">
+                      <a href={`tel:${lead.clientPhone ?? ""}`} className="font-medium text-[var(--brand-green)] hover:underline">
+                        {lead.clientPhone || "—"}
+                      </a>
+                      {lead.clientPhone && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(lead.clientPhone!, "Téléphone")}
+                          className="rounded-md border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted"
+                        >
+                          Copier
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Email</span>
+                    <div className="flex items-center gap-2">
+                      <a href={`mailto:${lead.clientEmail ?? ""}`} className="font-medium text-[var(--brand-green)] hover:underline">
+                        {lead.clientEmail || "—"}
+                      </a>
+                      {lead.clientEmail && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(lead.clientEmail!, "Email")}
+                          className="rounded-md border px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted"
+                        >
+                          Copier
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Nom</span>
+                    <p className="font-medium">{lead.clientFirstName && lead.clientLastName ? `${lead.clientLastName} ${lead.clientFirstName}` : maskPhone("Client")}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Téléphone</span>
+                    <p className="font-medium">{lead.clientPhone ? maskPhone(lead.clientPhone) : maskPhone("0600000000")}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Email</span>
+                    <p className="font-medium">{lead.clientEmail ? maskEmail(lead.clientEmail) : maskEmail("client@email.com")}</p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
+
+          {/* Informations complémentaires — only shown when unlocked and data exists */}
+          {isUnlocked && (lead.heavyItems.length > 0 || lead.services.length > 0 || lead.notes) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Package className="h-4 w-4 text-[var(--brand-green)]" />
+                  Informations complémentaires
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {lead.heavyItems.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-muted-foreground">Objets lourds / spéciaux</p>
+                    <div className="flex flex-wrap gap-2">
+                      {lead.heavyItems.map((item) => (
+                        <Badge key={item} variant="outline" className="gap-1 border-amber-200 bg-amber-50 text-amber-700">
+                          {heavyItemLabel(item)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {lead.services.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-muted-foreground">Services demandés</p>
+                    <div className="flex flex-wrap gap-2">
+                      {lead.services.map((svc) => (
+                        <Badge key={svc} variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700">
+                          {serviceLabel(svc)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {lead.notes && (
+                  <div>
+                    <p className="mb-2 text-muted-foreground">Notes du client</p>
+                    <p className="whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 text-foreground">
+                      {lead.notes}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Détails */}
           <Card>
