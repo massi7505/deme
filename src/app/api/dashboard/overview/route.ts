@@ -134,18 +134,58 @@ export async function GET() {
   // Revenue from actual paid transactions (deduplicated per lead, same logic as billing)
   const { data: paidTxns } = await admin
     .from("transactions")
-    .select("quote_distribution_id, amount_cents, status, type")
+    .select("quote_distribution_id, amount_cents, status, type, created_at")
     .eq("company_id", company.id)
     .eq("status", "paid")
     .in("type", ["unlock", "lead_purchase"]);
 
   const seenDists = new Set<string>();
   let revenue = 0;
-  for (const t of (paidTxns || []) as Array<{ quote_distribution_id: string; amount_cents: number }>) {
+  let revenue30d = 0;
+  const cutoff30d = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const dailyRevenue: Record<string, number> = {}; // YYYY-MM-DD → cents
+  for (const t of (paidTxns || []) as Array<{ quote_distribution_id: string; amount_cents: number; created_at: string }>) {
     if (t.quote_distribution_id && seenDists.has(t.quote_distribution_id)) continue;
     if (t.quote_distribution_id) seenDists.add(t.quote_distribution_id);
     if (t.amount_cents > 0) revenue += t.amount_cents;
+    const ts = new Date(t.created_at).getTime();
+    if (ts >= cutoff30d && t.amount_cents > 0) {
+      revenue30d += t.amount_cents;
+      const day = t.created_at.slice(0, 10);
+      dailyRevenue[day] = (dailyRevenue[day] || 0) + t.amount_cents;
+    }
   }
+
+  // Build 30-day sparkline (oldest first)
+  const sparkline: Array<{ date: string; cents: number }> = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    sparkline.push({ date: d, cents: dailyRevenue[d] || 0 });
+  }
+
+  // Top 3 departure cities + avg lead price (from unlocked leads)
+  const cityCounts: Record<string, number> = {};
+  let priceSum = 0;
+  let priceCount = 0;
+  for (const l of leads as Array<{ status: string; fromCity: string | null; priceCents: number; createdAt: string }>) {
+    if (l.status === "unlocked" && l.fromCity) {
+      cityCounts[l.fromCity] = (cityCounts[l.fromCity] || 0) + 1;
+    }
+    if (typeof l.priceCents === "number" && l.priceCents > 0) {
+      priceSum += l.priceCents;
+      priceCount++;
+    }
+  }
+  const topCities = Object.entries(cityCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([city, count]) => ({ city, count }));
+  const avgLeadPriceCents = priceCount > 0 ? Math.round(priceSum / priceCount) : 0;
+
+  // Leads in last 30 days
+  const leads30d = (leads as Array<{ createdAt: string }>).filter(
+    (l) => new Date(l.createdAt).getTime() >= cutoff30d
+  ).length;
 
   // Get notifications
   const { data: notifications } = await admin
@@ -166,6 +206,11 @@ export async function GET() {
       pendingLeads,
       conversionRate,
       revenue,
+      revenue30d,
+      leads30d,
+      avgLeadPriceCents,
+      topCities,
+      sparkline,
     },
     notifications: notifications || [],
   });
