@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccountManagerCard } from "@/components/dashboard/AccountManagerCard";
 import { motion } from "framer-motion";
-import { formatPrice, formatDate, maskText, cn } from "@/lib/utils";
+import { formatPrice, formatDate, maskText } from "@/lib/utils";
 import {
   FileText,
   Unlock,
@@ -19,7 +19,7 @@ import {
   ArrowRight,
   Lock,
   MapPin,
-  Receipt,
+  Activity,
 } from "lucide-react";
 
 interface TopCity {
@@ -27,9 +27,10 @@ interface TopCity {
   count: number;
 }
 
-interface SparkPoint {
+interface ActivityPoint {
   date: string;
-  cents: number;
+  received: number;
+  unlocked: number;
 }
 
 interface DashboardData {
@@ -42,9 +43,10 @@ interface DashboardData {
     revenue: number;
     revenue30d: number;
     leads30d: number;
+    unlocked30d: number;
     avgLeadPriceCents: number;
     topCities: TopCity[];
-    sparkline: SparkPoint[];
+    activity30d: ActivityPoint[];
   };
   notifications: Record<string, unknown>[];
 }
@@ -143,7 +145,10 @@ export default function ApercuPage() {
     },
   ];
 
-  const sparkMax = Math.max(1, ...stats.sparkline.map((p) => p.cents));
+  const activityMax = Math.max(
+    1,
+    ...stats.activity30d.map((p) => p.received)
+  );
 
   return (
     <div className="space-y-8">
@@ -190,51 +195,72 @@ export default function ApercuPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="h-4 w-4 text-[var(--brand-green)]" />
-                Revenus sur 30 jours
+                <Activity className="h-4 w-4 text-[var(--brand-green)]" />
+                Activité sur 30 jours
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {stats.revenue30d === 0 ? (
+              {stats.leads30d === 0 ? (
                 <div className="flex h-32 items-center justify-center rounded-lg bg-muted/30">
                   <p className="text-sm text-muted-foreground">
-                    Aucun achat de lead sur les 30 derniers jours
+                    Aucune demande reçue sur les 30 derniers jours
                   </p>
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      Total :{" "}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--brand-green)]/30" />
+                      Reçues :{" "}
                       <span className="font-semibold text-foreground">
-                        {formatPrice(stats.revenue30d)}
+                        {stats.leads30d}
                       </span>
                     </span>
-                    <span className="text-muted-foreground">
-                      Pic : {formatPrice(sparkMax)}
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[var(--brand-green)]" />
+                      Débloquées :{" "}
+                      <span className="font-semibold text-foreground">
+                        {stats.unlocked30d}
+                      </span>
                     </span>
                   </div>
                   <div className="mt-3 flex h-32 items-end gap-[3px] rounded-lg bg-muted/20 p-2">
-                    {stats.sparkline.map((p) => {
-                      const hasData = p.cents > 0;
-                      const h = hasData
-                        ? Math.max(10, Math.round((p.cents / sparkMax) * 100))
-                        : 100;
+                    {stats.activity30d.map((p) => {
+                      const total = p.received;
+                      if (total === 0) {
+                        return (
+                          <div
+                            key={p.date}
+                            className="flex-1"
+                            title={`${p.date} · Aucune demande`}
+                          >
+                            <div
+                              className="w-full rounded-t bg-muted-foreground/10"
+                              style={{ height: "100%" }}
+                            />
+                          </div>
+                        );
+                      }
+                      const fullH = Math.max(10, Math.round((total / activityMax) * 100));
+                      const unlockedPct =
+                        total > 0 ? Math.round((p.unlocked / total) * 100) : 0;
                       return (
                         <div
                           key={p.date}
-                          className="group relative flex-1"
-                          title={`${p.date} · ${formatPrice(p.cents)}`}
+                          className="group relative flex h-full flex-1 flex-col justify-end"
+                          title={`${p.date} · ${p.received} reçue${p.received > 1 ? "s" : ""}${p.unlocked > 0 ? ` · ${p.unlocked} débloquée${p.unlocked > 1 ? "s" : ""}` : ""}`}
                         >
                           <div
-                            className={cn(
-                              "w-full rounded-t transition-colors",
-                              hasData
-                                ? "bg-[var(--brand-green)] group-hover:bg-[var(--brand-green-dark)]"
-                                : "bg-muted-foreground/10"
+                            className="w-full overflow-hidden rounded-t bg-[var(--brand-green)]/30 transition-colors"
+                            style={{ height: `${fullH}%` }}
+                          >
+                            {unlockedPct > 0 && (
+                              <div
+                                className="w-full bg-[var(--brand-green)] group-hover:bg-[var(--brand-green-dark)]"
+                                style={{ height: `${unlockedPct}%`, marginTop: `${100 - unlockedPct}%` }}
+                              />
                             )}
-                            style={{ height: `${h}%` }}
-                          />
+                          </div>
                         </div>
                       );
                     })}

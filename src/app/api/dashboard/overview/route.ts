@@ -156,11 +156,33 @@ export async function GET() {
     }
   }
 
-  // Build 30-day sparkline (oldest first)
-  const sparkline: Array<{ date: string; cents: number }> = [];
+  // 30-day activity: leads received + leads unlocked, per day.
+  const dailyReceived: Record<string, number> = {};
+  const dailyUnlocked: Record<string, number> = {};
+  let unlocked30d = 0;
+  for (const l of leads as Array<{ createdAt: string; status: string; unlockedAt?: string | null }>) {
+    const createdTs = new Date(l.createdAt).getTime();
+    if (createdTs >= cutoff30d) {
+      const day = l.createdAt.slice(0, 10);
+      dailyReceived[day] = (dailyReceived[day] || 0) + 1;
+    }
+    if (l.status === "unlocked" && l.unlockedAt) {
+      const unlockTs = new Date(l.unlockedAt).getTime();
+      if (unlockTs >= cutoff30d) {
+        const day = l.unlockedAt.slice(0, 10);
+        dailyUnlocked[day] = (dailyUnlocked[day] || 0) + 1;
+        unlocked30d++;
+      }
+    }
+  }
+  const activity30d: Array<{ date: string; received: number; unlocked: number }> = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    sparkline.push({ date: d, cents: dailyRevenue[d] || 0 });
+    activity30d.push({
+      date: d,
+      received: dailyReceived[d] || 0,
+      unlocked: dailyUnlocked[d] || 0,
+    });
   }
 
   // Top 3 departure cities + avg lead price (from unlocked leads)
@@ -208,9 +230,10 @@ export async function GET() {
       revenue,
       revenue30d,
       leads30d,
+      unlocked30d,
       avgLeadPriceCents,
       topCities,
-      sparkline,
+      activity30d,
     },
     notifications: notifications || [],
   });
