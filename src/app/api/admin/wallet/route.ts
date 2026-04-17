@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "companyId requis" }, { status: 400 });
   }
 
-  const [txnRes, balance, settings] = await Promise.all([
+  const [txnRes, balance, settings, paidTxnRes] = await Promise.all([
     admin
       .from("wallet_transactions")
       .select("*")
@@ -49,7 +49,40 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false }),
     getWalletBalanceCents(admin, companyId),
     readSettings(admin),
+    // Refundable source transactions (paid unlocks). Used to let admins
+    // pick a source and open a pre-filled refund modal from the company
+    // detail page without jumping to /admin/transactions.
+    admin
+      .from("transactions")
+      .select(
+        "id, amount_cents, type, status, created_at, mollie_payment_id, quote_distribution_id"
+      )
+      .eq("company_id", companyId)
+      .eq("status", "paid")
+      .in("type", ["unlock", "lead_purchase"])
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
+
+  // Mark transactions already refunded so the UI can disable the button
+  const refundedSourceIds = new Set<string>();
+  for (const wt of (txnRes.data || []) as Array<{
+    source_transaction_id: string | null;
+    type: string;
+  }>) {
+    if (wt.type === "refund" && wt.source_transaction_id) {
+      refundedSourceIds.add(wt.source_transaction_id);
+    }
+  }
+  const paidTxns = ((paidTxnRes.data || []) as Array<{
+    id: string;
+    amount_cents: number;
+    type: string;
+    status: string;
+    created_at: string;
+    mollie_payment_id: string | null;
+    quote_distribution_id: string | null;
+  }>).map((t) => ({ ...t, already_refunded: refundedSourceIds.has(t.id) }));
 
   const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
   const monthStart = new Date();
@@ -75,6 +108,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     balance,
     transactions: txnRes.data || [],
+    refundableTransactions: paidTxns,
     caps: {
       refundsEnabled: !!settings.refundsEnabled,
       maxPercent: parseInt(settings.refundMaxPercent || "100", 10),

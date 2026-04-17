@@ -2,8 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Admin = SupabaseClient;
 
-const LOOKBACK_DAYS = 30;
-const MAX_BACKFILL = 6;
+const LOOKBACK_DAYS = 60;
+const MAX_BACKFILL = 10;
 const MAX_UNLOCKS_PER_LEAD = 6;
 
 /**

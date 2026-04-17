@@ -104,9 +104,9 @@ export async function distributeLead(quoteId: string): Promise<DistributeResult>
     .from("company_radius")
     .select("company_id, lat, lng, radius_km, move_types");
 
-  const matchedCompanyIds = new Set<string>();
+  const candidateIds = new Set<string>();
   regionMatches?.forEach((m) => {
-    if (m.categories?.includes(category)) matchedCompanyIds.add(m.company_id);
+    if (m.categories?.includes(category)) candidateIds.add(m.company_id);
   });
 
   const fromLat = Number(quote.from_lat) || 0;
@@ -115,21 +115,72 @@ export async function distributeLead(quoteId: string): Promise<DistributeResult>
     for (const rule of radiusRules) {
       if (!rule.move_types?.includes(category)) continue;
       if (haversineKm(fromLat, fromLng, rule.lat, rule.lng) <= rule.radius_km) {
-        matchedCompanyIds.add(rule.company_id);
+        candidateIds.add(rule.company_id);
       }
     }
   }
 
-  const companyIds = Array.from(matchedCompanyIds).slice(0, 6);
-  if (companyIds.length === 0) return { alreadyDistributed: false, matchedMovers: 0 };
+  if (candidateIds.size === 0) return { alreadyDistributed: false, matchedMovers: 0 };
 
-  const { data: companies } = await supabase
+  // Include pending/trial accounts too — new movers need to see leads so
+  // they're motivated to complete KYC + purchase. Only hard-exclude
+  // suspended/closed.
+  const { data: eligibleCompanies } = await supabase
     .from("companies")
-    .select("id, name, email_contact, phone, account_status")
-    .in("id", companyIds)
-    .in("account_status", ["active", "trial"]);
+    .select("id, name, email_contact, phone, account_status, kyc_status, created_at")
+    .in("id", Array.from(candidateIds))
+    .in("account_status", ["active", "trial", "pending"]);
 
-  if (!companies || companies.length === 0) return { alreadyDistributed: false, matchedMovers: 0 };
+  if (!eligibleCompanies || eligibleCompanies.length === 0) {
+    return { alreadyDistributed: false, matchedMovers: 0 };
+  }
+
+  // Fairness scoring: fewer recent distributions = higher priority.
+  // Ties broken by kyc_status (approved > in_review > pending/rejected)
+  // then by account age (older accounts first — they rely on the platform).
+  const sevenDaysAgo = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const { data: recentDists } = await supabase
+    .from("quote_distributions")
+    .select("company_id")
+    .in("company_id", eligibleCompanies.map((c) => c.id))
+    .gte("created_at", sevenDaysAgo);
+
+  const recentCount: Record<string, number> = {};
+  for (const d of (recentDists || []) as Array<{ company_id: string }>) {
+    recentCount[d.company_id] = (recentCount[d.company_id] || 0) + 1;
+  }
+
+  const kycWeight: Record<string, number> = {
+    approved: 3,
+    in_review: 2,
+    pending: 1,
+    rejected: 0,
+  };
+
+  const ranked = [...eligibleCompanies].sort((a, b) => {
+    const recentA = recentCount[a.id] || 0;
+    const recentB = recentCount[b.id] || 0;
+    if (recentA !== recentB) return recentA - recentB; // fewer first
+    const kycA = kycWeight[a.kyc_status] ?? 0;
+    const kycB = kycWeight[b.kyc_status] ?? 0;
+    if (kycA !== kycB) return kycB - kycA; // verified first among ties
+    return (
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  });
+
+  // Read the admin-configured cap; fall back to 6.
+  const { data: settingsRow } = await supabase
+    .from("site_settings")
+    .select("data")
+    .eq("id", 1)
+    .maybeSingle();
+  const maxDistRaw = (settingsRow?.data as { maxDistributions?: string } | null)?.maxDistributions;
+  const MAX_PER_LEAD = Math.max(1, parseInt(maxDistRaw || "6", 10));
+
+  const companies = ranked.slice(0, MAX_PER_LEAD);
 
   const priceCents = await calculatePriceCents(
     supabase,

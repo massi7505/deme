@@ -7,6 +7,7 @@ import {
   Search, CheckCircle2, Clock, XCircle, Shield, Ban,
   Eye, RefreshCw, Download, Trash2, ChevronLeft, MapPin,
   Mail, Phone, Globe, Building2, Star, Play, Wallet,
+  RotateCcw, Loader2, X as XIcon, Gift,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -80,9 +81,46 @@ export default function AdminCompanies() {
   const [refundsEnabled, setRefundsEnabled] = useState(false);
   const [walletData, setWalletData] = useState<{
     balance: number;
-    transactions: Array<{ id: string; amount_cents: number; type: string; reason: string | null; expires_at: string | null; created_at: string }>;
+    transactions: Array<{
+      id: string;
+      amount_cents: number;
+      type: string;
+      refund_method: string | null;
+      refund_percent: number | null;
+      reason: string | null;
+      expires_at: string | null;
+      created_at: string;
+    }>;
+    refundableTransactions: Array<{
+      id: string;
+      amount_cents: number;
+      created_at: string;
+      mollie_payment_id: string | null;
+      quote_distribution_id: string | null;
+      already_refunded: boolean;
+    }>;
+    caps: {
+      refundsEnabled: boolean;
+      maxPercent: number;
+      monthlyCapCents: number;
+      yearlyCapCents: number;
+      monthRefundedCents: number;
+      yearRefundedCents: number;
+      monthRemainingCents: number;
+      yearRemainingCents: number;
+    };
   } | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
+
+  // Refund modal state (reused for any transaction on this company)
+  const [refundTarget, setRefundTarget] = useState<
+    | { id: string; amount_cents: number; mollie_payment_id: string | null }
+    | null
+  >(null);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundBankMode, setRefundBankMode] = useState(false);
+  const [refundBusy, setRefundBusy] = useState(false);
 
   async function fetchCompanies() {
     setLoading(true);
@@ -118,6 +156,77 @@ export default function AdminCompanies() {
       .then((d) => setWalletData(d))
       .finally(() => setWalletLoading(false));
   }, [selectedCompany, refundsEnabled]);
+
+  function openRefund(txn: {
+    id: string;
+    amount_cents: number;
+    mollie_payment_id: string | null;
+  }) {
+    const maxPct = walletData?.caps?.maxPercent ?? 100;
+    const abs = Math.abs(txn.amount_cents);
+    // Pre-fill the suggested cap so admins see immediately what's allowed
+    const suggested = Math.floor((abs * maxPct) / 100) / 100;
+    setRefundTarget(txn);
+    setRefundAmount(suggested.toFixed(2));
+    setRefundReason("Geste commercial");
+    setRefundBankMode(false);
+  }
+
+  function closeRefund() {
+    if (refundBusy) return;
+    setRefundTarget(null);
+    setRefundAmount("");
+    setRefundReason("");
+    setRefundBankMode(false);
+  }
+
+  async function submitRefund() {
+    if (!refundTarget || !selectedCompany) return;
+    const amount = parseFloat(refundAmount.replace(",", "."));
+    if (!amount || amount <= 0) {
+      toast.error("Montant invalide");
+      return;
+    }
+    if (refundBankMode) {
+      if (
+        !confirm(
+          `Rembourser ${amount.toFixed(2)} € sur la carte bancaire via Mollie ? Action définitive.`
+        )
+      ) return;
+    }
+    setRefundBusy(true);
+    try {
+      const res = await fetch("/api/admin/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "refund",
+          transactionId: refundTarget.id,
+          amountCents: Math.round(amount * 100),
+          method: refundBankMode ? "bank" : "wallet",
+          reason: refundReason || "Geste commercial",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erreur de remboursement");
+        return;
+      }
+      toast.success(
+        refundBankMode
+          ? "Remboursement carte effectué"
+          : "Crédit portefeuille envoyé + email"
+      );
+      closeRefund();
+      // refresh wallet panel
+      const r = await fetch(`/api/admin/wallet?companyId=${selectedCompany.id}`);
+      if (r.ok) setWalletData(await r.json());
+    } catch {
+      toast.error("Erreur réseau");
+    } finally {
+      setRefundBusy(false);
+    }
+  }
 
   async function handleDeleteRegion(regionId: string) {
     if (!confirm("Supprimer cette région ?")) return;
@@ -267,6 +376,167 @@ export default function AdminCompanies() {
     </div>
   );
 
+  // ─── REFUND MODAL ────────────────────────────────────────
+  const refundModal = refundTarget && walletData && (() => {
+    const maxPct = walletData.caps.maxPercent ?? 100;
+    const sourceAbs = Math.abs(refundTarget.amount_cents);
+    const capCents = Math.floor((sourceAbs * maxPct) / 100);
+    const amountNum = parseFloat((refundAmount || "0").replace(",", ".")) || 0;
+    const overCap = amountNum * 100 > capCents + 0.5;
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={closeRefund}
+      >
+        <div
+          className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50">
+                <Gift className="h-5 w-5 text-[var(--brand-green-dark)]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Geste commercial</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Transaction source : {formatPrice(sourceAbs)} · Max{" "}
+                  {(capCents / 100).toFixed(2)} € ({maxPct} %)
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={closeRefund}
+              className="rounded p-1 text-muted-foreground hover:bg-gray-100"
+              aria-label="Fermer"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Montant à rembourser (€)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                autoFocus
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                className={cn(
+                  "w-full rounded-lg border px-3 py-2 text-base font-semibold outline-none",
+                  overCap ? "border-red-500 focus:border-red-500" : "focus:border-[var(--brand-green)]"
+                )}
+                disabled={refundBusy}
+              />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[25, 50, 100].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() =>
+                      setRefundAmount(((capCents * pct) / 10000).toFixed(2))
+                    }
+                    disabled={refundBusy}
+                    className="rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-medium hover:border-[var(--brand-green)] hover:text-[var(--brand-green-dark)]"
+                  >
+                    {pct}% du plafond
+                  </button>
+                ))}
+              </div>
+              {overCap && (
+                <p className="mt-1 text-xs font-medium text-red-600">
+                  Dépasse le plafond {maxPct} % ({(capCents / 100).toFixed(2)} €).
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Raison (visible par le déménageur)
+              </label>
+              <input
+                type="text"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="Geste commercial"
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
+                disabled={refundBusy}
+              />
+            </div>
+
+            {refundBankMode ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">⚠ Cas exceptionnel</p>
+                <p className="mt-0.5">
+                  Le montant sera remboursé sur la <strong>carte bancaire</strong> via Mollie. Action irréversible.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-900">
+                Crédit portefeuille — un email « Vous avez reçu un remboursement » est envoyé automatiquement. Consommé sur les prochains achats de leads.
+              </div>
+            )}
+
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-xs">
+              <input
+                type="checkbox"
+                checked={refundBankMode}
+                onChange={(e) => setRefundBankMode(e.target.checked)}
+                disabled={refundBusy || !refundTarget.mollie_payment_id}
+                className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-amber-600"
+              />
+              <span className="flex-1 text-muted-foreground">
+                <strong className="text-amber-700">Cas exceptionnel</strong> — rembourser sur carte au lieu du portefeuille
+                {!refundTarget.mollie_payment_id && (
+                  <span className="ml-1 text-[10px] italic">
+                    (indisponible : pas de paiement Mollie)
+                  </span>
+                )}
+              </span>
+            </label>
+          </div>
+
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              onClick={closeRefund}
+              disabled={refundBusy}
+              className="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={submitRefund}
+              disabled={refundBusy || !refundAmount || overCap}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-md hover:brightness-110 disabled:opacity-50",
+                refundBankMode
+                  ? "bg-amber-600 shadow-amber-500/20"
+                  : "bg-brand-gradient shadow-green-500/20"
+              )}
+            >
+              {refundBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : refundBankMode ? (
+                <RotateCcw className="h-3.5 w-3.5" />
+              ) : (
+                <Gift className="h-3.5 w-3.5" />
+              )}
+              {refundBusy
+                ? "En cours..."
+                : refundBankMode
+                  ? "Rembourser sur carte"
+                  : "Créditer + email"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  })();
+
   // ─── DETAIL VIEW ─────────────────────────────────────────
   if (selectedCompany) {
     const c = selectedCompany;
@@ -277,6 +547,7 @@ export default function AdminCompanies() {
     return (
       <div className="space-y-6">
         {deleteModal}
+        {refundModal}
         <button onClick={() => setSelectedCompany(null)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" /> Retour à la liste
         </button>
@@ -425,45 +696,161 @@ export default function AdminCompanies() {
             {/* Wallet / remboursements */}
             {refundsEnabled && (
               <div className="rounded-xl border bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b px-5 py-3">
-                  <Wallet className="h-4 w-4 text-[var(--brand-green)]" />
-                  <h3 className="text-sm font-semibold">Portefeuille</h3>
-                </div>
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2">
-                    <span className="text-xs font-medium text-muted-foreground">Solde</span>
-                    <span className="text-lg font-bold text-[var(--brand-green-dark)]">
-                      {walletLoading ? "…" : formatPrice(walletData?.balance || 0)}
+                <div className="flex items-center justify-between border-b px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-[var(--brand-green)]" />
+                    <h3 className="text-sm font-semibold">Portefeuille</h3>
+                  </div>
+                  {walletData?.caps?.maxPercent && walletData.caps.maxPercent < 100 && (
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
+                      Plafond {walletData.caps.maxPercent} %
                     </span>
+                  )}
+                </div>
+
+                <div className="space-y-3 p-4">
+                  {/* Balance + caps usage */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-green-50 px-3 py-2">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Solde
+                      </p>
+                      <p className="mt-0.5 text-base font-bold text-[var(--brand-green-dark)]">
+                        {walletLoading ? "…" : formatPrice(walletData?.balance || 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border px-3 py-2">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Mois
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold">
+                        {formatPrice(walletData?.caps?.monthRefundedCents || 0)}
+                      </p>
+                      {walletData?.caps && walletData.caps.monthlyCapCents > 0 && (
+                        <p className="text-[9px] text-muted-foreground">
+                          / {formatPrice(walletData.caps.monthlyCapCents)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border px-3 py-2">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        365 j
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold">
+                        {formatPrice(walletData?.caps?.yearRefundedCents || 0)}
+                      </p>
+                      {walletData?.caps && walletData.caps.yearlyCapCents > 0 && (
+                        <p className="text-[9px] text-muted-foreground">
+                          / {formatPrice(walletData.caps.yearlyCapCents)}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-900">
-                    Tous les remboursements (wallet ou bancaire) se font depuis{" "}
-                    <a href="/admin/transactions" className="font-semibold underline">
-                      /admin/transactions
-                    </a>
-                    . Le plafond % est appliqué automatiquement.
-                  </div>
-
-                  {/* Recent transactions */}
-                  {(walletData?.transactions?.length || 0) > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">Historique</p>
-                      <div className="max-h-48 space-y-1 overflow-y-auto">
-                        {walletData?.transactions.slice(0, 10).map((t) => (
-                          <div key={t.id} className="flex items-center justify-between rounded border px-2 py-1.5 text-xs">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{t.reason || t.type}</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {formatDateShort(t.created_at)}
-                                {t.expires_at && t.amount_cents > 0 && ` · Expire ${formatDateShort(t.expires_at)}`}
-                              </p>
+                  {/* Refundable transactions */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold">Geste commercial</p>
+                      <span className="text-[10px] text-muted-foreground">
+                        Sélectionnez une transaction à rembourser
+                      </span>
+                    </div>
+                    <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border bg-gray-50/50 p-1.5">
+                      {walletLoading ? (
+                        <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                          Chargement…
+                        </p>
+                      ) : (walletData?.refundableTransactions?.length || 0) === 0 ? (
+                        <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                          Aucune transaction remboursable.
+                        </p>
+                      ) : (
+                        walletData?.refundableTransactions.map((t) => {
+                          const pctMax = walletData.caps?.maxPercent ?? 100;
+                          const capEuros = ((Math.abs(t.amount_cents) * pctMax) / 10000).toFixed(2);
+                          return (
+                            <div
+                              key={t.id}
+                              className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5 text-xs shadow-sm"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium">
+                                  {formatPrice(t.amount_cents)}
+                                  <span className="ml-1.5 text-[10px] text-muted-foreground">
+                                    {formatDateShort(t.created_at)}
+                                  </span>
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {t.already_refunded
+                                    ? "Déjà remboursé"
+                                    : `Max remboursable : ${capEuros} €`}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  openRefund({
+                                    id: t.id,
+                                    amount_cents: t.amount_cents,
+                                    mollie_payment_id: t.mollie_payment_id,
+                                  })
+                                }
+                                disabled={t.already_refunded}
+                                className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--brand-green)] px-2 py-1 text-[11px] font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Gift className="h-3 w-3" />
+                                Rembourser
+                              </button>
                             </div>
-                            <span className={cn("shrink-0 font-semibold", t.amount_cents > 0 ? "text-green-600" : "text-gray-600")}>
-                              {t.amount_cents > 0 ? "+" : ""}{formatPrice(t.amount_cents)}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Wallet ledger history */}
+                  {(walletData?.transactions?.length || 0) > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold">Historique portefeuille</p>
+                      <div className="max-h-48 space-y-1 overflow-y-auto">
+                        {walletData?.transactions.slice(0, 10).map((t) => {
+                          const isBank = t.refund_method === "bank";
+                          return (
+                            <div
+                              key={t.id}
+                              className="flex items-center justify-between rounded border px-2 py-1.5 text-xs"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium">
+                                  {t.reason || t.type}
+                                  {t.refund_percent != null && (
+                                    <span className="ml-1 text-[10px] text-muted-foreground">
+                                      ({t.refund_percent.toFixed(0)} %)
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {formatDateShort(t.created_at)}
+                                  {t.expires_at && t.amount_cents > 0 &&
+                                    ` · Expire ${formatDateShort(t.expires_at)}`}
+                                  {isBank && " · Carte"}
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  "shrink-0 font-semibold",
+                                  isBank
+                                    ? "text-red-600"
+                                    : t.amount_cents > 0
+                                      ? "text-green-600"
+                                      : "text-gray-600"
+                                )}
+                              >
+                                {t.amount_cents > 0 && !isBank ? "+" : isBank ? "-" : ""}
+                                {formatPrice(Math.abs(t.amount_cents))}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
