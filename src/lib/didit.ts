@@ -111,10 +111,15 @@ export async function getSession(
 
 export function verifyWebhook(args: {
   rawBody: string;
-  signatureHeader: string | null;
+  /** Ordered list of signature candidates to try (header values) */
+  signatureCandidates: Array<string | null>;
   timestampHeader: string | null;
 }): DiditWebhookPayload {
-  if (!args.signatureHeader) throw new Error("missing signature header");
+  const candidates = args.signatureCandidates
+    .filter((v): v is string => !!v)
+    .map((v) => v.trim().replace(/^sha256=/, ""));
+
+  if (candidates.length === 0) throw new Error("missing signature header");
 
   // Timestamp is optional — some didit setups don't send it. If present,
   // enforce a 300s replay window.
@@ -129,26 +134,51 @@ export function verifyWebhook(args: {
     }
   }
 
-  const expected = crypto
-    .createHmac("sha256", webhookSecret())
-    .update(args.rawBody)
-    .digest("hex");
+  const secret = webhookSecret();
 
-  // Accept signature as raw hex, optionally prefixed with "sha256=" (Stripe-
-  // style).
-  const given = args.signatureHeader.trim().replace(/^sha256=/, "");
-
-  const sameLen = given.length === expected.length;
-  if (
-    !sameLen ||
-    !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))
-  ) {
-    throw new Error(
-      `signature mismatch (expected=${expected.slice(0, 8)}… given=${given.slice(0, 8)}…)`
+  // didit ships multiple signature schemes in parallel (x-signature,
+  // x-signature-simple, x-signature-v2). Compute all known variants and
+  // accept if any of them matches a received candidate.
+  const variants: string[] = [];
+  variants.push(
+    crypto.createHmac("sha256", secret).update(args.rawBody).digest("hex")
+  );
+  if (args.timestampHeader) {
+    // v2 style: HMAC(secret, `${timestamp}.${body}`)
+    variants.push(
+      crypto
+        .createHmac("sha256", secret)
+        .update(`${args.timestampHeader}.${args.rawBody}`)
+        .digest("hex")
+    );
+    // seen in some setups: timestamp + body without separator
+    variants.push(
+      crypto
+        .createHmac("sha256", secret)
+        .update(`${args.timestampHeader}${args.rawBody}`)
+        .digest("hex")
     );
   }
 
-  return JSON.parse(args.rawBody) as DiditWebhookPayload;
+  for (const given of candidates) {
+    for (const expected of variants) {
+      if (given.length !== expected.length) continue;
+      if (
+        crypto.timingSafeEqual(
+          Buffer.from(given, "hex"),
+          Buffer.from(expected, "hex")
+        )
+      ) {
+        return JSON.parse(args.rawBody) as DiditWebhookPayload;
+      }
+    }
+  }
+
+  const primary = variants[0];
+  const given = candidates[0];
+  throw new Error(
+    `signature mismatch (expected=${primary.slice(0, 8)}… given=${given.slice(0, 8)}…, tried ${candidates.length} header(s) × ${variants.length} variant(s))`
+  );
 }
 
 export function mapDiditStatus(

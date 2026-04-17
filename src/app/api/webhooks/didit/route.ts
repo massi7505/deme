@@ -11,11 +11,14 @@ import { sendKycApprovedEmail, sendKycRejectedEmail } from "@/lib/resend";
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
-  // Accept either header name — didit has shipped both across versions.
-  const signatureHeader =
-    request.headers.get("x-signature-v2") ??
-    request.headers.get("x-signature") ??
-    request.headers.get("X-Signature");
+  // didit currently ships 3 parallel signatures; try them all so we work
+  // regardless of which scheme the account is on.
+  const signatureCandidates = [
+    request.headers.get("x-signature"),
+    request.headers.get("X-Signature"),
+    request.headers.get("x-signature-simple"),
+    request.headers.get("x-signature-v2"),
+  ];
   const timestampHeader =
     request.headers.get("x-timestamp") ?? request.headers.get("X-Timestamp");
 
@@ -23,7 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     payload = verifyWebhook({
       rawBody,
-      signatureHeader,
+      signatureCandidates,
       timestampHeader,
     });
   } catch (err) {
