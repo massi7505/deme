@@ -163,9 +163,25 @@ export default function FacturationPage() {
                 <span className="text-3xl font-bold text-[var(--brand-green-dark)]">
                   {formatPrice(wallet.balanceCents)}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  Utilisé automatiquement lors de vos prochains achats de leads.
-                </span>
+              </div>
+
+              {/* How it works */}
+              <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-xs text-blue-900">
+                <p className="font-semibold">Comment utiliser votre solde</p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-4">
+                  <li>
+                    Votre portefeuille est <strong>automatiquement utilisé</strong> lorsque votre solde couvre la totalité du prix d&apos;un lead.
+                  </li>
+                  <li>
+                    Exemple : un lead à 12 €, solde ≥ 12 € → <strong>0 € sur votre carte</strong>, 12 € débités du portefeuille.
+                  </li>
+                  <li>
+                    Solde insuffisant (ex. 1 € pour un lead à 12 €) → paiement <strong>complet sur carte</strong>, le solde reste disponible pour plus tard.
+                  </li>
+                  <li>
+                    Les crédits expirent à la date indiquée dans l&apos;historique — utilisez-les avant.
+                  </li>
+                </ul>
               </div>
 
               {wallet.transactions.length > 0 && (
