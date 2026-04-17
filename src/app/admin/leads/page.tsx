@@ -6,7 +6,7 @@ import { downloadCSV } from "@/lib/csv-export";
 import {
   Search, Download, RefreshCw, Eye, Trash2, Send, X,
   Users, Lock, Unlock, ChevronLeft,
-  MapPin, User, Phone, Mail, Hash, Truck,
+  MapPin, User, Phone, Mail, Hash, Truck, ShieldCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -52,6 +52,9 @@ interface Lead {
   distributions: number;
   unlocked: number;
   distributions_list: Distribution[];
+  email_verified: boolean | null;
+  phone_verified: boolean | null;
+  distributed_at: string | null;
 }
 
 interface Company {
@@ -82,6 +85,7 @@ export default function AdminLeads() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [filterVerif, setFilterVerif] = useState("all");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [distributeLeadId, setDistributeLeadId] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState("");
@@ -183,6 +187,15 @@ export default function AdminLeads() {
   const filtered = leads.filter((l) => {
     if (filterStatus !== "all" && l.status !== filterStatus) return false;
     if (filterCategory !== "all" && l.category !== filterCategory) return false;
+    if (filterVerif !== "all") {
+      const emailV = !!l.email_verified;
+      const phoneV = !!l.phone_verified;
+      if (filterVerif === "both" && !(emailV && phoneV)) return false;
+      if (filterVerif === "any" && !(emailV || phoneV)) return false;
+      if (filterVerif === "email-only" && !emailV) return false;
+      if (filterVerif === "phone-only" && !phoneV) return false;
+      if (filterVerif === "none" && (emailV || phoneV)) return false;
+    }
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -412,6 +425,14 @@ export default function AdminLeads() {
           <option value="blocked">Bloqué</option>
           <option value="completed">Terminé</option>
         </select>
+        <select value={filterVerif} onChange={(e) => setFilterVerif(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+          <option value="all">Vérification : tous</option>
+          <option value="both">Email + Tél vérifiés</option>
+          <option value="any">Au moins un vérifié</option>
+          <option value="email-only">Email vérifié</option>
+          <option value="phone-only">Tél vérifié</option>
+          <option value="none">Non vérifié</option>
+        </select>
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
@@ -427,6 +448,7 @@ export default function AdminLeads() {
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Client</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Trajet</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Catégorie</th>
+                <th className="px-5 py-3 text-left font-medium text-muted-foreground">Vérif.</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Date</th>
                 <th className="px-5 py-3 text-center font-medium text-muted-foreground">Distrib.</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Statut</th>
@@ -449,6 +471,23 @@ export default function AdminLeads() {
                     </td>
                     <td className="px-5 py-3">
                       <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-semibold", category.color)}>{category.label}</span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1">
+                        {lead.email_verified && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700" title="Email vérifié">
+                            <ShieldCheck className="h-3 w-3" /> Email
+                          </span>
+                        )}
+                        {lead.phone_verified && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700" title="Téléphone vérifié">
+                            <ShieldCheck className="h-3 w-3" /> Tél
+                          </span>
+                        )}
+                        {!lead.email_verified && !lead.phone_verified && (
+                          <span className="text-[11px] text-muted-foreground/60">—</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{formatDateShort(lead.created_at)}</td>
                     <td className="px-5 py-3 text-center">{lead.distributions}</td>
