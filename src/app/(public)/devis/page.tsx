@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, FileText, ShieldCheck, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { StepProgress } from "@/components/quote-funnel/StepProgress";
+import { TrustTicker } from "@/components/quote-funnel/TrustTicker";
 import { Step1MoveType, type Step1Data } from "@/components/quote-funnel/Step1MoveType";
 import { Step2Addresses, type Step2Data } from "@/components/quote-funnel/Step2Addresses";
 import { Step3Details, type Step3Data } from "@/components/quote-funnel/Step3Details";
@@ -19,10 +20,13 @@ import toast from "react-hot-toast";
 
 export interface QuoteFormData {
   // Step 1
+  category: "national" | "entreprise" | "international";
   moveType: "appartement" | "maison" | "bureau";
   roomCount: string;
   volumeM3?: number;
+  dateMode: "precise" | "flexible";
   moveDate: string;
+  moveDateEnd?: string;
   // Step 2
   fromAddress: string;
   fromApartmentNumber?: string;
@@ -104,8 +108,9 @@ export default function DevisPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            category: completeData.moveType === "bureau" ? "entreprise" : "national",
+            category: completeData.category,
             moveType: completeData.moveType,
+            moveDateEnd: completeData.dateMode === "flexible" ? completeData.moveDateEnd : undefined,
             fromAddress: completeData.fromAddress,
             fromCity: completeData.fromCity,
             fromPostalCode: completeData.fromPostalCode,
@@ -368,6 +373,8 @@ export default function DevisPage() {
             />
           )}
         </AnimatePresence>
+
+        <TrustTicker />
       </div>
     </div>
   );
