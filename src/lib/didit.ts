@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import { BRAND } from "@/lib/brand";
 
 const DIDIT_BASE_URL = "https://verification.didit.me";
 
@@ -52,9 +51,8 @@ function workflowId(): string {
 export async function createSession(args: {
   companyId: string;
   email: string;
+  callbackUrl: string;
 }): Promise<DiditSession> {
-  const callback = `${BRAND.siteUrl}/verification-identite?return=1`;
-
   const response = await fetch(`${DIDIT_BASE_URL}/v3/session/`, {
     method: "POST",
     headers: {
@@ -64,7 +62,7 @@ export async function createSession(args: {
     body: JSON.stringify({
       workflow_id: workflowId(),
       vendor_data: args.companyId,
-      callback,
+      callback: args.callbackUrl,
       contact_details: { email: args.email },
     }),
   });
