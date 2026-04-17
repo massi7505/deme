@@ -256,19 +256,15 @@ export default function AdminDashboard() {
                   return (
                     <div
                       key={p.date}
-                      className="group relative flex-1"
                       title={`${p.date} · ${formatPrice(p.cents)}`}
-                    >
-                      <div
-                        className={cn(
-                          "w-full rounded-t transition-colors",
-                          hasData
-                            ? "bg-[var(--brand-green)] group-hover:bg-[var(--brand-green-dark)]"
-                            : "bg-muted-foreground/10"
-                        )}
-                        style={{ height: `${h}%` }}
-                      />
-                    </div>
+                      style={{ height: `${h}%` }}
+                      className={cn(
+                        "flex-1 rounded-t transition-colors",
+                        hasData
+                          ? "bg-[var(--brand-green)] hover:bg-[var(--brand-green-dark)]"
+                          : "bg-muted-foreground/10"
+                      )}
+                    />
                   );
                 })}
               </div>
