@@ -63,8 +63,6 @@ export default function ComptePage() {
           <div className="flex items-center gap-3">
             {accountStatus === "active" ? (
               <Badge variant="success" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Actif</Badge>
-            ) : accountStatus === "trial" ? (
-              <Badge variant="default" className="gap-1"><Clock className="h-3 w-3" /> Période d&apos;essai</Badge>
             ) : (
               <Badge variant="warning" className="gap-1"><Clock className="h-3 w-3" /> En attente de vérification</Badge>
             )}

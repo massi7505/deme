@@ -41,9 +41,9 @@ export async function ensureCompanyForUser(
       slug: slugify(fallbackName) + "-" + suffix,
       siret: "TEMP-" + userId.replace(/-/g, "").slice(0, 13),
       email_contact: email,
-      account_status: "trial",
+      account_status: "pending",
       kyc_status: "pending",
-      trial_ends_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_ends_at: null,
     })
     .select("*")
     .single();

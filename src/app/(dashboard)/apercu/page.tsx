@@ -413,36 +413,11 @@ export default function ApercuPage() {
                   <CheckCircle2 className="h-3 w-3" />
                   Compte actif
                 </Badge>
-              ) : accountStatus === "trial" ? (
-                <Badge variant="default" className="gap-1">
-                  <Clock className="h-3 w-3" />
-                  Essai gratuit (3 jours)
-                </Badge>
               ) : (
                 <Badge variant="warning" className="gap-1">
                   <Clock className="h-3 w-3" />
                   En attente de vérification
                 </Badge>
-              )}
-
-              {accountStatus === "trial" && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Vous êtes en période d&apos;essai de 3 jours. Vous pouvez consulter les leads mais pour les acheter vous devez :
-                  </p>
-                  <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
-                    <li className={kycStatus === "approved" ? "text-green-600 line-through" : "font-medium text-foreground"}>
-                      Vérifier votre pièce d&apos;identité
-                    </li>
-                    <li className="text-muted-foreground">Acheter votre premier lead → compte actif</li>
-                  </ol>
-                  {kycStatus !== "approved" && (
-                    <a href="/verification-identite" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand-gradient px-4 py-2 text-xs font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Vérifier mon identité
-                    </a>
-                  )}
-                </div>
               )}
 
               {accountStatus === "active" && (
@@ -451,10 +426,18 @@ export default function ApercuPage() {
                 </p>
               )}
 
-              {accountStatus === "pending" && (
-                <p className="text-xs text-muted-foreground">
-                  Vérifiez votre identité pour activer votre compte.
-                </p>
+              {accountStatus !== "active" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Pour acheter des leads, vous devez vérifier votre identité.
+                  </p>
+                  {kycStatus !== "approved" && (
+                    <a href="/verification-identite" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand-gradient px-4 py-2 text-xs font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Vérifier mon identité
+                    </a>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>

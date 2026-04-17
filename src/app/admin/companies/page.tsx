@@ -321,10 +321,6 @@ export default function AdminCompanies() {
             {c.account_status !== "active" && (
               <button onClick={() => handleAction(c.id, "update_status", { status: "active" })} className="flex items-center gap-1.5 rounded-lg border bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"><CheckCircle2 className="h-3 w-3" /> Activer le compte</button>
             )}
-            {/* Activer essai */}
-            {c.account_status === "pending" && (
-              <button onClick={() => handleAction(c.id, "update_status", { status: "trial" })} className="flex items-center gap-1.5 rounded-lg border bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"><Play className="h-3 w-3" /> Activer essai 3j</button>
-            )}
             {/* KYC: approuver */}
             {c.kyc_status !== "approved" && (
               <button onClick={() => handleAction(c.id, "update_kyc", { kyc_status: "approved" })} className="flex items-center gap-1.5 rounded-lg border bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"><Shield className="h-3 w-3" /> Vérifier KYC</button>
@@ -575,7 +571,6 @@ export default function AdminCompanies() {
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
           <option value="all">Tous statuts</option>
           <option value="active">Actif</option>
-          <option value="trial">Essai</option>
           <option value="pending">En attente</option>
           <option value="suspended">Suspendu</option>
         </select>

@@ -402,25 +402,15 @@ export default function PricingTab({ settings, onUpdate }: Props) {
               />
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Max distributions par lead</label>
-              <input
-                type="number"
-                value={settings.maxDistributions}
-                onChange={(e) => onUpdate("maxDistributions", e.target.value)}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Durée essai gratuit (jours)</label>
-              <input
-                type="number"
-                value={settings.trialDays}
-                onChange={(e) => onUpdate("trialDays", e.target.value)}
-                className={inputCls}
-              />
-            </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">Max distributions par lead</label>
+            <input
+              type="number"
+              value={settings.maxDistributions}
+              onChange={(e) => onUpdate("maxDistributions", e.target.value)}
+              className={inputCls}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Nombre max de déménageurs pouvant acheter un même lead.</p>
           </div>
         </div>
       </div>

@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         .eq("id", metadata.companyId)
         .single();
 
-      if (companyCheck?.account_status === "trial") {
+      if (companyCheck?.account_status && companyCheck.account_status !== "active") {
         await supabase
           .from("companies")
           .update({ account_status: "active" })

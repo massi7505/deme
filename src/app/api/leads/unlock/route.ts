@@ -7,7 +7,6 @@ import { sendInvoiceEmail } from "@/lib/resend";
 import { getWalletBalanceCents, debitWallet } from "@/lib/wallet";
 
 const MAX_UNLOCKS_PER_LEAD = 6;
-const TRIAL_DAYS = 3;
 
 export async function POST(request: NextRequest) {
   try {
@@ -89,23 +88,6 @@ export async function POST(request: NextRequest) {
         { error: "Votre compte est suspendu. Contactez le support." },
         { status: 403 }
       );
-    }
-
-    // Check trial expired (3 days)
-    if (company.account_status === "trial") {
-      const trialEnd = company.trial_ends_at
-        ? new Date(company.trial_ends_at)
-        : new Date(new Date(company.created_at).getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-
-      if (new Date() > trialEnd) {
-        return NextResponse.json(
-          {
-            error: "Votre période d'essai de 3 jours est terminée. Vérifiez votre identité et achetez un lead pour activer votre compte.",
-            trialExpired: true,
-          },
-          { status: 403 }
-        );
-      }
     }
 
     // MANDATORY: KYC verification before any purchase
@@ -190,7 +172,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (company.account_status === "trial") {
+      if (company.account_status !== "active") {
         await supabase
           .from("companies")
           .update({ account_status: "active" })
@@ -277,7 +259,7 @@ export async function POST(request: NextRequest) {
       }
 
       // First purchase → activate account permanently
-      if (company.account_status === "trial") {
+      if (company.account_status !== "active") {
         await supabase
           .from("companies")
           .update({ account_status: "active" })

@@ -75,10 +75,8 @@ export async function POST(request: NextRequest) {
         phone: company.phone || null,
         email_contact: email,
         website: company.website || null,
-        account_status: "trial",
-        trial_ends_at: new Date(
-          Date.now() + 3 * 24 * 60 * 60 * 1000
-        ).toISOString(),
+        account_status: "pending",
+        trial_ends_at: null,
       })
       .select("id")
       .single();

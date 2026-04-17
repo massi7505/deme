@@ -61,7 +61,6 @@ export interface Settings {
   priceEntreprise: string;
   priceInternational: string;
   maxDistributions: string;
-  trialDays: string;
   smartPricingDepartments: DepartmentRule[];
   smartPricingVolume: VolumeRule[];
   smartPricingSeasons: SeasonRule[];
@@ -97,11 +96,7 @@ export interface Settings {
   adminEmail: string;
   // Refunds / wallet
   refundsEnabled: boolean;
-  refundMode: "percentage" | "wallet";
-  refundDefaultPercent: string;            // 0-100
   walletValidityDays: string;              // integer, default 365
-  refundAllowPartial: boolean;
-  // Safeguards so the company never over-refunds
   refundMaxPercent: string;                // max % of a transaction per refund
   refundMaxPerMoverMonthly: string;        // euros cap / mover / calendar month
   refundMaxPerMoverYearly: string;         // euros cap / mover / rolling 365d
@@ -223,7 +218,6 @@ export const DEFAULT_SETTINGS: Settings = {
   priceEntreprise: "18.00",
   priceInternational: "25.00",
   maxDistributions: "6",
-  trialDays: "30",
   smartPricingDepartments: [],
   smartPricingVolume: [],
   smartPricingSeasons: [],
@@ -254,13 +248,10 @@ export const DEFAULT_SETTINGS: Settings = {
   invoiceConditions: "",
   adminEmail: "",
   refundsEnabled: false,
-  refundMode: "wallet",
-  refundDefaultPercent: "30",
   walletValidityDays: "365",
-  refundAllowPartial: true,
-  refundMaxPercent: "50",
-  refundMaxPerMoverMonthly: "50.00",
-  refundMaxPerMoverYearly: "200.00",
+  refundMaxPercent: "10",
+  refundMaxPerMoverMonthly: "0",
+  refundMaxPerMoverYearly: "0",
   refundOncePerTransaction: true,
-  refundCooldownDays: "3",
+  refundCooldownDays: "0",
 };
