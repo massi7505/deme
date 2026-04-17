@@ -124,7 +124,7 @@ export default function SmtpTab({ settings, onUpdate }: Props) {
                 <input
                   value={settings.smtpFromName}
                   onChange={(e) => onUpdate("smtpFromName", e.target.value)}
-                  placeholder="Demenagement24"
+                  placeholder="Mon site"
                   className={inputCls}
                 />
               </div>
@@ -134,7 +134,7 @@ export default function SmtpTab({ settings, onUpdate }: Props) {
                   type="email"
                   value={settings.smtpFromEmail}
                   onChange={(e) => onUpdate("smtpFromEmail", e.target.value)}
-                  placeholder="noreply@demenagement24.com"
+                  placeholder="noreply@example.com"
                   className={inputCls}
                 />
               </div>
@@ -230,7 +230,7 @@ export default function SmtpTab({ settings, onUpdate }: Props) {
                 <input
                   value={settings.smtpFromName}
                   onChange={(e) => onUpdate("smtpFromName", e.target.value)}
-                  placeholder="Demenagement24"
+                  placeholder="Mon site"
                   className={inputCls}
                 />
               </div>
@@ -240,7 +240,7 @@ export default function SmtpTab({ settings, onUpdate }: Props) {
                   type="email"
                   value={settings.smtpFromEmail}
                   onChange={(e) => onUpdate("smtpFromEmail", e.target.value)}
-                  placeholder="noreply@demenagement24.com"
+                  placeholder="noreply@example.com"
                   className={inputCls}
                 />
               </div>

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Demenagement24 — B2B/B2C moving marketplace connecting clients with professional moving companies in France. Revenue model: selling leads (quote requests) to movers. Each lead can be purchased by max 6 movers, then it's hidden. No free trial unlocks — all leads require payment.
+B2B/B2C moving marketplace connecting clients with professional moving companies in France. Revenue model: selling leads (quote requests) to movers. Each lead can be purchased by max 6 movers, then it's hidden. No free trial unlocks — all leads require payment. Brand name is configured via `NEXT_PUBLIC_SITE_NAME` env var (see `src/lib/brand.ts`).
 
 ## Commands
 
@@ -98,7 +98,7 @@ Settings propagate to: Header (site name), Footer (site name, email, phone, addr
 | File | Service | Notes |
 |------|---------|-------|
 | `mollie.ts` | Payments | Lazy `getMollie()`, if key empty → test mode (instant unlock) |
-| `sumsub.ts` | KYC | HMAC-SHA256 signed requests |
+| `didit.ts` | KYC (didit.me) | HMAC-SHA256 webhook verification + 300s replay window |
 | `onesignal.ts` | Push notifications | Tags-based targeting by company_id |
 | `smsfactor.ts` | SMS | FR phone normalization |
 | `resend.ts` | Email | Lazy `getResend()` (exported), HTML templates inline |

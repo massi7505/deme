@@ -1,4 +1,5 @@
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { BRAND } from "@/lib/brand";
 
 const SMSFACTOR_API_URL = "https://api.smsfactor.com";
 
@@ -6,9 +7,9 @@ async function getSiteName(): Promise<string> {
   try {
     const supabase = createUntypedAdminClient();
     const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
-    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+    return (data?.data as Record<string, string>)?.siteName || BRAND.siteName;
   } catch {
-    return "Demenagement24";
+    return BRAND.siteName;
   }
 }
 
@@ -42,7 +43,7 @@ export async function sendLeadSMS(
 
   return smsfactorFetch("/send", {
     to: normalizePhone(phone),
-    sender: "Demenag24",
+    sender: BRAND.smsSender,
     text: `Nouvelle demande de demenagement : ${leadData.fromCity} -> ${leadData.toCity}${dateStr}. Connectez-vous pour voir les details.`,
   });
 }
@@ -51,7 +52,7 @@ export async function sendOtpSMS(phone: string, code: string) {
   const siteName = await getSiteName();
   return smsfactorFetch("/send", {
     to: normalizePhone(phone),
-    sender: "Demenag24",
+    sender: BRAND.smsSender,
     text: `Votre code de verification ${siteName} : ${code}. Valable 10 minutes.`,
   });
 }
@@ -62,7 +63,7 @@ export async function sendConfirmationSMS(
 ) {
   return smsfactorFetch("/send", {
     to: normalizePhone(phone),
-    sender: "Demenag24",
+    sender: BRAND.smsSender,
     text: message,
   });
 }

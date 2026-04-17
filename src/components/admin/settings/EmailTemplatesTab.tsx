@@ -66,7 +66,7 @@ export default function EmailTemplatesTab({ settings, onUpdate }: Props) {
     let html = selected.body;
     const sampleVars: Record<string, string> = {
       companyName: "Transport Express SARL",
-      baseUrl: "https://demenagement24.fr",
+      baseUrl: "https://example.com",
       fromCity: "Paris",
       toCity: "Lyon",
       leadId: "abc123",

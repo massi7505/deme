@@ -3,6 +3,7 @@ import { DM_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "@/components/providers";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
 const body = DM_Sans({
@@ -26,9 +27,9 @@ async function getSiteName(): Promise<string> {
       .select("data")
       .eq("id", 1)
       .single();
-    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+    return (data?.data as Record<string, string>)?.siteName || BRAND.siteName;
   } catch {
-    return "Demenagement24";
+    return BRAND.siteName;
   }
 }
 

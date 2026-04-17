@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { BRAND } from "@/lib/brand";
 
 export interface SiteSettings {
   siteName: string;
@@ -11,11 +12,11 @@ export interface SiteSettings {
 }
 
 const DEFAULTS: SiteSettings = {
-  siteName: "Demenagement24",
-  siteUrl: "https://demenagement24.com",
-  contactEmail: "contact@demenagement24.com",
-  contactPhone: "01 23 45 67 89",
-  contactAddress: "Paris, France",
+  siteName: BRAND.siteName,
+  siteUrl: BRAND.siteUrl,
+  contactEmail: BRAND.contactEmail,
+  contactPhone: BRAND.contactPhone,
+  contactAddress: "",
 };
 
 export const SiteSettingsContext = createContext<SiteSettings>(DEFAULTS);

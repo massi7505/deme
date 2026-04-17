@@ -8,6 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { BRAND } from "@/lib/brand";
 
 interface Mover {
   id: string;
@@ -96,7 +97,7 @@ export default function EntreprisesDemenagementPage() {
           reviewCount: mover.review_count,
           bestRating: 10,
         },
-        url: `https://demenagement24.fr/entreprises-demenagement/${mover.slug}`,
+        url: `${BRAND.siteUrl}/entreprises-demenagement/${mover.slug}`,
       },
     })),
   };

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { sendClaimResolvedEmail } from "@/lib/resend";
+import { BRAND } from "@/lib/brand";
 
 async function getSiteName(supabase: ReturnType<typeof createUntypedAdminClient>): Promise<string> {
   try {
     const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
-    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+    return (data?.data as Record<string, string>)?.siteName || BRAND.siteName;
   } catch {
-    return "Demenagement24";
+    return BRAND.siteName;
   }
 }
 
@@ -207,7 +208,7 @@ export async function POST(request: NextRequest) {
         const resend = getResend();
         const emailSiteName = await getSiteName(supabase);
         await resend.emails.send({
-          from: process.env.EMAIL_FROM ?? `${emailSiteName} <noreply@demenagement24.com>`,
+          from: BRAND.emailFrom || `${emailSiteName} <${BRAND.contactEmail}>`,
           to: body.companyEmail,
           subject: `Réponse à votre réclamation — ${body.reason || "Réclamation"}`,
           html: `

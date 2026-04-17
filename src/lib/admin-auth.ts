@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-const ADMIN_SECRET = process.env.ADMINJS_COOKIE_SECRET ?? "demenagement24-admin-secret-key";
+const ADMIN_SECRET = process.env.ADMINJS_COOKIE_SECRET ?? "dev-admin-secret-change-me";
 
 export function generateAdminToken(email: string): string {
   const payload = `${email}:${Date.now() + 86400000}`;

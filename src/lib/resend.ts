@@ -1,23 +1,24 @@
 import { Resend } from "resend";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_EMAIL_TEMPLATES } from "@/components/admin/settings/types";
+import { BRAND } from "@/lib/brand";
 
 export function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? "re_placeholder");
 }
 
-const FROM = process.env.EMAIL_FROM ?? "noreply@demenagement24.fr";
+const FROM = BRAND.emailFrom;
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "contact@demenagement24.fr";
+const ADMIN_EMAIL = BRAND.adminEmail || BRAND.contactEmail;
 
 /** Read site name from DB settings */
 async function getSiteName(): Promise<string> {
   try {
     const supabase = createUntypedAdminClient();
     const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
-    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+    return (data?.data as Record<string, string>)?.siteName || BRAND.siteName;
   } catch {
-    return "Demenagement24";
+    return BRAND.siteName;
   }
 }
 

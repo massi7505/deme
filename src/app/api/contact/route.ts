@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getResend } from "@/lib/resend";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { BRAND } from "@/lib/brand";
 
 async function getContactSettings(): Promise<{ contactEmail: string; siteName: string }> {
   try {
@@ -11,11 +12,11 @@ async function getContactSettings(): Promise<{ contactEmail: string; siteName: s
       .eq("id", 1)
       .single();
     return {
-      contactEmail: data?.data?.contactEmail || "contact@demenagement24.com",
-      siteName: data?.data?.siteName || "Demenagement24",
+      contactEmail: data?.data?.contactEmail || BRAND.contactEmail,
+      siteName: data?.data?.siteName || BRAND.siteName,
     };
   } catch {
-    return { contactEmail: "contact@demenagement24.com", siteName: "Demenagement24" };
+    return { contactEmail: BRAND.contactEmail, siteName: BRAND.siteName };
   }
 }
 
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { contactEmail, siteName } = await getContactSettings();
-    const fromEmail = process.env.EMAIL_FROM ?? `${siteName} <noreply@demenagement24.com>`;
+    const fromEmail = BRAND.emailFrom || `${siteName} <${BRAND.contactEmail}>`;
 
     const resend = getResend();
     await resend.emails.send({

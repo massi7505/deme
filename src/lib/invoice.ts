@@ -1,5 +1,6 @@
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { generateInvoiceNumber } from "@/lib/utils";
+import { BRAND } from "@/lib/brand";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export interface InvoiceData {
@@ -42,11 +43,11 @@ async function getInvoiceSettings(): Promise<InvoiceSettings> {
     const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
     const s = (data?.data || {}) as Record<string, string>;
     return {
-      companyName: s.invoiceCompanyName || s.siteName || "Demenagement24",
+      companyName: s.invoiceCompanyName || s.siteName || BRAND.siteName,
       address: s.invoiceAddress || s.contactAddress || "",
       city: s.invoiceCity || "",
       postalCode: s.invoicePostalCode || "",
-      email: s.invoiceEmail || s.contactEmail || "contact@demenagement24.com",
+      email: s.invoiceEmail || s.contactEmail || BRAND.contactEmail,
       siret: s.invoiceSiret || "",
       vatNumber: s.invoiceVatNumber || "",
       vatRate: parseFloat(s.invoiceVatRate || "20") / 100,
@@ -57,11 +58,11 @@ async function getInvoiceSettings(): Promise<InvoiceSettings> {
     };
   } catch {
     return {
-      companyName: "Demenagement24",
+      companyName: BRAND.siteName,
       address: "",
       city: "Paris",
       postalCode: "",
-      email: "contact@demenagement24.com",
+      email: BRAND.contactEmail,
       siret: "",
       vatNumber: "",
       vatRate: 0.2,

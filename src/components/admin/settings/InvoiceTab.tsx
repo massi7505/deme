@@ -29,7 +29,7 @@ export default function InvoiceTab({ settings, onUpdate }: Props) {
               <input
                 value={settings.invoiceCompanyName}
                 onChange={(e) => onUpdate("invoiceCompanyName", e.target.value)}
-                placeholder={settings.siteName || "Demenagement24"}
+                placeholder={settings.siteName || "Mon site"}
                 className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
               />
               <p className="mt-1 text-xs text-muted-foreground">Apparait en haut de la facture</p>
@@ -39,7 +39,7 @@ export default function InvoiceTab({ settings, onUpdate }: Props) {
               <input
                 value={settings.invoiceEmail}
                 onChange={(e) => onUpdate("invoiceEmail", e.target.value)}
-                placeholder={settings.contactEmail || "contact@demenagement24.com"}
+                placeholder={settings.contactEmail || "contact@example.com"}
                 className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
               />
             </div>

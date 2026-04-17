@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import * as nodemailer from "nodemailer";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { BRAND } from "@/lib/brand";
 
 async function getSiteName(): Promise<string> {
   try {
     const supabase = createUntypedAdminClient();
     const { data } = await supabase.from("site_settings").select("data").eq("id", 1).single();
-    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+    return (data?.data as Record<string, string>)?.siteName || BRAND.siteName;
   } catch {
-    return "Demenagement24";
+    return BRAND.siteName;
   }
 }
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Clé API Resend manquante" }, { status: 400 });
       }
       const resend = new Resend(apiKey);
-      const fromEmail = body.smtpFromEmail || "noreply@demenagement24.com";
+      const fromEmail = body.smtpFromEmail || BRAND.emailFrom || "noreply@example.com";
       const fromName = body.smtpFromName || siteName;
 
       await resend.emails.send({

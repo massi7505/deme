@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Truck } from "lucide-react";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { BRAND } from "@/lib/brand";
 
 async function getSiteName(): Promise<string> {
   try {
@@ -10,9 +11,9 @@ async function getSiteName(): Promise<string> {
       .select("data")
       .eq("id", 1)
       .single();
-    return (data?.data as Record<string, string>)?.siteName || "Demenagement24";
+    return (data?.data as Record<string, string>)?.siteName || BRAND.siteName;
   } catch {
-    return "Demenagement24";
+    return BRAND.siteName;
   }
 }
 

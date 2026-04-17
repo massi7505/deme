@@ -15,6 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Separator } from "@/components/ui/separator";
 import { cn, formatDate, REGION_SLUGS } from "@/lib/utils";
 import RegionPage from "@/components/public/RegionPage";
+import { BRAND } from "@/lib/brand";
 
 interface Company {
   id: string; name: string; slug: string; city: string | null; postal_code: string | null;
@@ -99,7 +100,7 @@ function CompanyProfilePage({ slug }: { slug: string }) {
           bestRating: 10,
         }
       : undefined,
-    url: company.website || `https://demenagement24.fr/entreprises-demenagement/${company.slug}`,
+    url: company.website || `${BRAND.siteUrl}/entreprises-demenagement/${company.slug}`,
     review: company.reviews.map((review) => ({
       "@type": "Review",
       reviewRating: {
