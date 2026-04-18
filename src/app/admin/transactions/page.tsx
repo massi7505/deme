@@ -96,6 +96,45 @@ export default function AdminTransactions() {
     yearRemaining: number;
     maxPercent: number;
   } | null>(null);
+  const [stuck, setStuck] = useState<Array<{
+    id: string;
+    amount_cents: number;
+    wallet_debit_cents: number | null;
+    mollie_payment_id: string | null;
+    created_at: string;
+    reconciled_at: string | null;
+    companies: { name: string } | null;
+  }>>([]);
+  const [reconciling, setReconciling] = useState(false);
+
+  const fetchStuck = useCallback(async () => {
+    const res = await fetch("/api/admin/reconcile-payments");
+    if (res.ok) {
+      const d = await res.json();
+      setStuck(d.stuck || []);
+    }
+  }, []);
+
+  async function runReconcile() {
+    setReconciling(true);
+    try {
+      const res = await fetch("/api/admin/reconcile-payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ minAgeMinutes: 0, limit: 100 }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Erreur");
+      toast.success(
+        `Réconciliation : ${d.paid} payés, ${d.failed} rollback, ${d.stillPending} encore en attente`
+      );
+      await Promise.all([fetchStuck(), fetchTransactions()]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur réseau");
+    } finally {
+      setReconciling(false);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -220,7 +259,8 @@ export default function AdminTransactions() {
 
   useEffect(() => {
     fetchTransactions();
-  }, [fetchTransactions]);
+    fetchStuck();
+  }, [fetchTransactions, fetchStuck]);
 
 
   const filtered = transactions.filter((tx) => {
@@ -413,6 +453,68 @@ export default function AdminTransactions() {
                     : "Rembourser + envoyer email"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stuck payments panel */}
+      {stuck.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-900">
+                ⚠ {stuck.length} paiement{stuck.length > 1 ? "s" : ""} bloqué{stuck.length > 1 ? "s" : ""} (&gt; 30 min en attente)
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800">
+                Le webhook Mollie n&apos;a pas confirmé ces paiements. La réconciliation interroge Mollie et corrige automatiquement (paiement confirmé, rollback, ou crédit portefeuille).
+              </p>
+            </div>
+            <button
+              onClick={runReconcile}
+              disabled={reconciling}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {reconciling ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
+              {reconciling ? "Réconciliation…" : "Réconcilier maintenant"}
+            </button>
+          </div>
+          <div className="mt-3 max-h-48 space-y-1 overflow-y-auto">
+            {stuck.slice(0, 10).map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between rounded-md bg-white px-3 py-1.5 text-xs shadow-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">
+                    {s.companies?.name || "—"}
+                    <span className="ml-2 font-normal text-muted-foreground">
+                      {formatDateTime(s.created_at)}
+                    </span>
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Mollie {s.mollie_payment_id}
+                    {s.wallet_debit_cents && s.wallet_debit_cents > 0 && (
+                      <> · Portefeuille réservé : {formatPrice(s.wallet_debit_cents)}</>
+                    )}
+                    {s.reconciled_at && (
+                      <> · Dernière vérif : {formatDateTime(s.reconciled_at)}</>
+                    )}
+                  </p>
+                </div>
+                <span className="shrink-0 font-semibold text-amber-900">
+                  {formatPrice(s.amount_cents)}
+                </span>
+              </div>
+            ))}
+            {stuck.length > 10 && (
+              <p className="pt-1 text-center text-[10px] text-amber-700">
+                … et {stuck.length - 10} autres
+              </p>
+            )}
           </div>
         </div>
       )}
