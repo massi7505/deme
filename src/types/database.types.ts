@@ -537,6 +537,10 @@ export type Database = {
           client_salutation: string | null
           created_at: string
           date_mode: string | null
+          defect_flagged_at: string | null
+          defect_resolved_at: string | null
+          defect_resolved_by: string | null
+          defect_status: string | null
           distributed_at: string | null
           email_verification_attempts: number
           email_verification_code: string | null
@@ -590,6 +594,10 @@ export type Database = {
           client_salutation?: string | null
           created_at?: string
           date_mode?: string | null
+          defect_flagged_at?: string | null
+          defect_resolved_at?: string | null
+          defect_resolved_by?: string | null
+          defect_status?: string | null
           distributed_at?: string | null
           email_verification_attempts?: number
           email_verification_code?: string | null
@@ -643,6 +651,10 @@ export type Database = {
           client_salutation?: string | null
           created_at?: string
           date_mode?: string | null
+          defect_flagged_at?: string | null
+          defect_resolved_at?: string | null
+          defect_resolved_by?: string | null
+          defect_status?: string | null
           distributed_at?: string | null
           email_verification_attempts?: number
           email_verification_code?: string | null
@@ -833,6 +845,7 @@ export type Database = {
           invoice_url: string | null
           mollie_payment_id: string | null
           quote_distribution_id: string | null
+          reconciled_at: string | null
           status: string
           type: string
           wallet_debit_cents: number
@@ -847,6 +860,7 @@ export type Database = {
           invoice_url?: string | null
           mollie_payment_id?: string | null
           quote_distribution_id?: string | null
+          reconciled_at?: string | null
           status?: string
           type: string
           wallet_debit_cents?: number
@@ -861,6 +875,7 @@ export type Database = {
           invoice_url?: string | null
           mollie_payment_id?: string | null
           quote_distribution_id?: string | null
+          reconciled_at?: string | null
           status?: string
           type?: string
           wallet_debit_cents?: number
@@ -960,22 +975,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      user_role: "client" | "mover" | "admin"
-      account_status: "pending" | "trial" | "active" | "suspended" | "closed"
-      kyc_status: "not_started" | "pending" | "approved" | "rejected"
-      quote_category: "demenagement" | "nettoyage" | "debarras" | "garde_meuble" | "monte_meuble"
-      quote_status: "new" | "distributing" | "distributed" | "completed" | "cancelled" | "expired"
-      distribution_status: "pending" | "viewed" | "unlocked" | "contacted" | "won" | "lost" | "expired"
-      transaction_type: "lead_purchase" | "subscription" | "refund" | "credit"
-      payment_status: "pending" | "paid" | "failed" | "refunded"
-      subscription_plan: "starter" | "pro" | "enterprise"
-      subscription_status: "active" | "past_due" | "cancelled" | "expired"
-      subscription_interval: "monthly" | "yearly"
-      claim_reason: "wrong_info" | "duplicate" | "unreachable" | "fake" | "other"
-      claim_status: "pending" | "reviewing" | "approved" | "rejected"
-      notification_type: "new_lead" | "lead_unlocked" | "payment_received" | "payment_failed" | "review_received" | "claim_update" | "subscription_update" | "kyc_update" | "system"
-      notification_channel: "in_app" | "push" | "email" | "sms"
-      match_type: "department" | "radius"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
