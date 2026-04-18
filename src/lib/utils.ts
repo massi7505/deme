@@ -66,6 +66,11 @@ export function slugify(text: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+export function generateCompanySlug(name: string): string {
+  const suffix = Math.random().toString(36).slice(2, 10).padEnd(8, "0");
+  return `${slugify(name)}-${suffix}`;
+}
+
 export const DEPARTMENTS: Record<string, string> = {
   "01": "Ain", "02": "Aisne", "03": "Allier", "04": "Alpes-de-Haute-Provence",
   "05": "Hautes-Alpes", "06": "Alpes-Maritimes", "07": "Ardèche", "08": "Ardennes",
