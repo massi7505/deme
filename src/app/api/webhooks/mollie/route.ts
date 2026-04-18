@@ -5,6 +5,7 @@ import { generateInvoice } from "@/lib/invoice";
 import { notifyPaymentSuccess } from "@/lib/onesignal";
 import { sendInvoiceEmail, sendPaymentFailedEmail, notifyAdminPaymentSuccess, notifyAdminPaymentFailed } from "@/lib/resend";
 import { formatPrice } from "@/lib/utils";
+import { debitWallet, getWalletBalanceCents } from "@/lib/wallet";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,12 +37,17 @@ export async function POST(request: NextRequest) {
       companyId: string;
       distributionId: string;
       type: string;
+      walletReservationCents?: number | string;
+      fullPriceCents?: number | string;
     };
 
     if (!metadata?.companyId || !metadata?.distributionId) {
       // Payment without our metadata — acknowledge
       return NextResponse.json({ received: true });
     }
+
+    const walletReservation = Number(metadata.walletReservationCents || 0) || 0;
+    const fullPrice = Number(metadata.fullPriceCents || 0) || 0;
 
     const supabase = createUntypedAdminClient();
 
@@ -57,13 +63,38 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", metadata.distributionId);
 
-      // 2. Update pending transaction (created at payment initiation) or insert if missing
-      const amountCentsPaid = Math.round(parseFloat(payment.amount.value) * 100);
+      // 2. Commit wallet debit atomically with the card payment. If the
+      // balance dropped between reservation and now (rare race), clamp
+      // to what's actually available — never let it go negative.
+      let walletDebitApplied = 0;
+      if (walletReservation > 0) {
+        const live = await getWalletBalanceCents(supabase, metadata.companyId);
+        walletDebitApplied = Math.min(walletReservation, live);
+        if (walletDebitApplied > 0) {
+          try {
+            await debitWallet(supabase, {
+              companyId: metadata.companyId,
+              amountCents: walletDebitApplied,
+              reason: "Achat lead (portefeuille partiel)",
+              quoteDistributionId: metadata.distributionId,
+            });
+          } catch (err) {
+            console.error("[Webhook] Wallet debit failed:", err);
+            walletDebitApplied = 0; // keep txn consistent
+          }
+        }
+      }
+
+      // 3. Update pending transaction — record the FULL lead price
+      // (card + wallet) + the wallet portion, not just the Mollie amount.
+      const cardAmountCents = Math.round(parseFloat(payment.amount.value) * 100);
+      const totalAmountCents = fullPrice > 0 ? fullPrice : cardAmountCents + walletDebitApplied;
       const { data: updatedTxn } = await supabase
         .from("transactions")
         .update({
           status: "paid",
-          amount_cents: amountCentsPaid,
+          amount_cents: totalAmountCents,
+          wallet_debit_cents: walletDebitApplied,
           currency: payment.amount.currency,
         })
         .eq("mollie_payment_id", paymentId)
@@ -78,7 +109,8 @@ export async function POST(request: NextRequest) {
             company_id: metadata.companyId,
             quote_distribution_id: metadata.distributionId,
             mollie_payment_id: paymentId,
-            amount_cents: amountCentsPaid,
+            amount_cents: totalAmountCents,
+            wallet_debit_cents: walletDebitApplied,
             currency: payment.amount.currency,
             type: "lead_purchase",
             status: "paid",
@@ -156,7 +188,7 @@ export async function POST(request: NextRequest) {
       if (company) {
         await notifyAdminPaymentSuccess(
           company.name,
-          transaction?.amount_cents || amountCentsPaid,
+          transaction?.amount_cents || totalAmountCents,
           transaction?.invoice_number || "—"
         ).catch((err) => console.error("Admin notification error:", err));
       }

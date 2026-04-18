@@ -101,8 +101,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Wallet-first: if the mover has enough credit, settle the unlock from
-    // the wallet and skip Mollie entirely.
+    // Wallet-first: consume whatever is available on the wallet. If the
+    // balance covers the full price, skip Mollie entirely. If it covers
+    // part, reserve that portion on the Mollie metadata — the webhook will
+    // atomically debit the wallet + charge the card for the remainder.
     const walletBalance = await getWalletBalanceCents(supabase, company.id);
     if (walletBalance >= distribution.price_cents) {
       await supabase
@@ -123,6 +125,7 @@ export async function POST(request: NextRequest) {
           company_id: company.id,
           quote_distribution_id: distributionId,
           amount_cents: distribution.price_cents,
+          wallet_debit_cents: distribution.price_cents,
           type: "unlock",
           status: "paid",
           description: "Achat lead (portefeuille)",
@@ -194,19 +197,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, paidFromWallet: true });
     }
 
+    // Partial wallet coverage: wallet covers `walletBalance`, card covers the
+    // remainder. Wallet is debited atomically by the Mollie webhook on 'paid'
+    // so a card failure never consumes the credit.
+    const walletReservation =
+      walletBalance > 0 && walletBalance < distribution.price_cents
+        ? walletBalance
+        : 0;
+    const cardChargeCents = distribution.price_cents - walletReservation;
+
     // ALL unlocks require payment
     // If Mollie is not configured, use test mode
     if (!process.env.MOLLIE_API_KEY) {
-      // TEST MODE — simulate instant unlock
+      // TEST MODE — simulate instant unlock (applies wallet portion too)
       await supabase
         .from("quote_distributions")
         .update({ status: "unlocked", unlocked_at: new Date().toISOString() })
         .eq("id", distributionId);
 
+      if (walletReservation > 0) {
+        await debitWallet(supabase, {
+          companyId: company.id,
+          amountCents: walletReservation,
+          reason: "Achat lead (portefeuille partiel)",
+          quoteDistributionId: distributionId,
+        }).catch((err) => console.error("[Unlock test] wallet debit failed:", err));
+      }
+
       const { data: txn } = await supabase.from("transactions").insert({
         company_id: company.id,
         quote_distribution_id: distributionId,
         amount_cents: distribution.price_cents,
+        wallet_debit_cents: walletReservation,
         type: "unlock",
         status: "paid",
       }).select().single();
@@ -283,20 +305,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, testMode: true });
     }
 
-    // PRODUCTION — Create Mollie payment
+    // PRODUCTION — Create Mollie payment for the card portion only. Wallet
+    // reservation is debited by the webhook on success.
     const payment = await createLeadPayment({
-      amountCents: distribution.price_cents,
+      amountCents: cardChargeCents,
       companyId: company.id,
       distributionId,
+      walletReservationCents: walletReservation,
+      fullPriceCents: distribution.price_cents,
+      description:
+        walletReservation > 0
+          ? `Complément achat lead (${(walletReservation / 100).toFixed(2)} € portefeuille + ${(cardChargeCents / 100).toFixed(2)} € carte)`
+          : undefined,
     });
 
-    // Record pending transaction immediately so all attempts are visible
-    // before the webhook fires (or if webhook never fires)
+    // Record pending transaction with the FULL price + wallet portion reserved.
     await supabase.from("transactions").insert({
       company_id: company.id,
       quote_distribution_id: distributionId,
       mollie_payment_id: payment.id,
       amount_cents: distribution.price_cents,
+      wallet_debit_cents: walletReservation,
       type: "lead_purchase",
       status: "pending",
     });

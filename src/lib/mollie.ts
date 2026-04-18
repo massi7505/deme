@@ -20,11 +20,17 @@ export async function createLeadPayment({
   companyId,
   distributionId,
   description,
+  walletReservationCents,
+  fullPriceCents,
 }: {
   amountCents: number;
   companyId: string;
   distributionId: string;
   description?: string;
+  /** Wallet amount the webhook should debit on success. 0 = card-only. */
+  walletReservationCents?: number;
+  /** Full lead price, so the webhook can record the correct amount. */
+  fullPriceCents?: number;
 }) {
   const mollie = getMollie();
   const baseUrl = getBaseUrl();
@@ -44,6 +50,8 @@ export async function createLeadPayment({
       companyId,
       distributionId,
       type: "lead_unlock",
+      walletReservationCents: walletReservationCents ?? 0,
+      fullPriceCents: fullPriceCents ?? amountCents,
     },
   });
 

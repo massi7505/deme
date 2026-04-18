@@ -170,13 +170,13 @@ export default function FacturationPage() {
                 <p className="font-semibold">Comment utiliser votre solde</p>
                 <ul className="mt-1.5 list-disc space-y-1 pl-4">
                   <li>
-                    Votre portefeuille est <strong>automatiquement utilisé</strong> lorsque votre solde couvre la totalité du prix d&apos;un lead.
+                    Votre portefeuille est <strong>automatiquement utilisé en priorité</strong> sur chaque achat de lead.
                   </li>
                   <li>
-                    Exemple : un lead à 12 €, solde ≥ 12 € → <strong>0 € sur votre carte</strong>, 12 € débités du portefeuille.
+                    Solde ≥ prix du lead → <strong>0 € sur votre carte</strong>, tout prélevé sur le portefeuille.
                   </li>
                   <li>
-                    Solde insuffisant (ex. 1 € pour un lead à 12 €) → paiement <strong>complet sur carte</strong>, le solde reste disponible pour plus tard.
+                    Solde insuffisant → <strong>paiement mixte</strong>. Exemple : lead 12 €, solde 1 € → 1 € portefeuille + 11 € carte.
                   </li>
                   <li>
                     Les crédits expirent à la date indiquée dans l&apos;historique — utilisez-les avant.
