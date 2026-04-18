@@ -51,6 +51,8 @@ const ITEMS_PER_PAGE = 10;
 
 export default function DemandesDeDevisPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [spentCents, setSpentCents] = useState(0);
+  const [pendingCents, setPendingCents] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -59,7 +61,11 @@ export default function DemandesDeDevisPage() {
   useEffect(() => {
     fetch("/api/dashboard/overview")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d?.leads) setLeads(d.leads); })
+      .then((d) => {
+        if (d?.leads) setLeads(d.leads);
+        setSpentCents(d?.spentCents || 0);
+        setPendingCents(d?.pendingCents || 0);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -81,7 +87,6 @@ export default function DemandesDeDevisPage() {
       return tb - ta;
     });
   const pending = leads.filter((l) => l.status !== "unlocked");
-  const totalSpentCents = unlocked.reduce((s, l) => s + l.priceCents, 0);
   const lastUnlocked = unlocked[0];
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -116,7 +121,12 @@ export default function DemandesDeDevisPage() {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Dépensé</p>
-              <p className="mt-1 text-2xl font-bold">{formatPrice(totalSpentCents)}</p>
+              <p className="mt-1 text-2xl font-bold">{formatPrice(spentCents)}</p>
+              {pendingCents > 0 && (
+                <p className="mt-0.5 text-[11px] text-amber-700">
+                  + {formatPrice(pendingCents)} en attente
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>

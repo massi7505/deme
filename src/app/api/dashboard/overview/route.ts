@@ -237,6 +237,32 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(10);
 
+  // Actual spent vs pending — source of truth = transactions table, deduped per distribution.
+  // Prevents mismatch between lead list totals and /facturation when webhook didn't confirm yet.
+  const { data: allTxns } = await admin
+    .from("transactions")
+    .select("quote_distribution_id, amount_cents, status, type")
+    .eq("company_id", company.id)
+    .in("type", ["unlock", "lead_purchase"]);
+
+  const bestPerDist = new Map<string, { amount_cents: number; status: string }>();
+  const statusRank: Record<string, number> = { paid: 3, refunded: 2, failed: 1, pending: 0 };
+  for (const t of (allTxns || []) as Array<{ quote_distribution_id: string | null; amount_cents: number; status: string }>) {
+    const distId = t.quote_distribution_id;
+    if (!distId) continue;
+    const existing = bestPerDist.get(distId);
+    const rank = statusRank[t.status] ?? 0;
+    const existingRank = existing ? statusRank[existing.status] ?? 0 : -1;
+    if (rank > existingRank) bestPerDist.set(distId, { amount_cents: t.amount_cents, status: t.status });
+  }
+  let spentCents = 0;
+  let pendingCents = 0;
+  Array.from(bestPerDist.values()).forEach(({ amount_cents, status }) => {
+    if (amount_cents <= 0) return;
+    if (status === "paid") spentCents += amount_cents;
+    else if (status === "pending") pendingCents += amount_cents;
+  });
+
   // Wallet (only populated when refunds feature is enabled)
   const { data: settingsRow } = await admin
     .from("site_settings")
@@ -272,5 +298,7 @@ export async function GET() {
       enabled: !!settings.refundsEnabled,
       balanceCents: walletBalanceCents,
     },
+    spentCents,
+    pendingCents,
   });
 }
