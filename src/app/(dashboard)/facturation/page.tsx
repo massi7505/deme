@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,14 +12,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { cn, formatDate, formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { downloadCSV } from "@/lib/csv-export";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   Receipt,
-  CreditCard,
-  Calendar,
   Download,
   Euro,
   ArrowUpRight,
@@ -62,12 +59,6 @@ interface Transaction {
   created_at: string;
 }
 
-interface Plan {
-  name: string;
-  priceCents: number;
-  nextBilling: string | null;
-}
-
 interface Summary {
   totalCents: number;
   subscriptionCents: number;
@@ -96,7 +87,6 @@ interface Wallet {
 
 export default function FacturationPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [plan, setPlan] = useState<Plan | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,7 +104,6 @@ export default function FacturationPage() {
       }
       const data = await res.json();
       setTransactions(data.transactions || []);
-      setPlan(data.plan || null);
       setSummary(data.summary || null);
       setWallet(data.wallet || null);
     } catch {
@@ -291,44 +280,8 @@ export default function FacturationPage() {
         </motion.div>
       )}
 
-      {/* Plan card + summary */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CreditCard className="h-4 w-4 text-[var(--brand-green)]" />
-                Abonnement actuel
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold">
-                  {plan ? formatPrice(plan.priceCents) : "0,00 \u20ac"}
-                </span>
-                <span className="text-sm text-muted-foreground">/ mois</span>
-              </div>
-              <Badge variant="default" className="gap-1">
-                {plan?.name || "Aucun"}
-              </Badge>
-              <Separator />
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                Prochaine facturation :{" "}
-                <span className="font-medium text-foreground">
-                  {plan?.nextBilling
-                    ? formatDate(plan.nextBilling)
-                    : "Non planifiée"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
+      {/* Summary */}
+      <div>
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
