@@ -408,6 +408,35 @@ export default function ProfilEntreprisePage() {
         </p>
       </motion.div>
 
+      {/* Pending name change request */}
+      {company.pending_name && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardContent className="flex items-start gap-3 p-4">
+              <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-amber-600" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  Demande de changement de nom en attente
+                </p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Nouveau nom demandé : <strong>{company.pending_name}</strong>
+                  {company.pending_name_requested_at && (
+                    <> — soumise le {formatDate(company.pending_name_requested_at)}</>
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  En attente de validation par un administrateur.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Company header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -844,35 +873,6 @@ export default function ProfilEntreprisePage() {
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Pending name change request */}
-      {company.pending_name && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Card className="border-amber-200 bg-amber-50/60">
-            <CardContent className="flex items-start gap-3 p-4">
-              <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-amber-600" />
-              <div>
-                <p className="text-sm font-semibold text-amber-900">
-                  Demande de changement de nom en attente
-                </p>
-                <p className="mt-1 text-xs text-amber-800">
-                  Nouveau nom demandé : <strong>{company.pending_name}</strong>
-                  {company.pending_name_requested_at && (
-                    <> — soumise le {formatDate(company.pending_name_requested_at)}</>
-                  )}
-                </p>
-                <p className="mt-1 text-xs text-amber-700">
-                  En attente de validation par un administrateur.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
 
       {/* Company info */}
       <motion.div
