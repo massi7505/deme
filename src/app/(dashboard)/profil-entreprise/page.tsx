@@ -143,8 +143,29 @@ export default function ProfilEntreprisePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
+  const [syncingInsee, setSyncingInsee] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleSyncFromInsee() {
+    setSyncingInsee(true);
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync_from_insee" }),
+      });
+      if (res.ok) {
+        toast.success("Statut juridique et TVA mis à jour depuis l'INSEE");
+        fetchProfile();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Erreur de synchronisation");
+      }
+    } finally {
+      setSyncingInsee(false);
+    }
+  }
 
   async function handleAddPredefinedQuestion(question: string, answer = "") {
     try {
@@ -431,7 +452,39 @@ export default function ProfilEntreprisePage() {
               </div>
 
               <div className="text-center sm:text-left">
-                <h3 className="text-xl font-bold">{company.name}</h3>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <h3 className="text-xl font-bold">{company.name}</h3>
+                  {!company.pending_name && (
+                    <button
+                      onClick={async () => {
+                        const newName = window.prompt(
+                          "Nouveau nom d'entreprise (sera soumis à validation admin) :",
+                          company.name || ""
+                        );
+                        if (!newName || newName.trim() === (company.name || "").trim()) return;
+                        const res = await fetch("/api/dashboard/profile", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            action: "request_name_change",
+                            requested_name: newName.trim(),
+                          }),
+                        });
+                        if (res.ok) {
+                          toast.success("Demande envoyée à l'administrateur");
+                          fetchProfile();
+                        } else {
+                          const data = await res.json();
+                          toast.error(data.error || "Erreur");
+                        }
+                      }}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      title="Demander un changement de nom"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
                 <div className="mt-1 flex items-center justify-center gap-2 sm:justify-start">
                   <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
@@ -844,6 +897,10 @@ export default function ProfilEntreprisePage() {
                 <p className="text-xs font-medium text-muted-foreground">Statut juridique</p>
                 <p className="mt-1 text-sm font-medium">{company.legal_status || "Non renseigné"}</p>
               </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">N° TVA intracommunautaire</p>
+                <p className="mt-1 text-sm font-medium font-mono">{company.vat_number || "Non renseigné"}</p>
+              </div>
               <EditableField
                 label="Effectifs"
                 value={company.employee_count || ""}
@@ -923,6 +980,25 @@ export default function ProfilEntreprisePage() {
                   else toast.error("Erreur");
                 }}
               />
+            </div>
+            <div className="mt-4 flex items-center gap-2 border-t pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncFromInsee}
+                disabled={syncingInsee || !company.siret}
+                className="gap-1.5"
+              >
+                {syncingInsee ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Building2 className="h-3.5 w-3.5" />
+                )}
+                Re-synchroniser depuis INSEE
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Met à jour statut juridique et TVA
+              </span>
             </div>
           </CardContent>
         </Card>
