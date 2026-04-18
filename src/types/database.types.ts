@@ -975,7 +975,22 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "client" | "mover" | "admin"
+      account_status: "pending" | "trial" | "active" | "suspended" | "closed"
+      kyc_status: "not_started" | "pending" | "approved" | "rejected"
+      quote_category: "demenagement" | "nettoyage" | "debarras" | "garde_meuble" | "monte_meuble"
+      quote_status: "new" | "distributing" | "distributed" | "completed" | "cancelled" | "expired"
+      distribution_status: "pending" | "viewed" | "unlocked" | "contacted" | "won" | "lost" | "expired"
+      transaction_type: "lead_purchase" | "subscription" | "refund" | "credit"
+      payment_status: "pending" | "paid" | "failed" | "refunded"
+      subscription_plan: "starter" | "pro" | "enterprise"
+      subscription_status: "active" | "past_due" | "cancelled" | "expired"
+      subscription_interval: "monthly" | "yearly"
+      claim_reason: "wrong_info" | "duplicate" | "unreachable" | "fake" | "other"
+      claim_status: "pending" | "reviewing" | "approved" | "rejected"
+      notification_type: "new_lead" | "lead_unlocked" | "payment_received" | "payment_failed" | "review_received" | "claim_update" | "subscription_update" | "kyc_update" | "system"
+      notification_channel: "in_app" | "push" | "email" | "sms"
+      match_type: "department" | "radius"
     }
     CompositeTypes: {
       [_ in never]: never

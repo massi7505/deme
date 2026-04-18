@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { sendClaimReceivedEmail, notifyAdminNewClaim } from "@/lib/resend";
+import { checkAndFlagDefectiveLead, isHardReason } from "@/lib/defect-detection";
 
 export async function POST(request: NextRequest) {
   try {
@@ -109,6 +110,23 @@ export async function POST(request: NextRequest) {
     if (claim) {
       await notifyAdminNewClaim(companyInfo?.name || "Inconnu", reason, claim.id)
         .catch((err) => console.error("Admin claim notification error:", err));
+    }
+
+    // Collective defect detection — only for hard-reason claims.
+    // Runs best-effort: failure should not break claim creation.
+    if (claim && isHardReason(reason)) {
+      try {
+        const { data: dist } = await admin
+          .from("quote_distributions")
+          .select("quote_request_id")
+          .eq("id", distributionId)
+          .single();
+        if (dist?.quote_request_id) {
+          await checkAndFlagDefectiveLead(admin, dist.quote_request_id as string);
+        }
+      } catch (err) {
+        console.error("[Claim] defect detection failed:", err);
+      }
     }
 
     return NextResponse.json({ success: true, claim });
