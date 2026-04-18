@@ -537,6 +537,10 @@ export type Database = {
           client_salutation: string | null
           created_at: string
           date_mode: string | null
+          defect_flagged_at: string | null
+          defect_resolved_at: string | null
+          defect_resolved_by: string | null
+          defect_status: string | null
           distributed_at: string | null
           email_verification_attempts: number
           email_verification_code: string | null
@@ -590,6 +594,10 @@ export type Database = {
           client_salutation?: string | null
           created_at?: string
           date_mode?: string | null
+          defect_flagged_at?: string | null
+          defect_resolved_at?: string | null
+          defect_resolved_by?: string | null
+          defect_status?: string | null
           distributed_at?: string | null
           email_verification_attempts?: number
           email_verification_code?: string | null
@@ -643,6 +651,10 @@ export type Database = {
           client_salutation?: string | null
           created_at?: string
           date_mode?: string | null
+          defect_flagged_at?: string | null
+          defect_resolved_at?: string | null
+          defect_resolved_by?: string | null
+          defect_status?: string | null
           distributed_at?: string | null
           email_verification_attempts?: number
           email_verification_code?: string | null
@@ -833,6 +845,7 @@ export type Database = {
           invoice_url: string | null
           mollie_payment_id: string | null
           quote_distribution_id: string | null
+          reconciled_at: string | null
           status: string
           type: string
           wallet_debit_cents: number
@@ -847,6 +860,7 @@ export type Database = {
           invoice_url?: string | null
           mollie_payment_id?: string | null
           quote_distribution_id?: string | null
+          reconciled_at?: string | null
           status?: string
           type: string
           wallet_debit_cents?: number
@@ -861,6 +875,7 @@ export type Database = {
           invoice_url?: string | null
           mollie_payment_id?: string | null
           quote_distribution_id?: string | null
+          reconciled_at?: string | null
           status?: string
           type?: string
           wallet_debit_cents?: number

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -65,6 +66,7 @@ interface Stats {
   revenue: number;
   revenue30d: number;
   pendingClaims: number;
+  defectCount: number;
   sparkline: SparkPoint[];
   topMovers: TopMover[];
   verification30d: VerificationStats;
@@ -102,6 +104,7 @@ const DEFAULT_STATS: Stats = {
   revenue: 0,
   revenue30d: 0,
   pendingClaims: 0,
+  defectCount: 0,
   sparkline: [],
   topMovers: [],
   verification30d: { total: 0, distributed: 0, emailOnly: 0, phoneOnly: 0, both: 0, none: 0, rate: 0 },
@@ -208,6 +211,20 @@ export default function AdminDashboard() {
           Actualiser
         </button>
       </div>
+
+      {stats.defectCount > 0 && (
+        <Link
+          href="/admin/claims"
+          className="block rounded-xl border-2 border-red-300 bg-red-50 p-4 hover:bg-red-100"
+        >
+          <p className="text-sm font-semibold text-red-900">
+            🚨 {stats.defectCount} lead{stats.defectCount > 1 ? "s" : ""} défectueux à valider
+          </p>
+          <p className="mt-1 text-xs text-red-700">
+            Cliquez pour examiner et décider
+          </p>
+        </Link>
+      )}
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">

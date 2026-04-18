@@ -98,7 +98,54 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json(enriched);
+  // Suspected defective leads with their full claim breakdown
+  const { data: defectLeads } = await supabase
+    .from("quote_requests")
+    .select("id, from_city, to_city, category, defect_flagged_at")
+    .eq("defect_status", "suspected")
+    .order("defect_flagged_at", { ascending: false });
+
+  const defectLeadList = (defectLeads || []) as Array<{
+    id: string;
+    from_city: string | null;
+    to_city: string | null;
+    category: string | null;
+    defect_flagged_at: string;
+  }>;
+
+  const defectiveLeads = defectLeadList.map((lead) => {
+    const leadClaims = enriched.filter(
+      (c: Record<string, unknown>) =>
+        c.quote_request_id === lead.id && c.status === "pending"
+    );
+    const reasonsBreakdown: Record<string, number> = {};
+    for (const c of leadClaims) {
+      const reason = (c as unknown as { reason: string }).reason;
+      reasonsBreakdown[reason] = (reasonsBreakdown[reason] || 0) + 1;
+    }
+    const totalRefundCents = leadClaims.reduce(
+      (sum: number, c) => sum + ((c as unknown as { amount_cents: number }).amount_cents || 0),
+      0
+    );
+    return {
+      quoteRequestId: lead.id,
+      fromCity: lead.from_city,
+      toCity: lead.to_city,
+      category: lead.category,
+      flaggedAt: lead.defect_flagged_at,
+      reasonsBreakdown,
+      totalRefundCents,
+      claims: leadClaims.map((c) => ({
+        id: (c as unknown as { id: string }).id,
+        companyId: (c as unknown as { company_id: string }).company_id,
+        companyName: (c as unknown as { company_name: string }).company_name,
+        reason: (c as unknown as { reason: string }).reason,
+        amountCents: (c as unknown as { amount_cents: number }).amount_cents,
+      })),
+    };
+  });
+
+  return NextResponse.json({ claims: enriched, defectiveLeads });
 }
 
 export async function POST(request: NextRequest) {
@@ -231,6 +278,109 @@ export async function POST(request: NextRequest) {
         // Don't fail the reply if email fails
       }
     }
+
+    return NextResponse.json({ success: true });
+  }
+
+  // Accept collective defect: refund all unlocked buyers + resolve all claims
+  if (body.action === "accept_defect") {
+    const quoteRequestId = body.quoteRequestId as string | undefined;
+    if (!quoteRequestId) {
+      return NextResponse.json({ error: "quoteRequestId requis" }, { status: 400 });
+    }
+
+    const { data: dists } = await supabase
+      .from("quote_distributions")
+      .select("id, company_id, price_cents")
+      .eq("quote_request_id", quoteRequestId)
+      .eq("status", "unlocked");
+
+    const distributions = (dists || []) as Array<{ id: string; company_id: string; price_cents: number }>;
+    if (distributions.length === 0) {
+      return NextResponse.json({ error: "Aucune distribution à rembourser" }, { status: 400 });
+    }
+
+    let refundedCount = 0;
+    for (const d of distributions) {
+      const { data: txn } = await supabase
+        .from("transactions")
+        .select("id, amount_cents")
+        .eq("quote_distribution_id", d.id)
+        .eq("status", "paid")
+        .in("type", ["unlock", "lead_purchase"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const sourceTxn = txn as { id: string; amount_cents: number } | null;
+      const refundCents = sourceTxn?.amount_cents || d.price_cents;
+      if (refundCents <= 0) continue;
+
+      await supabase.from("wallet_transactions").insert({
+        company_id: d.company_id,
+        amount_cents: refundCents,
+        type: "refund",
+        reason: "Lead défectueux confirmé collectivement",
+        quote_distribution_id: d.id,
+        source_transaction_id: sourceTxn?.id || null,
+      });
+
+      if (sourceTxn?.id) {
+        await supabase
+          .from("transactions")
+          .update({ status: "refunded" })
+          .eq("id", sourceTxn.id);
+      }
+
+      await supabase.from("notifications").insert({
+        company_id: d.company_id,
+        type: "refund",
+        title: "Remboursement automatique",
+        body: `Lead défectueux confirmé — ${(refundCents / 100).toFixed(2)} € crédités sur votre portefeuille`,
+        data: { quoteRequestId, distributionId: d.id, amountCents: refundCents },
+      });
+
+      refundedCount += 1;
+    }
+
+    const distIds = distributions.map((d) => d.id);
+    await supabase
+      .from("claims")
+      .update({
+        status: "approved",
+        admin_note: "Lead défectueux confirmé collectivement",
+        resolved_at: new Date().toISOString(),
+      })
+      .in("quote_distribution_id", distIds)
+      .eq("status", "pending");
+
+    await supabase
+      .from("quote_requests")
+      .update({
+        defect_status: "confirmed_refunded",
+        defect_resolved_at: new Date().toISOString(),
+        defect_resolved_by: "admin",
+      })
+      .eq("id", quoteRequestId);
+
+    return NextResponse.json({ success: true, refundedCount });
+  }
+
+  // Reject collective defect: remove the flag, claims stay pending
+  if (body.action === "reject_defect") {
+    const quoteRequestId = body.quoteRequestId as string | undefined;
+    if (!quoteRequestId) {
+      return NextResponse.json({ error: "quoteRequestId requis" }, { status: 400 });
+    }
+
+    await supabase
+      .from("quote_requests")
+      .update({
+        defect_status: "rejected",
+        defect_resolved_at: new Date().toISOString(),
+        defect_resolved_by: "admin",
+      })
+      .eq("id", quoteRequestId);
 
     return NextResponse.json({ success: true });
   }

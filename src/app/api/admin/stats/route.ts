@@ -21,6 +21,7 @@ export async function GET() {
     transactions30dRes,
     claimsRes,
     verification30dRes,
+    defectCountRes,
   ] = await Promise.all([
     supabase.from("companies").select("id", { count: "exact", head: true }),
     supabase.from("companies").select("id", { count: "exact", head: true }).eq("account_status", "active"),
@@ -36,6 +37,7 @@ export async function GET() {
     supabase.from("transactions").select("amount_cents, created_at").eq("status", "paid").in("type", ["unlock", "lead_purchase"]).gte("created_at", cutoff30dIso),
     supabase.from("claims").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("quote_requests").select("created_at, distributed_at, email_verified, phone_verified").gte("created_at", cutoff30dIso),
+    supabase.from("quote_requests").select("id", { count: "exact", head: true }).eq("defect_status", "suspected"),
   ]);
 
   // Total revenue (all-time, deduped per company would be too heavy — sum raw)
@@ -145,6 +147,7 @@ export async function GET() {
       revenue: totalRevenue,
       revenue30d,
       pendingClaims: claimsRes.count || 0,
+      defectCount: defectCountRes.count || 0,
       sparkline,
       topMovers,
       verification30d: {
