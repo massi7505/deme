@@ -41,6 +41,8 @@ interface Company {
   rating: number;
   review_count: number;
   is_verified: boolean;
+  pending_name: string | null;
+  pending_name_requested_at: string | null;
   trial_ends_at: string | null;
   created_at: string;
   profiles: { id: string; email: string; full_name: string | null; phone: string | null } | null;
@@ -951,6 +953,29 @@ export default function AdminCompanies() {
           <option value="suspended">Suspendu</option>
         </select>
       </div>
+
+      {(() => {
+        const pending = companies.filter((c) => c.pending_name);
+        if (pending.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+            <p className="text-sm font-semibold text-amber-900">
+              ⚠ {pending.length} demande{pending.length > 1 ? "s" : ""} de changement de nom à valider
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {pending.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCompany(c)}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-100"
+                >
+                  {c.name} → {c.pending_name}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
         {loading ? (
