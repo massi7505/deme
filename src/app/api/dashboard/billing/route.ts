@@ -48,11 +48,19 @@ export async function GET() {
   // Calculate monthly summary — only count PAID, deduplicate per lead
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
   const thisMonthPaid = (transactions || []).filter(
     (t: Record<string, unknown>) =>
       t.status === "paid" &&
       (t.created_at as string) >= firstOfMonth &&
       (t.amount_cents as number) > 0 // exclude refund credits
+  );
+
+  const thisYearPaid = (transactions || []).filter(
+    (t: Record<string, unknown>) =>
+      t.status === "paid" &&
+      (t.created_at as string) >= startOfYear &&
+      (t.amount_cents as number) > 0
   );
 
   const subscriptionTotal = thisMonthPaid
@@ -68,6 +76,21 @@ export async function GET() {
     if (distId && seenDistributions.has(distId)) continue; // skip duplicate
     if (distId) seenDistributions.add(distId);
     unlockTotal += (t.amount_cents as number) || 0;
+  }
+
+  // Year total — same dedup rule as month
+  const seenYearDistributions = new Set<string>();
+  let yearTotal = 0;
+  for (const t of thisYearPaid) {
+    if (t.type === "subscription") {
+      yearTotal += (t.amount_cents as number) || 0;
+      continue;
+    }
+    if (t.type !== "unlock" && t.type !== "lead_purchase") continue;
+    const distId = t.quote_distribution_id as string;
+    if (distId && seenYearDistributions.has(distId)) continue;
+    if (distId) seenYearDistributions.add(distId);
+    yearTotal += (t.amount_cents as number) || 0;
   }
 
   // Deduplicate transaction list: keep one transaction per lead (best status wins)
@@ -146,6 +169,7 @@ export async function GET() {
       totalCents: subscriptionTotal + unlockTotal,
       subscriptionCents: subscriptionTotal,
       unlockCents: unlockTotal,
+      yearTotalCents: yearTotal,
     },
     wallet: {
       enabled: !!settings.refundsEnabled,
