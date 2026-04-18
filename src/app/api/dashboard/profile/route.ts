@@ -126,6 +126,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  // Request a company name change (admin must approve)
+  if (body.action === "request_name_change") {
+    const requested = (body.requested_name || "").toString().trim();
+    if (!requested) {
+      return NextResponse.json(
+        { error: "Le nouveau nom est requis" },
+        { status: 400 }
+      );
+    }
+    if (requested === ((company.name as string) || "").trim()) {
+      return NextResponse.json(
+        { error: "Le nouveau nom est identique au nom actuel" },
+        { status: 400 }
+      );
+    }
+    if (company.pending_name) {
+      return NextResponse.json(
+        { error: "Une demande de changement de nom est déjà en cours" },
+        { status: 409 }
+      );
+    }
+    const { data, error } = await admin
+      .from("companies")
+      .update({
+        pending_name: requested,
+        pending_name_requested_at: new Date().toISOString(),
+      })
+      .eq("id", company.id)
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
+  }
+
   // Update company fields
   const allowedFields = [
     "description",
