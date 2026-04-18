@@ -12,7 +12,7 @@ export async function GET(
     .select(`
       id, name, slug, city, postal_code, logo_url, description,
       rating, review_count, is_verified, account_status,
-      employee_count, legal_status, siret, website,
+      employee_count, legal_status, siret, vat_number, website,
       created_at,
       company_regions(department_code, department_name, categories),
       company_photos(id, url, caption, order_index),

@@ -11,6 +11,7 @@ export interface SireneResult {
   naf: string;
   nafLabel: string;
   employeeCount: string;
+  vatNumber: string | null;
   isActive: boolean;
 }
 
@@ -61,9 +62,10 @@ export async function verifySiret(
 
   const legalStatusCode = unite.categorieJuridiqueUniteLegale ?? "";
 
+  const sirenValue = unite.siren ?? etab.siret.slice(0, 9);
   return {
     siret: etab.siret,
-    siren: unite.siren ?? etab.siret.slice(0, 9),
+    siren: sirenValue,
     companyName: denomination,
     raisonSociale,
     address: streetParts.join(" "),
@@ -74,6 +76,7 @@ export async function verifySiret(
     naf: etab.activitePrincipaleEtablissement ?? "",
     nafLabel: etab.activitePrincipaleEtablissement ?? "",
     employeeCount: unite.trancheEffectifsUniteLegale ?? "",
+    vatNumber: computeFrenchVAT(sirenValue),
     isActive:
       etab.etatAdministratifEtablissement === "A" ||
       etab.periodesEtablissement?.[0]?.etatAdministratifEtablissement === "A",
@@ -92,4 +95,10 @@ export function formatLegalStatus(code: string): string {
     "9220": "Association déclarée",
   };
   return statuses[code] ?? `Statut juridique (${code})`;
+}
+
+export function computeFrenchVAT(siren: string): string | null {
+  if (!/^\d{9}$/.test(siren)) return null;
+  const key = (12 + 3 * (parseInt(siren, 10) % 97)) % 97;
+  return `FR${key.toString().padStart(2, "0")}${siren}`;
 }

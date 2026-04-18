@@ -6,10 +6,11 @@ import { downloadCSV } from "@/lib/csv-export";
 import {
   Search, CheckCircle2, Clock, XCircle, Shield, Ban,
   Eye, RefreshCw, Download, Trash2, ChevronLeft, MapPin,
-  Mail, Phone, Globe, Building2, Star, Play, Wallet,
+  Mail, Building2, Star, Play, Wallet,
   RotateCcw, Loader2, X as XIcon, Gift,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { EditableTextField } from "@/components/shared/EditableField";
 
 interface Region {
   id: string;
@@ -41,6 +42,8 @@ interface Company {
   rating: number;
   review_count: number;
   is_verified: boolean;
+  pending_name: string | null;
+  pending_name_requested_at: string | null;
   trial_ends_at: string | null;
   created_at: string;
   profiles: { id: string; email: string; full_name: string | null; phone: string | null } | null;
@@ -237,6 +240,16 @@ export default function AdminCompanies() {
     });
     if (res.ok) { toast.success("Région supprimée"); fetchCompanies(); }
     else toast.error("Erreur lors de la suppression");
+  }
+
+  async function updateField(id: string, field: string, value: string) {
+    const res = await fetch("/api/admin/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_field", id, field, value }),
+    });
+    if (res.ok) { toast.success("Mis à jour"); fetchCompanies(); }
+    else { const d = await res.json(); toast.error(d.error || "Erreur"); }
   }
 
   async function handleAction(id: string, action: string, extra?: Record<string, string>) {
@@ -615,43 +628,161 @@ export default function AdminCompanies() {
           </div>
         </div>
 
+        {c.pending_name && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  Demande de changement de nom
+                </p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Actuel : <strong>{c.name}</strong>
+                </p>
+                <p className="text-xs text-amber-800">
+                  Demandé : <strong>{c.pending_name}</strong>
+                </p>
+                {c.pending_name_requested_at && (
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    Soumis le {formatDateShort(c.pending_name_requested_at)}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Approuver « ${c.pending_name} » ? L'URL publique va changer.`)) return;
+                    const res = await fetch("/api/admin/companies", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "approve_name_change", id: c.id }),
+                    });
+                    if (res.ok) { toast.success("Nom approuvé"); fetchCompanies(); }
+                    else toast.error("Erreur");
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Approuver
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("Rejeter cette demande ?")) return;
+                    const res = await fetch("/api/admin/companies", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "reject_name_change", id: c.id }),
+                    });
+                    if (res.ok) { toast.success("Demande rejetée"); fetchCompanies(); }
+                    else toast.error("Erreur");
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                >
+                  <XCircle className="h-3.5 w-3.5" /> Rejeter
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
             {/* Infos entreprise */}
             <div className="rounded-xl border bg-white shadow-sm">
               <div className="flex items-center gap-2 border-b px-5 py-3"><Building2 className="h-4 w-4 text-[var(--brand-green)]" /><h3 className="text-sm font-semibold">Informations entreprise</h3></div>
-              <div className="grid gap-3 p-5 text-sm sm:grid-cols-2">
-                <div><span className="text-muted-foreground">Nom</span><p className="font-medium">{c.name}</p></div>
-                <div><span className="text-muted-foreground">SIRET</span><p className="font-mono font-medium">{c.siret}</p></div>
-                <div><span className="text-muted-foreground">Adresse</span><p className="font-medium">{c.address || "—"}</p></div>
-                <div><span className="text-muted-foreground">Ville</span><p className="font-medium">{c.postal_code} {c.city}</p></div>
-                <div><span className="text-muted-foreground">Statut juridique</span><p className="font-medium">{c.legal_status || "—"}</p></div>
-                <div><span className="text-muted-foreground">Effectif</span><p className="font-medium">{c.employee_count || "—"}</p></div>
-                <div><span className="text-muted-foreground">TVA</span><p className="font-medium">{c.vat_number || "—"}</p></div>
-                <div><span className="text-muted-foreground">Slug</span><p className="font-mono text-xs">{c.slug}</p></div>
+              <div className="grid gap-4 p-5 text-sm sm:grid-cols-2">
+                <EditableTextField
+                  label="Nom"
+                  value={c.name || ""}
+                  onSave={(v) => updateField(c.id, "name", v)}
+                />
+                <EditableTextField
+                  label="SIRET"
+                  value={c.siret || ""}
+                  onSave={(v) => updateField(c.id, "siret", v)}
+                />
+                <EditableTextField
+                  label="Adresse"
+                  value={c.address || ""}
+                  onSave={(v) => updateField(c.id, "address", v)}
+                />
+                <EditableTextField
+                  label="Code postal"
+                  value={c.postal_code || ""}
+                  onSave={(v) => updateField(c.id, "postal_code", v)}
+                />
+                <EditableTextField
+                  label="Ville"
+                  value={c.city || ""}
+                  onSave={(v) => updateField(c.id, "city", v)}
+                />
+                <EditableTextField
+                  label="Statut juridique"
+                  value={c.legal_status || ""}
+                  onSave={(v) => updateField(c.id, "legal_status", v)}
+                />
+                <EditableTextField
+                  label="Effectif"
+                  value={c.employee_count?.toString() || ""}
+                  onSave={(v) => updateField(c.id, "employee_count", v)}
+                />
+                <EditableTextField
+                  label="N° TVA"
+                  value={c.vat_number || ""}
+                  onSave={(v) => updateField(c.id, "vat_number", v)}
+                />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Slug (auto)</p>
+                  <p className="mt-1 font-mono text-xs">{c.slug}</p>
+                </div>
               </div>
             </div>
 
             {/* Contact */}
             <div className="rounded-xl border bg-white shadow-sm">
               <div className="flex items-center gap-2 border-b px-5 py-3"><Mail className="h-4 w-4 text-[var(--brand-green)]" /><h3 className="text-sm font-semibold">Contact</h3></div>
-              <div className="grid gap-3 p-5 text-sm sm:grid-cols-2">
-                <div><span className="text-muted-foreground">Responsable</span><p className="font-medium">{c.profiles?.full_name || "—"}</p></div>
-                <div><span className="text-muted-foreground">Email responsable</span><p className="font-medium">{c.profiles?.email || "—"}</p></div>
-                <div><span className="text-muted-foreground">Email contact</span><p className="font-medium flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" />{c.email_contact || "—"}</p></div>
-                <div><span className="text-muted-foreground">Email facturation</span><p className="font-medium">{c.email_billing || "—"}</p></div>
-                <div><span className="text-muted-foreground">Téléphone</span><p className="font-medium flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{c.phone || "—"}</p></div>
-                <div><span className="text-muted-foreground">Site web</span><p className="font-medium flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" />{c.website || "—"}</p></div>
+              <div className="grid gap-4 p-5 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Responsable</p>
+                  <p className="mt-1 text-sm font-medium">{c.profiles?.full_name || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Email responsable (auth)</p>
+                  <p className="mt-1 text-sm font-medium">{c.profiles?.email || "—"}</p>
+                </div>
+                <EditableTextField
+                  label="Email contact"
+                  value={c.email_contact || ""}
+                  onSave={(v) => updateField(c.id, "email_contact", v)}
+                />
+                <EditableTextField
+                  label="Email facturation"
+                  value={c.email_billing || ""}
+                  onSave={(v) => updateField(c.id, "email_billing", v)}
+                />
+                <EditableTextField
+                  label="Téléphone"
+                  value={c.phone || ""}
+                  onSave={(v) => updateField(c.id, "phone", v)}
+                />
+                <EditableTextField
+                  label="Site web"
+                  value={c.website || ""}
+                  onSave={(v) => updateField(c.id, "website", v)}
+                />
               </div>
             </div>
 
             {/* Description */}
-            {c.description && (
-              <div className="rounded-xl border bg-white shadow-sm">
-                <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Description</h3></div>
-                <div className="p-5 text-sm text-muted-foreground">{c.description}</div>
+            <div className="rounded-xl border bg-white shadow-sm">
+              <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Description</h3></div>
+              <div className="p-5">
+                <EditableTextField
+                  label=""
+                  value={c.description || ""}
+                  multiline
+                  onSave={(v) => updateField(c.id, "description", v)}
+                />
               </div>
-            )}
+            </div>
           </div>
 
           {/* Sidebar */}
@@ -951,6 +1082,29 @@ export default function AdminCompanies() {
           <option value="suspended">Suspendu</option>
         </select>
       </div>
+
+      {(() => {
+        const pending = companies.filter((c) => c.pending_name);
+        if (pending.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+            <p className="text-sm font-semibold text-amber-900">
+              ⚠ {pending.length} demande{pending.length > 1 ? "s" : ""} de changement de nom à valider
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {pending.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCompany(c)}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:bg-amber-100"
+                >
+                  {c.name} → {c.pending_name}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
         {loading ? (

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -31,6 +31,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { CoverageMap } from "@/components/dashboard/CoverageMap";
+import { EditableTextField } from "@/components/shared/EditableField";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,6 +54,9 @@ interface Company {
   phone?: string;
   email_contact?: string;
   website?: string;
+  vat_number?: string | null;
+  pending_name?: string | null;
+  pending_name_requested_at?: string | null;
 }
 
 const PREDEFINED_QNA = [
@@ -139,8 +143,29 @@ export default function ProfilEntreprisePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
+  const [syncingInsee, setSyncingInsee] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleSyncFromInsee() {
+    setSyncingInsee(true);
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync_from_insee" }),
+      });
+      if (res.ok) {
+        toast.success("Statut juridique et TVA mis à jour depuis l'INSEE");
+        fetchProfile();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Erreur de synchronisation");
+      }
+    } finally {
+      setSyncingInsee(false);
+    }
+  }
 
   async function handleAddPredefinedQuestion(question: string, answer = "") {
     try {
@@ -383,6 +408,35 @@ export default function ProfilEntreprisePage() {
         </p>
       </motion.div>
 
+      {/* Pending name change request */}
+      {company.pending_name && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardContent className="flex items-start gap-3 p-4">
+              <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-amber-600" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  Demande de changement de nom en attente
+                </p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Nouveau nom demandé : <strong>{company.pending_name}</strong>
+                  {company.pending_name_requested_at && (
+                    <> — soumise le {formatDate(company.pending_name_requested_at)}</>
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  En attente de validation par un administrateur.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Company header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -427,7 +481,39 @@ export default function ProfilEntreprisePage() {
               </div>
 
               <div className="text-center sm:text-left">
-                <h3 className="text-xl font-bold">{company.name}</h3>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <h3 className="text-xl font-bold">{company.name}</h3>
+                  {!company.pending_name && (
+                    <button
+                      onClick={async () => {
+                        const newName = window.prompt(
+                          "Nouveau nom d'entreprise (sera soumis à validation admin) :",
+                          company.name || ""
+                        );
+                        if (!newName || newName.trim() === (company.name || "").trim()) return;
+                        const res = await fetch("/api/dashboard/profile", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            action: "request_name_change",
+                            requested_name: newName.trim(),
+                          }),
+                        });
+                        if (res.ok) {
+                          toast.success("Demande envoyée à l'administrateur");
+                          fetchProfile();
+                        } else {
+                          const data = await res.json();
+                          toast.error(data.error || "Erreur");
+                        }
+                      }}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      title="Demander un changement de nom"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
                 <div className="mt-1 flex items-center justify-center gap-2 sm:justify-start">
                   <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
@@ -811,6 +897,10 @@ export default function ProfilEntreprisePage() {
                 <p className="text-xs font-medium text-muted-foreground">Statut juridique</p>
                 <p className="mt-1 text-sm font-medium">{company.legal_status || "Non renseigné"}</p>
               </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">N° TVA intracommunautaire</p>
+                <p className="mt-1 text-sm font-medium font-mono">{company.vat_number || "Non renseigné"}</p>
+              </div>
               <EditableField
                 label="Effectifs"
                 value={company.employee_count || ""}
@@ -891,6 +981,25 @@ export default function ProfilEntreprisePage() {
                 }}
               />
             </div>
+            <div className="mt-4 flex items-center gap-2 border-t pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncFromInsee}
+                disabled={syncingInsee || !company.siret}
+                className="gap-1.5"
+              >
+                {syncingInsee ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Building2 className="h-3.5 w-3.5" />
+                )}
+                Re-synchroniser depuis INSEE
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Met à jour statut juridique et TVA
+              </span>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
@@ -945,73 +1054,6 @@ export default function ProfilEntreprisePage() {
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Editable text field (inline)
-// ---------------------------------------------------------------------------
-function EditableTextField({
-  label,
-  value,
-  icon,
-  placeholder,
-  onSave,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ReactNode;
-  placeholder?: string;
-  onSave: (value: string) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [current, setCurrent] = useState(value);
-  const [saving, setSaving] = useState(false);
-
-  async function handleSave() {
-    setSaving(true);
-    await onSave(current);
-    setSaving(false);
-    setEditing(false);
-  }
-
-  if (editing) {
-    return (
-      <div>
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <div className="mt-1 space-y-2">
-          <input
-            type="text"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            placeholder={placeholder}
-            className="w-full rounded-lg border px-3 py-1.5 text-sm outline-none focus:border-[var(--brand-green)]"
-          />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1 h-7 text-xs">
-              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-              OK
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { setCurrent(value); setEditing(false); }} className="h-7 text-xs">
-              Annuler
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <div className="mt-1 flex items-center gap-1.5">
-        {icon}
-        <p className="text-sm font-medium">{value || <span className="text-muted-foreground/60">Non renseigné</span>}</p>
-        <button onClick={() => { setCurrent(value); setEditing(true); }} className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-          <Pencil className="h-3 w-3" />
-        </button>
-      </div>
     </div>
   );
 }

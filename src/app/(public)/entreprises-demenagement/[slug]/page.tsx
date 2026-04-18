@@ -22,6 +22,7 @@ interface Company {
   logo_url: string | null; description: string | null;
   rating: number; review_count: number; is_verified: boolean;
   employee_count: number | null; legal_status: string | null; siret: string;
+  vat_number: string | null;
   website: string | null;
   company_regions: Array<{ department_name: string; categories: string[] }>;
   company_photos: Array<{ id: string; url: string; caption: string | null }>;
@@ -263,6 +264,14 @@ function CompanyProfilePage({ slug }: { slug: string }) {
                     <CardContent className="p-4">
                       <p className="text-xs text-muted-foreground">Statut juridique</p>
                       <p className="text-sm font-medium">{company.legal_status}</p>
+                    </CardContent>
+                  </Card>
+                )}
+                {company.vat_number && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">N° TVA intracommunautaire</p>
+                      <p className="font-mono text-sm font-medium">{company.vat_number}</p>
                     </CardContent>
                   </Card>
                 )}
