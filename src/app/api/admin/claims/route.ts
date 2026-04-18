@@ -98,7 +98,54 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json(enriched);
+  // Suspected defective leads with their full claim breakdown
+  const { data: defectLeads } = await supabase
+    .from("quote_requests")
+    .select("id, from_city, to_city, category, defect_flagged_at")
+    .eq("defect_status", "suspected")
+    .order("defect_flagged_at", { ascending: false });
+
+  const defectLeadList = (defectLeads || []) as Array<{
+    id: string;
+    from_city: string | null;
+    to_city: string | null;
+    category: string | null;
+    defect_flagged_at: string;
+  }>;
+
+  const defectiveLeads = defectLeadList.map((lead) => {
+    const leadClaims = enriched.filter(
+      (c: Record<string, unknown>) =>
+        c.quote_request_id === lead.id && c.status === "pending"
+    );
+    const reasonsBreakdown: Record<string, number> = {};
+    for (const c of leadClaims) {
+      const reason = (c as unknown as { reason: string }).reason;
+      reasonsBreakdown[reason] = (reasonsBreakdown[reason] || 0) + 1;
+    }
+    const totalRefundCents = leadClaims.reduce(
+      (sum: number, c) => sum + ((c as unknown as { amount_cents: number }).amount_cents || 0),
+      0
+    );
+    return {
+      quoteRequestId: lead.id,
+      fromCity: lead.from_city,
+      toCity: lead.to_city,
+      category: lead.category,
+      flaggedAt: lead.defect_flagged_at,
+      reasonsBreakdown,
+      totalRefundCents,
+      claims: leadClaims.map((c) => ({
+        id: (c as unknown as { id: string }).id,
+        companyId: (c as unknown as { company_id: string }).company_id,
+        companyName: (c as unknown as { company_name: string }).company_name,
+        reason: (c as unknown as { reason: string }).reason,
+        amountCents: (c as unknown as { amount_cents: number }).amount_cents,
+      })),
+    };
+  });
+
+  return NextResponse.json({ claims: enriched, defectiveLeads });
 }
 
 export async function POST(request: NextRequest) {
