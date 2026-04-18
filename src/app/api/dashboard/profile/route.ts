@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
+import { verifySiret } from "@/lib/sirene";
 
 export async function GET() {
   const supabase = await createClient();
@@ -152,6 +153,35 @@ export async function POST(request: NextRequest) {
       .update({
         pending_name: requested,
         pending_name_requested_at: new Date().toISOString(),
+      })
+      .eq("id", company.id)
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
+  }
+
+  // Sync legal_status + vat_number from INSEE
+  if (body.action === "sync_from_insee") {
+    const siretValue = (company.siret as string) || "";
+    if (!siretValue) {
+      return NextResponse.json(
+        { error: "SIRET manquant" },
+        { status: 400 }
+      );
+    }
+    const result = await verifySiret(siretValue);
+    if (!result) {
+      return NextResponse.json(
+        { error: "SIRET introuvable à l'INSEE" },
+        { status: 404 }
+      );
+    }
+    const { data, error } = await admin
+      .from("companies")
+      .update({
+        legal_status: result.legalStatusLabel,
+        vat_number: result.vatNumber,
       })
       .eq("id", company.id)
       .select()
