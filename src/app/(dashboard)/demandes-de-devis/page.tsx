@@ -17,6 +17,7 @@ interface Lead {
   status: string;
   competitorCount: number;
   createdAt: string;
+  unlockedAt: string | null;
   clientName: string | null;
   clientFirstName: string | null;
   clientLastName: string | null;
@@ -72,6 +73,17 @@ export default function DemandesDeDevisPage() {
     return true;
   });
 
+  const unlocked = leads
+    .filter((l) => l.status === "unlocked")
+    .sort((a, b) => {
+      const ta = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
+      const tb = b.unlockedAt ? new Date(b.unlockedAt).getTime() : 0;
+      return tb - ta;
+    });
+  const pending = leads.filter((l) => l.status !== "unlocked");
+  const totalSpentCents = unlocked.reduce((s, l) => s + l.priceCents, 0);
+  const lastUnlocked = unlocked[0];
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
   const paginatedLeads = filtered.slice(
@@ -93,16 +105,70 @@ export default function DemandesDeDevisPage() {
         </p>
       </motion.div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input type="text" placeholder="Rechercher par ville..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-green)]" />
+      {unlocked.length > 0 && lastUnlocked && (
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto]">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Achetés</p>
+              <p className="mt-1 text-2xl font-bold">{unlocked.length}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Dépensé</p>
+              <p className="mt-1 text-2xl font-bold">{formatPrice(totalSpentCents)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Dernier achat</p>
+              <p className="mt-1 text-sm font-semibold truncate">
+                {formatLeadRoute(lastUnlocked)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {formatDate(lastUnlocked.unlockedAt || lastUnlocked.createdAt)}
+              </p>
+            </CardContent>
+          </Card>
+          <Link
+            href={`/demandes-de-devis/${lastUnlocked.distributionId}`}
+            className="flex items-center justify-center gap-2 rounded-xl bg-brand-gradient px-4 py-3 text-sm font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110"
+          >
+            Voir mon dernier achat <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
-          <option value="all">Tous statuts</option>
-          <option value="pending">Bloqués</option>
-          <option value="unlocked">Débloqués</option>
-        </select>
+      )}
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Rechercher par ville..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-lg border bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-green)]"
+        />
+      </div>
+
+      <div className="flex gap-1 border-b">
+        {[
+          { key: "all", label: `Tous (${leads.length})` },
+          { key: "unlocked", label: `Achetés (${unlocked.length})` },
+          { key: "pending", label: `Disponibles (${pending.length})` },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setFilterStatus(tab.key)}
+            className={cn(
+              "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+              filterStatus === tab.key
+                ? "border-[var(--brand-green)] text-[var(--brand-green-dark)]"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
