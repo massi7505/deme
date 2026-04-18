@@ -68,6 +68,7 @@ interface Summary {
   totalCents: number;
   subscriptionCents: number;
   unlockCents: number;
+  yearTotalCents: number;
 }
 
 interface WalletTxn {
@@ -302,7 +303,7 @@ export default function FacturationPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Euro className="h-4 w-4 text-[var(--brand-green)]" />
-                Résumé du mois
+                Résumé
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -312,6 +313,14 @@ export default function FacturationPage() {
                 </p>
                 <p className="mt-1 text-3xl font-bold">
                   {formatPrice(summary?.totalCents || 0)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Total dépensé en {new Date().getFullYear()}
+                </p>
+                <p className="mt-1 text-2xl font-semibold">
+                  {formatPrice(summary?.yearTotalCents || 0)}
                 </p>
               </div>
               <Separator />
