@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
 import { verifySiret } from "@/lib/sirene";
+import { findPredefinedAnswer } from "@/lib/predefined-qna";
 
 export async function GET() {
   const supabase = await createClient();
@@ -32,11 +33,36 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   // Get Q&A for this company
-  const { data: qna } = await admin
+  const { data: qnaRaw } = await admin
     .from("company_qna")
     .select("*")
     .eq("company_id", company.id)
     .order("order_index", { ascending: true });
+
+  // Auto-backfill empty answers when the question matches one we ship defaults
+  // for. Fixes historical rows inserted with an empty answer (pre-predefined UX)
+  // and keeps new movers' answers in sync if the mover picked a suggestion
+  // without triggering the dashboard insert path.
+  const qnaRows = (qnaRaw || []) as Array<{ id: string; question: string; answer: string | null }>;
+  const backfillables = qnaRows.filter(
+    (q) => (!q.answer || q.answer.trim() === "") && findPredefinedAnswer(q.question) !== null
+  );
+  if (backfillables.length > 0) {
+    await Promise.all(
+      backfillables.map((q) => {
+        const answer = findPredefinedAnswer(q.question)!;
+        return admin.from("company_qna").update({ answer }).eq("id", q.id);
+      })
+    );
+    // Reflect the updated answers in the returned payload without re-querying
+    for (const q of qnaRows) {
+      if (!q.answer || q.answer.trim() === "") {
+        const filled = findPredefinedAnswer(q.question);
+        if (filled) q.answer = filled;
+      }
+    }
+  }
+  const qna = qnaRows;
 
   // Get photos for this company
   const { data: photos } = await admin

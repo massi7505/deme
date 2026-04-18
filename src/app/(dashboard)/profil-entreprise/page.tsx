@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { CoverageMap } from "@/components/dashboard/CoverageMap";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { PREDEFINED_QNA } from "@/lib/predefined-qna";
 import { EditableTextField } from "@/components/shared/EditableField";
 
 // ---------------------------------------------------------------------------
@@ -59,49 +60,6 @@ interface Company {
   pending_name?: string | null;
   pending_name_requested_at?: string | null;
 }
-
-const PREDEFINED_QNA = [
-  {
-    question: "Quels types de déménagement proposez-vous ?",
-    answer: "Nous proposons des déménagements nationaux, d'entreprise et internationaux. Que vous déménagiez un studio, une grande maison ou des locaux professionnels, nous adaptons nos solutions à vos besoins et à votre budget.",
-  },
-  {
-    question: "Proposez-vous un service d'emballage ?",
-    answer: "Oui, nous proposons un service complet d'emballage et de déballage. Nos équipes utilisent des matériaux de qualité pour protéger vos affaires : cartons renforcés, papier bulle, couvertures de déménagement et caisses à vaisselle.",
-  },
-  {
-    question: "Effectuez-vous des déménagements le week-end ?",
-    answer: "Oui, nous intervenons du lundi au samedi. Les déménagements le dimanche sont possibles sur demande et sous réserve de disponibilité. Contactez-nous pour vérifier nos créneaux.",
-  },
-  {
-    question: "Quelle est votre zone d'intervention ?",
-    answer: "Nous intervenons sur l'ensemble du territoire français. Pour les déménagements vers l'étranger, contactez-nous pour obtenir un devis personnalisé adapté à votre destination.",
-  },
-  {
-    question: "Proposez-vous un service de garde-meuble ?",
-    answer: "Oui, nous disposons d'espaces de stockage sécurisés disponibles à la semaine ou au mois. C'est idéal lors d'un entre-deux logements ou pour stocker des meubles encombrants.",
-  },
-  {
-    question: "Comment se déroule un déménagement avec votre entreprise ?",
-    answer: "Tout commence par un devis gratuit et sans engagement. Le jour J, nos déménageurs professionnels prennent en charge l'emballage, le chargement, le transport et la livraison dans votre nouveau domicile. Vous n'avez qu'à profiter de votre nouvelle installation.",
-  },
-  {
-    question: "Vos déménageurs sont-ils assurés ?",
-    answer: "Oui, tous nos déménageurs sont couverts par une assurance responsabilité civile professionnelle. Vos biens sont protégés de la prise en charge jusqu'à la livraison dans votre nouveau logement.",
-  },
-  {
-    question: "Quel est le délai pour obtenir un devis ?",
-    answer: "Vous recevez votre devis sous 24 à 48 heures après votre demande. Pour les déménagements urgents, nous faisons le maximum pour vous répondre dans les plus brefs délais.",
-  },
-  {
-    question: "Prenez-vous en charge les objets lourds (piano, coffre-fort) ?",
-    answer: "Oui, nous disposons du matériel spécialisé (monte-meubles, sangles renforcées, diable professionnel) pour déplacer en toute sécurité les objets encombrants et lourds : pianos, coffres-forts, grandes bibliothèques et électroménagers.",
-  },
-  {
-    question: "Proposez-vous des déménagements internationaux ?",
-    answer: "Oui, nous organisons des déménagements vers toute l'Europe et au-delà. Nous gérons les formalités douanières et le transport longue distance pour vous offrir un déménagement international serein et sans mauvaise surprise.",
-  },
-];
 
 interface Review {
   id: string;
@@ -854,10 +812,30 @@ export default function ProfilEntreprisePage() {
                 </Button>
               </div>
             ) : (
-              qna.map((item) => (
-                <div key={item.id} className="space-y-2 rounded-lg border p-4">
+              qna.map((item) => {
+                const currentAnswer = qnaAnswers[item.id] ?? item.answer ?? "";
+                const isPublished = currentAnswer.trim().length > 0;
+                return (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "space-y-2 rounded-lg border p-4",
+                    !isPublished && "border-amber-200 bg-amber-50/40"
+                  )}
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold">{item.question}</p>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-semibold">{item.question}</p>
+                      {isPublished ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                          <Check className="h-3 w-3" /> Publié
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                          ⏳ Non publié — ajoutez une réponse
+                        </span>
+                      )}
+                    </div>
                     <button
                       onClick={() => handleDeleteQna(item.id)}
                       className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-red-500"
@@ -893,7 +871,8 @@ export default function ProfilEntreprisePage() {
                     </div>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>
