@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
 import { backfillLeadsForCompany } from "@/lib/backfill-leads";
+import { getWalletBalanceCents } from "@/lib/wallet";
 
 export async function GET() {
   const supabase = await createClient();
@@ -236,6 +237,19 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(10);
 
+  // Wallet (only populated when refunds feature is enabled)
+  const { data: settingsRow } = await admin
+    .from("site_settings")
+    .select("data")
+    .eq("id", 1)
+    .maybeSingle();
+  const settings = (settingsRow?.data || {}) as { refundsEnabled?: boolean };
+
+  let walletBalanceCents = 0;
+  if (settings.refundsEnabled) {
+    walletBalanceCents = await getWalletBalanceCents(admin, company.id as string);
+  }
+
   return NextResponse.json({
     profile,
     company,
@@ -254,5 +268,9 @@ export async function GET() {
       activity30d,
     },
     notifications: notifications || [],
+    wallet: {
+      enabled: !!settings.refundsEnabled,
+      balanceCents: walletBalanceCents,
+    },
   });
 }
