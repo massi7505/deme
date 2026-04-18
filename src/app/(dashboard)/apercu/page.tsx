@@ -20,6 +20,7 @@ import {
   Lock,
   MapPin,
   Activity,
+  Wallet,
 } from "lucide-react";
 
 interface TopCity {
@@ -49,6 +50,10 @@ interface DashboardData {
     activity30d: ActivityPoint[];
   };
   notifications: Record<string, unknown>[];
+  wallet?: {
+    enabled: boolean;
+    balanceCents: number;
+  };
 }
 
 interface Lead {
@@ -399,6 +404,33 @@ export default function ApercuPage() {
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Wallet balance — only shown when refunds feature is enabled */}
+          {data.wallet?.enabled && (
+            <Card className="border-green-200 bg-green-50/40">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Wallet className="h-4 w-4 text-[var(--brand-green)]" />
+                  Mon portefeuille
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-xs text-muted-foreground">Solde disponible</p>
+                <p className="text-3xl font-bold text-[var(--brand-green-dark)]">
+                  {formatPrice(data.wallet.balanceCents)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Utilisé automatiquement sur vos prochains achats de leads.
+                </p>
+                <Link
+                  href="/facturation"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--brand-green)] hover:underline"
+                >
+                  Voir les transactions <ArrowRight className="h-3 w-3" />
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Account status */}
           <Card>
             <CardHeader className="pb-3">
