@@ -29,6 +29,9 @@ import {
   FileX,
   Wallet,
   ArrowDownLeft,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 function formatDateTime(date: string): string {
@@ -97,6 +100,10 @@ export default function FacturationPage() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [periodFilter, setPeriodFilter] = useState<"all" | "7d" | "30d" | "90d" | "year">("all");
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -120,6 +127,10 @@ export default function FacturationPage() {
     fetchBilling();
   }, [fetchBilling]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, periodFilter, statusFilter]);
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -127,6 +138,33 @@ export default function FacturationPage() {
       </div>
     );
   }
+
+  const filtered = transactions
+    .filter((t) => statusFilter === "all" || t.status === statusFilter)
+    .filter((t) => {
+      if (periodFilter === "all") return true;
+      if (periodFilter === "year") {
+        return new Date(t.created_at).getFullYear() === new Date().getFullYear();
+      }
+      const days = ({ "7d": 7, "30d": 30, "90d": 90 } as const)[periodFilter];
+      return new Date(t.created_at).getTime() >= Date.now() - days * 86400000;
+    })
+    .filter((t) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (t.description || "").toLowerCase().includes(q) ||
+        (t.invoice_number || "").toLowerCase().includes(q) ||
+        (t.mollie_payment_id || "").toLowerCase().includes(q)
+      );
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <div className="space-y-8">
@@ -355,6 +393,33 @@ export default function FacturationPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Search + period filter */}
+            {transactions.length > 0 && (
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher (description, N° facture, ID Mollie)..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-lg border bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-[var(--brand-green)]"
+                  />
+                </div>
+                <select
+                  value={periodFilter}
+                  onChange={(e) => setPeriodFilter(e.target.value as "all" | "7d" | "30d" | "90d" | "year")}
+                  className="rounded-lg border bg-white px-3 py-2 text-sm"
+                >
+                  <option value="all">Toutes périodes</option>
+                  <option value="7d">7 derniers jours</option>
+                  <option value="30d">30 derniers jours</option>
+                  <option value="90d">90 derniers jours</option>
+                  <option value="year">Cette année</option>
+                </select>
+              </div>
+            )}
+
             {/* Status filter */}
             {transactions.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
