@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
+import { downloadCSV } from "@/lib/csv-export";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -386,11 +387,30 @@ export default function FacturationPage() {
         transition={{ duration: 0.4, delay: 0.15 }}
       >
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <Receipt className="h-4 w-4 text-[var(--brand-green)]" />
               Historique des transactions
             </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={filtered.length === 0}
+              onClick={() => {
+                const rows = filtered.map((t) => ({
+                  Date: formatDateTime(t.created_at),
+                  Type: t.type,
+                  Description: t.description || "",
+                  Montant: (Math.abs(t.amount_cents) / 100).toFixed(2),
+                  Statut: t.status,
+                  "N° facture": t.invoice_number || "",
+                }));
+                downloadCSV(rows, "transactions");
+              }}
+            >
+              <Download className="h-3.5 w-3.5" /> Exporter CSV
+            </Button>
           </CardHeader>
           <CardContent>
             {/* Search + period filter */}
