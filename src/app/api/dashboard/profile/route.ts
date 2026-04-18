@@ -190,6 +190,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data);
   }
 
+  // Sync address from INSEE
+  if (body.action === "sync_address_from_insee") {
+    const siretValue = (company.siret as string) || "";
+    if (!siretValue) {
+      return NextResponse.json({ error: "SIRET manquant" }, { status: 400 });
+    }
+    const result = await verifySiret(siretValue);
+    if (!result) {
+      return NextResponse.json({ error: "SIRET introuvable à l'INSEE" }, { status: 404 });
+    }
+    const { data, error } = await admin
+      .from("companies")
+      .update({
+        address: result.address,
+        postal_code: result.postalCode,
+        city: result.city,
+      })
+      .eq("id", company.id)
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
+  }
+
   // Update company fields
   const allowedFields = [
     "description",
@@ -197,6 +221,9 @@ export async function POST(request: NextRequest) {
     "email_contact",
     "website",
     "employee_count",
+    "address",
+    "postal_code",
+    "city",
   ];
   const updates: Record<string, unknown> = {};
   for (const field of allowedFields) {
