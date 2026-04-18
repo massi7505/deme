@@ -286,10 +286,6 @@ export default function FacturationPage() {
                     : "Non planifiée"}
                 </span>
               </div>
-              <Button variant="outline" size="sm" className="w-full gap-1.5">
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                Changer de forfait
-              </Button>
             </CardContent>
           </Card>
         </motion.div>
