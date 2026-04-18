@@ -29,6 +29,7 @@ interface Lead {
   from_housing_type: string | null;
   from_floor: number | null;
   from_elevator: boolean;
+  defect_status: string | null;
   to_city: string | null;
   to_address: string | null;
   to_postal_code: string | null;
@@ -93,6 +94,11 @@ export default function AdminLeads() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [distributeLeadId, setDistributeLeadId] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [filterDefect, setFilterDefect] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const ITEMS_PER_PAGE = 20;
 
   async function fetchLeads() {
     setLoading(true);
@@ -188,8 +194,43 @@ export default function AdminLeads() {
     }
   }
 
+  async function bulkAction(action: "bulk_block" | "bulk_unblock" | "bulk_delete") {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (action === "bulk_delete" && !confirm(`Supprimer ${ids.length} lead(s) ? Action définitive.`)) return;
+    setBulkBusy(true);
+    try {
+      const res = await fetch("/api/admin/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ids }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        toast.success(`${d.count} lead(s) traités`);
+        setSelectedIds(new Set());
+        fetchLeads();
+      } else {
+        const d = await res.json();
+        toast.error(d.error || "Erreur");
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const filtered = leads.filter((l) => {
     if (filterStatus !== "all" && l.status !== filterStatus) return false;
+    if (filterDefect && l.defect_status !== "suspected") return false;
     if (filterCategory !== "all" && l.category !== filterCategory) return false;
     if (filterVerif !== "all") {
       const emailV = !!l.email_verified;
@@ -241,6 +282,33 @@ export default function AdminLeads() {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     }
   });
+
+  // Reset pagination + selection when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterStatus, filterCategory, filterVerif, filterDistribution, filterDefect, dateFrom, dateTo, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = sorted.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const defectTotal = leads.filter((l) => l.defect_status === "suspected").length;
+  const allPageSelected = paginated.length > 0 && paginated.every((l) => selectedIds.has(l.id));
+
+  function toggleSelectAllPage() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        paginated.forEach((l) => next.delete(l.id));
+      } else {
+        paginated.forEach((l) => next.add(l.id));
+      }
+      return next;
+    });
+  }
 
   // Refresh selectedLead data when leads change
   useEffect(() => {
@@ -485,6 +553,20 @@ export default function AdminLeads() {
             <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="ml-1 text-xs text-muted-foreground hover:text-foreground">×</button>
           )}
         </div>
+        {defectTotal > 0 && (
+          <button
+            type="button"
+            onClick={() => setFilterDefect((v) => !v)}
+            className={cn(
+              "rounded-lg border px-3 py-2 text-xs font-semibold",
+              filterDefect
+                ? "border-red-400 bg-red-50 text-red-700"
+                : "border-red-200 bg-white text-red-700 hover:bg-red-50"
+            )}
+          >
+            🚨 Défectueux ({defectTotal})
+          </button>
+        )}
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="ml-auto rounded-lg border bg-white px-3 py-2 text-sm">
           <option value="created_desc">Plus récents d&apos;abord</option>
           <option value="created_asc">Plus anciens d&apos;abord</option>
@@ -492,6 +574,68 @@ export default function AdminLeads() {
           <option value="unlocked_desc">Plus débloqués</option>
         </select>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-[var(--brand-green)]/40 bg-green-50/70 p-3 shadow-sm">
+          <span className="text-sm font-semibold text-[var(--brand-green-dark)]">
+            {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
+          </span>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              onClick={() => bulkAction("bulk_block")}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              <Lock className="h-3.5 w-3.5" /> Bloquer
+            </button>
+            <button
+              onClick={() => bulkAction("bulk_unblock")}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-white px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50 disabled:opacity-50"
+            >
+              <Unlock className="h-3.5 w-3.5" /> Débloquer
+            </button>
+            <button
+              onClick={() => bulkAction("bulk_delete")}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Supprimer
+            </button>
+            <button
+              onClick={() => {
+                const rows = leads
+                  .filter((l) => selectedIds.has(l.id))
+                  .map((l) => ({
+                    "Prospect ID": l.prospect_id,
+                    Client: l.client_name,
+                    Email: l.client_email,
+                    Téléphone: l.client_phone,
+                    De: `${l.from_address || ""} ${l.from_city || ""}`,
+                    Vers: `${l.to_address || ""} ${l.to_city || ""}`,
+                    Catégorie: l.category,
+                    Statut: l.status,
+                    Distributions: l.distributions,
+                    Date: formatDateShort(l.created_at),
+                  }));
+                downloadCSV(rows, "leads-selection");
+              }}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Download className="h-3.5 w-3.5" /> CSV
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkBusy}
+              className="inline-flex items-center rounded-lg border bg-white px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+              title="Désélectionner"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         {sorted.length} lead{sorted.length !== 1 ? "s" : ""} affiché{sorted.length !== 1 ? "s" : ""}
@@ -507,6 +651,14 @@ export default function AdminLeads() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50/50">
+                <th className="px-3 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    onChange={toggleSelectAllPage}
+                    className="h-4 w-4 cursor-pointer accent-[var(--brand-green)]"
+                  />
+                </th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Prospect ID</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Client</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Trajet</th>
@@ -519,13 +671,29 @@ export default function AdminLeads() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((lead) => {
+              {paginated.map((lead) => {
                 const status = statusMap[lead.status] || statusMap.new;
                 const category = categoryMap[lead.category] || categoryMap.national;
+                const checked = selectedIds.has(lead.id);
 
                 return (
-                  <tr key={lead.id} className="border-b last:border-0 hover:bg-gray-50/50">
-                    <td className="px-5 py-3 font-mono text-xs">{lead.prospect_id}</td>
+                  <tr key={lead.id} className={cn("border-b last:border-0 hover:bg-gray-50/50", checked && "bg-green-50/30")}>
+                    <td className="px-3 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSelect(lead.id)}
+                        className="h-4 w-4 cursor-pointer accent-[var(--brand-green)]"
+                      />
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs">
+                      {lead.prospect_id}
+                      {lead.defect_status === "suspected" && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700" title="Lead signalé collectivement comme défectueux">
+                          🚨 Défectueux
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 font-medium">{lead.client_name || "—"}</td>
                     <td className="px-5 py-3">
                       <span className="font-medium">{lead.from_city || "?"}</span>
@@ -585,6 +753,34 @@ export default function AdminLeads() {
           </table>
         )}
       </div>
+
+      {sorted.length > ITEMS_PER_PAGE && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, sorted.length)} de {sorted.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4" /> Précédent
+            </button>
+            <span className="px-2 text-sm font-medium">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Suivant
+              <ChevronLeft className="h-4 w-4 rotate-180" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

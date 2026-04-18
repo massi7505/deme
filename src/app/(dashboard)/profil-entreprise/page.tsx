@@ -31,6 +31,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { CoverageMap } from "@/components/dashboard/CoverageMap";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { EditableTextField } from "@/components/shared/EditableField";
 
 // ---------------------------------------------------------------------------
@@ -144,6 +145,10 @@ export default function ProfilEntreprisePage() {
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
   const [syncingInsee, setSyncingInsee] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState({ address: "", postal_code: "", city: "" });
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [syncingSireneAddress, setSyncingSireneAddress] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -164,6 +169,63 @@ export default function ProfilEntreprisePage() {
       }
     } finally {
       setSyncingInsee(false);
+    }
+  }
+
+  function startEditAddress() {
+    if (!company) return;
+    setAddressForm({
+      address: company.address || "",
+      postal_code: company.postal_code || "",
+      city: company.city || "",
+    });
+    setEditingAddress(true);
+  }
+
+  async function saveAddress() {
+    setSavingAddress(true);
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addressForm),
+      });
+      if (res.ok) {
+        toast.success("Adresse mise à jour");
+        setEditingAddress(false);
+        fetchProfile();
+      } else {
+        const d = await res.json();
+        toast.error(d.error || "Erreur");
+      }
+    } finally {
+      setSavingAddress(false);
+    }
+  }
+
+  async function syncAddressFromInsee() {
+    setSyncingSireneAddress(true);
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync_address_from_insee" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAddressForm({
+          address: data.address || "",
+          postal_code: data.postal_code || "",
+          city: data.city || "",
+        });
+        toast.success("Adresse récupérée depuis INSEE");
+        fetchProfile();
+      } else {
+        const d = await res.json();
+        toast.error(d.error || "Erreur");
+      }
+    } finally {
+      setSyncingSireneAddress(false);
     }
   }
 
@@ -851,23 +913,91 @@ export default function ProfilEntreprisePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Address info */}
-            <div className="rounded-lg border bg-gray-50/50 p-4">
-              <div className="grid gap-3 text-sm sm:grid-cols-3">
-                <div>
-                  <span className="text-xs text-muted-foreground">Adresse</span>
-                  <p className="font-medium">{company.address || "Non renseignée"}</p>
+            {!editingAddress ? (
+              <div className="flex flex-col gap-3 rounded-lg border bg-gray-50/50 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="grid flex-1 gap-3 text-sm sm:grid-cols-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground">Adresse</span>
+                    <p className="font-medium">{company.address || "Non renseignée"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Code postal</span>
+                    <p className="font-medium">{company.postal_code || "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Ville</span>
+                    <p className="font-medium">{company.city || "—"}</p>
+                  </div>
                 </div>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={startEditAddress}>
+                  <Pencil className="h-3.5 w-3.5" /> Modifier
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-lg border bg-gray-50/50 p-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={syncAddressFromInsee}
+                  disabled={syncingSireneAddress || !company.siret}
+                >
+                  {syncingSireneAddress ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Building2 className="h-3.5 w-3.5" />
+                  )}
+                  Remplir depuis INSEE
+                </Button>
                 <div>
-                  <span className="text-xs text-muted-foreground">Code postal</span>
-                  <p className="font-medium">{company.postal_code || "—"}</p>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">Adresse</p>
+                  <AddressAutocomplete
+                    value={addressForm.address}
+                    onChange={(v) => setAddressForm((f) => ({ ...f, address: v }))}
+                    onSelect={(d) =>
+                      setAddressForm({
+                        address: d.address,
+                        postal_code: d.postalCode,
+                        city: d.city,
+                      })
+                    }
+                    searchAddresses
+                    placeholder="12 rue de la Paix, Paris"
+                  />
                 </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Ville</span>
-                  <p className="font-medium">{company.city || "—"}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Code postal</p>
+                    <input
+                      type="text"
+                      value={addressForm.postal_code}
+                      onChange={(e) => setAddressForm((f) => ({ ...f, postal_code: e.target.value }))}
+                      className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
+                      placeholder="75001"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Ville</p>
+                    <input
+                      type="text"
+                      value={addressForm.city}
+                      onChange={(e) => setAddressForm((f) => ({ ...f, city: e.target.value }))}
+                      className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]"
+                      placeholder="Paris"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={saveAddress} disabled={savingAddress} className="gap-1.5">
+                    {savingAddress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Enregistrer
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingAddress(false)} disabled={savingAddress}>
+                    Annuler
+                  </Button>
                 </div>
               </div>
-            </div>
+            )}
             {/* Map */}
             <CoverageMap markers={companyCoords ? [{ lat: companyCoords.lat, lng: companyCoords.lng, label: [company.address, company.postal_code, company.city].filter(Boolean).join(", ") }] : []} />
           </CardContent>
