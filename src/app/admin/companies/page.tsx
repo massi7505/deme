@@ -617,6 +617,61 @@ export default function AdminCompanies() {
           </div>
         </div>
 
+        {c.pending_name && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-amber-900">
+                  Demande de changement de nom
+                </p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Actuel : <strong>{c.name}</strong>
+                </p>
+                <p className="text-xs text-amber-800">
+                  Demandé : <strong>{c.pending_name}</strong>
+                </p>
+                {c.pending_name_requested_at && (
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    Soumis le {formatDateShort(c.pending_name_requested_at)}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Approuver « ${c.pending_name} » ? L'URL publique va changer.`)) return;
+                    const res = await fetch("/api/admin/companies", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "approve_name_change", id: c.id }),
+                    });
+                    if (res.ok) { toast.success("Nom approuvé"); fetchCompanies(); }
+                    else toast.error("Erreur");
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Approuver
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("Rejeter cette demande ?")) return;
+                    const res = await fetch("/api/admin/companies", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "reject_name_change", id: c.id }),
+                    });
+                    if (res.ok) { toast.success("Demande rejetée"); fetchCompanies(); }
+                    else toast.error("Erreur");
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                >
+                  <XCircle className="h-3.5 w-3.5" /> Rejeter
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
             {/* Infos entreprise */}
