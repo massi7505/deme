@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { generateCompanySlug } from "@/lib/utils";
 
 export async function GET() {
   const supabase = createUntypedAdminClient();
@@ -125,6 +126,48 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from("companies")
       .update({ [field]: value })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  // Approve a pending name change: copy pending_name → name + regen slug
+  if (body.action === "approve_name_change") {
+    const { data: target } = await supabase
+      .from("companies")
+      .select("id, pending_name")
+      .eq("id", body.id)
+      .single();
+    const pendingName = (target as { id: string; pending_name: string | null } | null)
+      ?.pending_name;
+    if (!pendingName) {
+      return NextResponse.json(
+        { error: "Aucune demande en attente" },
+        { status: 400 }
+      );
+    }
+    const newSlug = generateCompanySlug(pendingName);
+    const { error } = await supabase
+      .from("companies")
+      .update({
+        name: pendingName,
+        slug: newSlug,
+        pending_name: null,
+        pending_name_requested_at: null,
+      })
+      .eq("id", body.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, slug: newSlug });
+  }
+
+  // Reject a pending name change: clear the request
+  if (body.action === "reject_name_change") {
+    const { error } = await supabase
+      .from("companies")
+      .update({
+        pending_name: null,
+        pending_name_requested_at: null,
+      })
       .eq("id", body.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
