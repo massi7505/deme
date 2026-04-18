@@ -187,5 +187,42 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (body.action === "bulk_block") {
+    const ids = (body.ids || []) as string[];
+    if (ids.length === 0) return NextResponse.json({ error: "IDs requis" }, { status: 400 });
+    const { error } = await supabase
+      .from("quote_requests")
+      .update({ status: "blocked" })
+      .in("id", ids);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, count: ids.length });
+  }
+
+  if (body.action === "bulk_unblock") {
+    const ids = (body.ids || []) as string[];
+    if (ids.length === 0) return NextResponse.json({ error: "IDs requis" }, { status: 400 });
+    const { data: leads } = await supabase
+      .from("quote_requests")
+      .select("id, distributed_at")
+      .in("id", ids);
+    const typed = (leads || []) as Array<{ id: string; distributed_at: string | null }>;
+    for (const l of typed) {
+      await supabase
+        .from("quote_requests")
+        .update({ status: l.distributed_at ? "active" : "new" })
+        .eq("id", l.id);
+    }
+    return NextResponse.json({ success: true, count: typed.length });
+  }
+
+  if (body.action === "bulk_delete") {
+    const ids = (body.ids || []) as string[];
+    if (ids.length === 0) return NextResponse.json({ error: "IDs requis" }, { status: 400 });
+    await supabase.from("quote_distributions").delete().in("quote_request_id", ids);
+    const { error } = await supabase.from("quote_requests").delete().in("id", ids);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, count: ids.length });
+  }
+
   return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
 }
