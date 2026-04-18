@@ -471,7 +471,7 @@ export default function FacturationPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {transactions.filter((t) => statusFilter === "all" || t.status === statusFilter).map((txn) => {
+                      {paginated.map((txn) => {
                         const desc =
                           txn.type === "lead_purchase" || txn.type === "unlock"
                             ? "Achat de lead"
@@ -560,7 +560,7 @@ export default function FacturationPage() {
 
                 {/* Mobile cards */}
                 <div className="space-y-3 md:hidden">
-                  {transactions.filter((t) => statusFilter === "all" || t.status === statusFilter).map((txn) => {
+                  {paginated.map((txn) => {
                     const desc =
                       txn.type === "lead_purchase" || txn.type === "unlock"
                         ? "Achat de lead"
@@ -633,6 +633,39 @@ export default function FacturationPage() {
                     );
                   })}
                 </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentPage <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        className="gap-1"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Précédent
+                      </Button>
+                      <span className="px-2 text-sm font-medium">
+                        {currentPage} / {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        className="gap-1"
+                      >
+                        Suivant
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </CardContent>
