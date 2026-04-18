@@ -31,6 +31,23 @@ interface Claim {
   resolved_at: string | null;
 }
 
+interface DefectiveLead {
+  quoteRequestId: string;
+  fromCity: string | null;
+  toCity: string | null;
+  category: string | null;
+  flaggedAt: string;
+  reasonsBreakdown: Record<string, number>;
+  totalRefundCents: number;
+  claims: Array<{
+    id: string;
+    companyId: string;
+    companyName: string;
+    reason: string;
+    amountCents: number;
+  }>;
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: typeof Clock }> = {
   pending: { label: "En attente", color: "text-yellow-600", bgColor: "bg-yellow-50 border-yellow-200", icon: Clock },
   in_review: { label: "En cours de vérification", color: "text-blue-600", bgColor: "bg-blue-50 border-blue-200", icon: Search },
@@ -53,6 +70,7 @@ function parseConversation(adminNote: string | null): Message[] {
 
 export default function AdminClaims() {
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [defectiveLeads, setDefectiveLeads] = useState<DefectiveLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [replyMessage, setReplyMessage] = useState("");
@@ -65,12 +83,53 @@ export default function AdminClaims() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/claims");
-      if (res.ok) setClaims(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setClaims(data);
+          setDefectiveLeads([]);
+        } else {
+          setClaims(data.claims || []);
+          setDefectiveLeads(data.defectiveLeads || []);
+        }
+      }
     } catch { toast.error("Impossible de charger les réclamations"); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchClaims(); }, [fetchClaims]);
+
+  async function handleAcceptDefect(quoteRequestId: string, claimCount: number) {
+    if (!confirm(`Rembourser tous les ${claimCount} claims de ce lead ? Action définitive.`)) return;
+    const res = await fetch("/api/admin/claims", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "accept_defect", quoteRequestId }),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      toast.success(`${d.refundedCount} remboursements effectués`);
+      fetchClaims();
+    } else {
+      const err = await res.json();
+      toast.error(err.error || "Erreur");
+    }
+  }
+
+  async function handleRejectDefect(quoteRequestId: string) {
+    if (!confirm("Refuser la détection collective ? Les claims resteront à traiter individuellement.")) return;
+    const res = await fetch("/api/admin/claims", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reject_defect", quoteRequestId }),
+    });
+    if (res.ok) {
+      toast.success("Détection refusée");
+      fetchClaims();
+    } else {
+      toast.error("Erreur");
+    }
+  }
 
   useEffect(() => {
     if (selectedClaim) {
@@ -310,6 +369,52 @@ export default function AdminClaims() {
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
         </button>
       </div>
+
+      {defectiveLeads.length > 0 && (
+        <div className="rounded-xl border-2 border-red-300 bg-red-50/80 p-5 shadow-sm">
+          <p className="text-base font-bold text-red-900">
+            🚨 {defectiveLeads.length} lead{defectiveLeads.length > 1 ? "s" : ""} confirmé{defectiveLeads.length > 1 ? "s" : ""} défectueux — validation requise
+          </p>
+          <div className="mt-3 space-y-3">
+            {defectiveLeads.map((lead) => (
+              <div key={lead.quoteRequestId} className="rounded-lg bg-white p-4 shadow-sm">
+                <p className="text-sm font-semibold">
+                  {lead.fromCity || "?"} → {lead.toCity || "?"}
+                  {lead.category && <span className="ml-2 text-xs font-normal text-muted-foreground">{lead.category}</span>}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Flagué le {new Date(lead.flaggedAt).toLocaleString("fr-FR")}
+                </p>
+                <p className="mt-1 text-xs">
+                  {lead.claims.length} signalements : {Object.entries(lead.reasonsBreakdown)
+                    .map(([r, n]) => `${n} × ${r}`)
+                    .join(" · ")}
+                </p>
+                <p className="mt-1 text-xs">
+                  Remboursement total : <strong>{(lead.totalRefundCents / 100).toFixed(2)} €</strong>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Movers : {lead.claims.map((c) => c.companyName).join(", ")}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => handleAcceptDefect(lead.quoteRequestId, lead.claims.length)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                  >
+                    ✓ Rembourser tous
+                  </button>
+                  <button
+                    onClick={() => handleRejectDefect(lead.quoteRequestId)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    ✗ Refuser
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-5">
