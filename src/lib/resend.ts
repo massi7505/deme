@@ -129,6 +129,42 @@ export async function sendRefundEmail(to: string, companyName: string, amountCen
   return sendTemplated("refund", to, { companyName, amount });
 }
 
+export async function sendReviewRequestEmail(
+  to: string,
+  clientFirstName: string,
+  companyName: string,
+  token: string
+) {
+  const baseUrl = emailBaseUrl();
+  const link = `${baseUrl}/avis/${token}`;
+  const siteName = await getSiteName();
+  const greeting = clientFirstName ? `Bonjour ${clientFirstName},` : "Bonjour,";
+  const subject = `Votre avis sur ${companyName} compte pour d'autres clients`;
+  const body = `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111;">
+  <h1 style="font-size: 20px; margin: 0 0 16px;">${greeting}</h1>
+  <p style="line-height: 1.6; margin: 0 0 16px;">
+    Il y a environ une semaine, <strong>${companyName}</strong> s'est occupé de votre déménagement via ${siteName}.
+  </p>
+  <p style="line-height: 1.6; margin: 0 0 24px;">
+    Votre retour aide les prochains clients à faire le bon choix. Cela ne prend que <strong>30 secondes</strong>.
+  </p>
+  <p style="text-align: center; margin: 32px 0;">
+    <a href="${link}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+      Laisser mon avis
+    </a>
+  </p>
+  <p style="line-height: 1.6; margin: 0 0 8px; color: #666; font-size: 13px;">
+    Ou copiez-collez ce lien dans votre navigateur :<br>
+    <span style="color: #22c55e; word-break: break-all;">${link}</span>
+  </p>
+  <p style="line-height: 1.6; margin: 24px 0 0; color: #999; font-size: 12px;">
+    Ce lien est personnel et expire dans 30 jours. Vous pouvez l'ignorer si vous ne souhaitez pas laisser d'avis.
+  </p>
+  <p style="margin: 24px 0 0; color: #999; font-size: 12px;">— L'équipe ${siteName}</p>
+</body></html>`;
+  return getResend().emails.send({ from: FROM, to, subject, html: body });
+}
+
 export async function sendWalletRefundEmail(
   to: string,
   companyName: string,
