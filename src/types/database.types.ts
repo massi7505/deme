@@ -774,6 +774,8 @@ export type Database = {
           id: string
           is_anonymous: boolean
           is_verified: boolean
+          mover_reply: string | null
+          mover_reply_at: string | null
           quote_request_id: string | null
           rating: number
           reviewer_name: string | null
@@ -785,6 +787,8 @@ export type Database = {
           id?: string
           is_anonymous?: boolean
           is_verified?: boolean
+          mover_reply?: string | null
+          mover_reply_at?: string | null
           quote_request_id?: string | null
           rating: number
           reviewer_name?: string | null
@@ -796,6 +800,8 @@ export type Database = {
           id?: string
           is_anonymous?: boolean
           is_verified?: boolean
+          mover_reply?: string | null
+          mover_reply_at?: string | null
           quote_request_id?: string | null
           rating?: number
           reviewer_name?: string | null

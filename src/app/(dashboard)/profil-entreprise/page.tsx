@@ -63,10 +63,14 @@ interface Company {
 
 interface Review {
   id: string;
-  author_name: string;
+  reviewer_name: string | null;
   rating: number;
-  text: string;
+  comment: string | null;
+  is_anonymous: boolean | null;
+  is_verified: boolean | null;
   created_at: string;
+  mover_reply: string | null;
+  mover_reply_at: string | null;
 }
 
 interface QnA {
@@ -107,6 +111,9 @@ export default function ProfilEntreprisePage() {
   const [addressForm, setAddressForm] = useState({ address: "", postal_code: "", city: "" });
   const [savingAddress, setSavingAddress] = useState(false);
   const [syncingSireneAddress, setSyncingSireneAddress] = useState(false);
+  const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [savingReply, setSavingReply] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,6 +165,33 @@ export default function ProfilEntreprisePage() {
       }
     } finally {
       setSavingAddress(false);
+    }
+  }
+
+  function startReply(review: Review) {
+    setReplyingReviewId(review.id);
+    setReplyDraft(review.mover_reply || "");
+  }
+
+  async function saveReply(reviewId: string, reply: string) {
+    setSavingReply(true);
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reply_review", reviewId, reply }),
+      });
+      if (res.ok) {
+        toast.success(reply.trim() ? "Réponse publiée" : "Réponse supprimée");
+        setReplyingReviewId(null);
+        setReplyDraft("");
+        fetchProfile();
+      } else {
+        const d = await res.json();
+        toast.error(d.error || "Erreur");
+      }
+    } finally {
+      setSavingReply(false);
     }
   }
 
@@ -716,34 +750,129 @@ export default function ProfilEntreprisePage() {
                 Aucun avis pour le moment.
               </p>
             ) : (
-              <div className="space-y-4">
-                {reviews.map((review) => (
-                  <div key={review.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="text-xs">
-                            {(review.author_name || "?").slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {review.author_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(review.created_at).toLocaleDateString(
-                              "fr-FR"
-                            )}
-                          </p>
+              <div className="space-y-5">
+                {reviews.map((review) => {
+                  const displayName = review.is_anonymous
+                    ? "Client anonyme"
+                    : review.reviewer_name || "Client";
+                  const isReplying = replyingReviewId === review.id;
+                  return (
+                    <div key={review.id} className="space-y-2 rounded-lg border p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">
+                              {displayName.slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{displayName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(review.created_at).toLocaleDateString("fr-FR")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm font-semibold">{review.rating}/10</span>
                         </div>
                       </div>
-                      <div className="flex">{renderStars(review.rating)}</div>
+                      {review.comment && (
+                        <p className="text-sm text-muted-foreground">{review.comment}</p>
+                      )}
+
+                      {/* Mover reply */}
+                      {isReplying ? (
+                        <div className="mt-3 space-y-2 rounded-lg border border-[var(--brand-green)]/30 bg-green-50/40 p-3">
+                          <p className="text-xs font-semibold text-[var(--brand-green-dark)]">
+                            Votre réponse (publique)
+                          </p>
+                          <Textarea
+                            value={replyDraft}
+                            onChange={(e) => setReplyDraft(e.target.value)}
+                            rows={3}
+                            maxLength={1000}
+                            placeholder="Merci pour votre retour..."
+                          />
+                          <p className="text-right text-[11px] text-muted-foreground">
+                            {replyDraft.length}/1000
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              disabled={savingReply}
+                              onClick={() => saveReply(review.id, replyDraft)}
+                              className="gap-1"
+                            >
+                              {savingReply ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5" />
+                              )}
+                              Publier
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingReply}
+                              onClick={() => {
+                                setReplyingReviewId(null);
+                                setReplyDraft("");
+                              }}
+                            >
+                              Annuler
+                            </Button>
+                            {review.mover_reply && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={savingReply}
+                                className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700"
+                                onClick={() => saveReply(review.id, "")}
+                              >
+                                Supprimer la réponse
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ) : review.mover_reply ? (
+                        <div className="mt-3 rounded-lg border-l-4 border-[var(--brand-green)] bg-green-50/40 p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <p className="text-xs font-semibold text-[var(--brand-green-dark)]">
+                                Réponse du déménageur
+                              </p>
+                              <p className="mt-1 text-sm">{review.mover_reply}</p>
+                              {review.mover_reply_at && (
+                                <p className="mt-1 text-[11px] text-muted-foreground">
+                                  {new Date(review.mover_reply_at).toLocaleDateString("fr-FR")}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="shrink-0"
+                              onClick={() => startReply(review)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => startReply(review)}
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          Répondre
+                        </Button>
+                      )}
                     </div>
-                    <p className="pl-10 text-sm text-muted-foreground">
-                      {review.text}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

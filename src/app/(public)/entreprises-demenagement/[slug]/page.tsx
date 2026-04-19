@@ -27,7 +27,7 @@ interface Company {
   company_regions: Array<{ department_name: string; categories: string[] }>;
   company_photos: Array<{ id: string; url: string; caption: string | null }>;
   company_qna: Array<{ id: string; question: string; answer: string }>;
-  reviews: Array<{ id: string; rating: number; comment: string | null; reviewer_name: string | null; is_anonymous: boolean; created_at: string }>;
+  reviews: Array<{ id: string; rating: number; comment: string | null; reviewer_name: string | null; is_anonymous: boolean; created_at: string; mover_reply: string | null; mover_reply_at: string | null }>;
 }
 
 const COLORS = ["bg-green-600", "bg-blue-600", "bg-purple-600", "bg-orange-500", "bg-teal-600", "bg-red-500"];
@@ -223,6 +223,19 @@ function CompanyProfilePage({ slug }: { slug: string }) {
                           <span className="text-xs text-muted-foreground">{formatDate(review.created_at)}</span>
                         </div>
                         {review.comment && <p className="mt-2 text-sm text-muted-foreground">{review.comment}</p>}
+                        {review.mover_reply && (
+                          <div className="mt-3 rounded-lg border-l-4 border-[var(--brand-green)] bg-green-50/40 p-3">
+                            <p className="text-xs font-semibold text-[var(--brand-green-dark)]">
+                              Réponse du déménageur
+                            </p>
+                            <p className="mt-1 text-sm">{review.mover_reply}</p>
+                            {review.mover_reply_at && (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {formatDate(review.mover_reply_at)}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

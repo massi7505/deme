@@ -129,6 +129,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  // Add / edit / remove mover reply on a review
+  if (body.action === "reply_review") {
+    const reviewId = (body.reviewId || "").toString();
+    const replyRaw = body.reply;
+    const reply = typeof replyRaw === "string" ? replyRaw.trim().slice(0, 1000) : "";
+
+    if (!reviewId) {
+      return NextResponse.json({ error: "reviewId manquant" }, { status: 400 });
+    }
+
+    // Ownership check: review must belong to this company
+    const { data: review } = await admin
+      .from("reviews")
+      .select("id, company_id")
+      .eq("id", reviewId)
+      .maybeSingle();
+    const typedReview = review as { id: string; company_id: string } | null;
+
+    if (!typedReview || typedReview.company_id !== company.id) {
+      return NextResponse.json({ error: "Avis introuvable" }, { status: 404 });
+    }
+
+    const { error } = await admin
+      .from("reviews")
+      .update({
+        mover_reply: reply ? reply : null,
+        mover_reply_at: reply ? new Date().toISOString() : null,
+      })
+      .eq("id", reviewId);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   // Delete Q&A
   if (body.action === "delete_qna") {
     const { error: qnaError } = await admin
