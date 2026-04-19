@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
-import { sendReviewRequestEmail } from "@/lib/resend";
+import { sendReviewRequestEmail, sendReviewReminderEmail } from "@/lib/resend";
 import crypto from "crypto";
 
 /**
@@ -97,5 +97,69 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, ...result });
+  // ─── Phase 2: REMINDERS (14 days after the initial email, if still unused) ──
+  const reminderCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: reminderLeads } = await admin
+    .from("quote_requests")
+    .select("id, client_email, client_first_name")
+    .lte("review_email_sent_at", reminderCutoff)
+    .is("review_reminder_sent_at", null)
+    .not("client_email", "is", null)
+    .limit(50);
+
+  const reminderRows = (reminderLeads || []) as Array<{
+    id: string;
+    client_email: string;
+    client_first_name: string | null;
+  }>;
+
+  const reminderResult = { checked: reminderRows.length, emailed: 0, skipped: 0, errors: 0 };
+
+  for (const lead of reminderRows) {
+    try {
+      // Only send reminder if there's still an unused, non-expired token
+      const { data: tokens } = await admin
+        .from("review_tokens")
+        .select("token, company_id, used_at, expires_at, companies(name)")
+        .eq("quote_request_id", lead.id)
+        .is("used_at", null)
+        .gt("expires_at", new Date().toISOString());
+
+      const usableTokens = ((tokens || []) as unknown) as Array<{
+        token: string;
+        company_id: string;
+        companies: { name: string } | null;
+      }>;
+
+      if (usableTokens.length === 0) {
+        await admin
+          .from("quote_requests")
+          .update({ review_reminder_sent_at: new Date().toISOString() })
+          .eq("id", lead.id);
+        reminderResult.skipped += 1;
+        continue;
+      }
+
+      for (const t of usableTokens) {
+        await sendReviewReminderEmail(
+          lead.client_email,
+          lead.client_first_name || "",
+          t.companies?.name || "votre déménageur",
+          t.token
+        );
+        reminderResult.emailed += 1;
+      }
+
+      await admin
+        .from("quote_requests")
+        .update({ review_reminder_sent_at: new Date().toISOString() })
+        .eq("id", lead.id);
+    } catch (err) {
+      console.error(`[send-review-emails] Reminder failed for lead ${lead.id}:`, err);
+      reminderResult.errors += 1;
+    }
+  }
+
+  return NextResponse.json({ ok: true, ...result, reminders: reminderResult });
 }
