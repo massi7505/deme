@@ -18,6 +18,8 @@ import {
   LogOut,
   ChevronLeft,
   BookOpenCheck,
+  Menu,
+  X,
 } from "lucide-react";
 
 const ADMIN_NAV = [
@@ -51,6 +53,12 @@ export default function AdminLayout({
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [siteName, setSiteName] = useState("Admin");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Close mobile nav when navigating to another page
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   // Skip auth check for login page
   const isLoginPage = pathname === "/admin/login";
@@ -108,70 +116,105 @@ export default function AdminLayout({
     router.replace("/admin/login");
   }
 
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      <div className="flex h-16 items-center justify-between gap-2.5 border-b border-gray-800 px-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500">
+            <Truck className="h-4 w-4 text-white" strokeWidth={2.5} />
+          </div>
+          <span className="font-display text-base font-bold text-white">
+            {siteName}
+          </span>
+        </div>
+        <button
+          onClick={() => setMobileNavOpen(false)}
+          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-800 hover:text-gray-200 lg:hidden"
+          aria-label="Fermer le menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <nav className="flex-1 space-y-0.5 overflow-y-auto p-3 scrollbar-thin">
+        {ADMIN_NAV.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-green-500/10 text-green-400"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+              )}
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-gray-800 p-3">
+        <Link
+          href="/"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Retour au site
+        </Link>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r bg-gray-950 text-gray-300 lg:block">
-        <div className="flex h-full flex-col">
-          <div className="flex h-16 items-center gap-2.5 border-b border-gray-800 px-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500">
-              <Truck className="h-4 w-4 text-white" strokeWidth={2.5} />
-            </div>
-            <span className="font-display text-base font-bold text-white">
-              {siteName}
-            </span>
-          </div>
-
-          <nav className="flex-1 space-y-0.5 overflow-y-auto p-3 scrollbar-thin">
-            {ADMIN_NAV.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-green-500/10 text-green-400"
-                      : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
-                  )}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="border-t border-gray-800 p-3">
-            <Link
-              href="/"
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Retour au site
-            </Link>
-          </div>
-        </div>
+        {sidebarContent}
       </aside>
 
+      {/* Mobile Sidebar (overlay) */}
+      {mobileNavOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            onClick={() => setMobileNavOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-gray-950 text-gray-300 shadow-xl lg:hidden">
+            {sidebarContent}
+          </aside>
+        </>
+      )}
+
       {/* Main */}
-      <main className="flex-1">
-        <div className="border-b bg-white px-6 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="font-display text-lg font-bold text-foreground">
+      <main className="flex-1 min-w-0">
+        <div className="border-b bg-white px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted lg:hidden"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <h1 className="flex-1 truncate font-display text-base font-bold text-foreground sm:text-lg">
               {siteName} Admin
             </h1>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted"
+              className="shrink-0 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted sm:px-3"
+              aria-label="Déconnexion"
             >
               <LogOut className="h-4 w-4" />
-              Déconnexion
+              <span className="hidden sm:inline">Déconnexion</span>
             </button>
           </div>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-4 sm:p-6">{children}</div>
       </main>
     </div>
   );
