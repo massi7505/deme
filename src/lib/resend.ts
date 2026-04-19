@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_EMAIL_TEMPLATES } from "@/components/admin/settings/types";
 import { BRAND } from "@/lib/brand";
+import { emailShell } from "@/lib/email-layout";
 
 export function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? "re_placeholder");
@@ -52,17 +53,23 @@ async function getTemplate(key: string): Promise<{ subject: string; body: string
   return DEFAULT_EMAIL_TEMPLATES[key] || { subject: "", body: "" };
 }
 
-/** Send an email using a stored/default template with variable substitution */
+/** Send an email using a stored/default template with variable substitution.
+ *  Templates that are "inner only" (no <html> / <!DOCTYPE>) get wrapped in
+ *  the shared shell. Legacy templates that already contain a full document
+ *  are passed through unchanged for backward compat. */
 async function sendTemplated(
   key: string,
   to: string,
   vars: Record<string, string>
 ) {
   const [tpl, siteName] = await Promise.all([getTemplate(key), getSiteName()]);
-  const allVars = { ...vars, baseUrl: emailBaseUrl(), siteName };
+  const baseUrl = emailBaseUrl();
+  const allVars = { ...vars, baseUrl, siteName };
   const subject = replaceVars(tpl.subject, allVars);
-  const body = replaceVars(tpl.body, allVars);
-  return getResend().emails.send({ from: FROM, to, subject, html: body });
+  const bodyRaw = replaceVars(tpl.body, allVars);
+  const isFullDoc = /<!DOCTYPE|<html/i.test(bodyRaw);
+  const html = isFullDoc ? bodyRaw : emailShell(bodyRaw, { siteName, baseUrl });
+  return getResend().emails.send({ from: FROM, to, subject, html });
 }
 
 export async function sendQuoteConfirmation(to: string, clientName: string, fromCity: string, toCity: string, prospectId: string) {
