@@ -570,6 +570,7 @@ export type Database = {
           phone_verified: boolean
           prospect_id: string
           review_email_sent_at: string | null
+          review_reminder_sent_at: string | null
           room_count: number | null
           services: string[]
           source: string
@@ -628,6 +629,7 @@ export type Database = {
           phone_verified?: boolean
           prospect_id: string
           review_email_sent_at?: string | null
+          review_reminder_sent_at?: string | null
           room_count?: number | null
           services?: string[]
           source?: string
@@ -686,6 +688,7 @@ export type Database = {
           phone_verified?: boolean
           prospect_id?: string
           review_email_sent_at?: string | null
+          review_reminder_sent_at?: string | null
           room_count?: number | null
           services?: string[]
           source?: string

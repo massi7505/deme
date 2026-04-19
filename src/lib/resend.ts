@@ -136,6 +136,42 @@ export async function sendRefundEmail(to: string, companyName: string, amountCen
   return sendTemplated("refund", to, { companyName, amount });
 }
 
+export async function sendReviewReminderEmail(
+  to: string,
+  clientFirstName: string,
+  companyName: string,
+  token: string
+) {
+  const baseUrl = emailBaseUrl();
+  const link = `${baseUrl}/avis/${token}`;
+  const siteName = await getSiteName();
+  const greeting = clientFirstName ? `Bonjour ${clientFirstName},` : "Bonjour,";
+  const subject = `Un petit rappel — votre avis sur ${companyName} ?`;
+  const body = `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111;">
+  <h1 style="font-size: 20px; margin: 0 0 16px;">${greeting}</h1>
+  <p style="line-height: 1.6; margin: 0 0 16px;">
+    Il y a deux semaines, <strong>${companyName}</strong> s'est occupé de votre déménagement. Nous vous avions envoyé un lien pour laisser un avis.
+  </p>
+  <p style="line-height: 1.6; margin: 0 0 24px;">
+    Si vous avez <strong>30 secondes</strong>, votre retour aidera les prochains clients à choisir — et aidera ${companyName} à s'améliorer si quelque chose s'est mal passé.
+  </p>
+  <p style="text-align: center; margin: 32px 0;">
+    <a href="${link}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+      Laisser mon avis
+    </a>
+  </p>
+  <p style="line-height: 1.6; margin: 0 0 8px; color: #666; font-size: 13px;">
+    Ou copiez-collez ce lien dans votre navigateur :<br>
+    <span style="color: #22c55e; word-break: break-all;">${link}</span>
+  </p>
+  <p style="line-height: 1.6; margin: 24px 0 0; color: #999; font-size: 12px;">
+    Ce lien expire dans 15 jours. C'est notre dernier rappel — vous ne serez plus sollicité après.
+  </p>
+  <p style="margin: 24px 0 0; color: #999; font-size: 12px;">— L'équipe ${siteName}</p>
+</body></html>`;
+  return getResend().emails.send({ from: FROM, to, subject, html: body });
+}
+
 export async function sendReviewRequestEmail(
   to: string,
   clientFirstName: string,
