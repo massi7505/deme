@@ -30,6 +30,10 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Zap,
+  CreditCard as CreditCardIcon,
+  PiggyBank,
+  Hourglass,
 } from "lucide-react";
 
 function formatDateTime(date: string): string {
@@ -195,22 +199,57 @@ export default function FacturationPage() {
               </div>
 
               {/* How it works */}
-              <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-xs text-blue-900">
-                <p className="font-semibold">Comment utiliser votre solde</p>
-                <ul className="mt-1.5 list-disc space-y-1 pl-4">
-                  <li>
-                    Votre portefeuille est <strong>automatiquement utilisé en priorité</strong> sur chaque achat de lead.
-                  </li>
-                  <li>
-                    Solde ≥ prix du lead → <strong>0 € sur votre carte</strong>, tout prélevé sur le portefeuille.
-                  </li>
-                  <li>
-                    Solde insuffisant → <strong>paiement mixte</strong>. Exemple : lead 12 €, solde 1 € → 1 € portefeuille + 11 € carte.
-                  </li>
-                  <li>
-                    Les crédits expirent à la date indiquée dans l&apos;historique — utilisez-les avant.
-                  </li>
-                </ul>
+              <div className="rounded-xl border border-blue-100 bg-white p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                    <Wallet className="h-3.5 w-3.5" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    Comment votre solde est utilisé
+                  </p>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="flex gap-2.5 rounded-lg border bg-gray-50/50 p-3">
+                    <Zap className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-green)]" />
+                    <div>
+                      <p className="text-xs font-semibold text-gray-900">Automatique</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                        Utilisé en priorité à chaque achat de lead — rien à faire de votre côté.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 rounded-lg border bg-gray-50/50 p-3">
+                    <PiggyBank className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                    <div>
+                      <p className="text-xs font-semibold text-gray-900">Solde suffisant</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                        <strong>0 € sur votre carte.</strong> Tout est payé depuis le portefeuille.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 rounded-lg border bg-gray-50/50 p-3">
+                    <CreditCardIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                    <div>
+                      <p className="text-xs font-semibold text-gray-900">Paiement mixte</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                        Lead 12 € · solde 1 € → <strong>1 € wallet + 11 € carte</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 rounded-lg border border-amber-100 bg-amber-50/60 p-3">
+                    <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-900">Expiration</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+                        Les crédits ont une date limite — utilisez-les avant.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {wallet.transactions.length > 0 && (
