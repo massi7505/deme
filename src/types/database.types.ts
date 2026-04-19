@@ -569,6 +569,7 @@ export type Database = {
           phone_verification_last_sent_at: string | null
           phone_verified: boolean
           prospect_id: string
+          review_email_sent_at: string | null
           room_count: number | null
           services: string[]
           source: string
@@ -626,6 +627,7 @@ export type Database = {
           phone_verification_last_sent_at?: string | null
           phone_verified?: boolean
           prospect_id: string
+          review_email_sent_at?: string | null
           room_count?: number | null
           services?: string[]
           source?: string
@@ -683,6 +685,7 @@ export type Database = {
           phone_verification_last_sent_at?: string | null
           phone_verified?: boolean
           prospect_id?: string
+          review_email_sent_at?: string | null
           room_count?: number | null
           services?: string[]
           source?: string
@@ -720,6 +723,48 @@ export type Database = {
           ip?: string
         }
         Relationships: []
+      }
+      review_tokens: {
+        Row: {
+          company_id: string
+          expires_at: string
+          quote_request_id: string
+          sent_at: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          company_id: string
+          expires_at: string
+          quote_request_id: string
+          sent_at?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          expires_at?: string
+          quote_request_id?: string
+          sent_at?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_tokens_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_tokens_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reviews: {
         Row: {
