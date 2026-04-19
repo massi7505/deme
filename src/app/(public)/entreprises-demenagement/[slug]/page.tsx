@@ -18,7 +18,7 @@ import RegionPage from "@/components/public/RegionPage";
 import { BRAND } from "@/lib/brand";
 
 interface Company {
-  id: string; name: string; slug: string; city: string | null; postal_code: string | null;
+  id: string; name: string; slug: string; address: string | null; city: string | null; postal_code: string | null;
   logo_url: string | null; description: string | null;
   rating: number; review_count: number; is_verified: boolean;
   employee_count: number | null; legal_status: string | null; siret: string;
@@ -89,6 +89,7 @@ function CompanyProfilePage({ slug }: { slug: string }) {
     name: company.name,
     address: {
       "@type": "PostalAddress",
+      streetAddress: company.address || undefined,
       addressLocality: company.city || undefined,
       postalCode: company.postal_code || undefined,
       addressCountry: "FR",
@@ -306,10 +307,16 @@ function CompanyProfilePage({ slug }: { slug: string }) {
                 <CardTitle className="text-base">Informations</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {company.city && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
-                    {company.postal_code ? `${company.postal_code} ` : ""}{company.city}
+                {(company.address || company.city) && (
+                  <div className="flex items-start gap-2 text-muted-foreground">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-green)]" />
+                    <div className="leading-5">
+                      {company.address && <div>{company.address}</div>}
+                      <div>
+                        {company.postal_code ? `${company.postal_code} ` : ""}
+                        {company.city || ""}
+                      </div>
+                    </div>
                   </div>
                 )}
                 {company.website && (
