@@ -129,74 +129,216 @@ export const EMAIL_TEMPLATE_DEFS: {
   { key: "adminDistributionFailed", label: "Échec distribution lead", category: "Admin", variables: ["siteName", "quoteId", "clientName", "fromCity", "toCity", "errorMessage", "baseUrl"] },
 ];
 
+// Shared inline snippets (the full doc shell is applied at send time via lib/email-layout.ts)
+const BTN_PRIMARY = `display:inline-block;background:#22c55e;color:#ffffff;padding:13px 26px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;`;
+const CALLOUT_GREEN = `background:#f0fdf4;border-left:4px solid #22c55e;border-radius:6px;padding:14px 16px;margin:20px 0;`;
+const CALLOUT_AMBER = `background:#fffbeb;border-left:4px solid #f59e0b;border-radius:6px;padding:14px 16px;margin:20px 0;`;
+const CALLOUT_RED = `background:#fef2f2;border-left:4px solid #ef4444;border-radius:6px;padding:14px 16px;margin:20px 0;`;
+const CALLOUT_GRAY = `background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;margin:20px 0;`;
+
 export const DEFAULT_EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
   welcome: {
     subject: "Bienvenue sur {{siteName}} !",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bienvenue, {{companyName}} !</h2><p>Votre inscription a bien été reçue. Voici les prochaines étapes :</p><ol style="padding-left:20px"><li><strong>Vérifiez votre identité</strong> pour activer votre compte</li><li><strong>Complétez votre profil</strong> pour attirer plus de clients</li><li><strong>Configurez vos zones</strong> d'intervention</li></ol><a href="{{baseUrl}}/verification-identite" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Commencer la vérification</a></div></div>`,
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bienvenue, {{companyName}} 👋</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre inscription est confirmée. Voici les 3 étapes pour être visible et recevoir vos premiers leads :</p>
+<ol style="padding-left:20px;margin:0 0 20px;color:#374151;">
+  <li style="margin-bottom:8px;"><strong>Vérifiez votre identité</strong> pour activer votre compte</li>
+  <li style="margin-bottom:8px;"><strong>Complétez votre profil</strong> (logo, photos, description)</li>
+  <li><strong>Configurez vos zones d&apos;intervention</strong></li>
+</ol>
+<a href="{{baseUrl}}/verification-identite" style="${BTN_PRIMARY}">Commencer la vérification</a>
+<p style="margin:24px 0 0;font-size:13px;color:#6b7280;">Une question ? Répondez simplement à cet email.</p>`,
   },
   newLead: {
-    subject: "Nouvelle demande de devis : {{fromCity}} → {{toCity}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Une nouvelle demande de devis correspond à votre zone d'intervention :</p><div style="background:#f9fafb;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #e5e7eb"><p style="margin:0"><strong>{{fromCity}}</strong> → <strong>{{toCity}}</strong></p></div><a href="{{baseUrl}}/demandes-de-devis/{{leadId}}" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir la demande</a><p style="color:#6b7280;font-size:14px;margin-top:24px">Conseil : Contactez le client dans les 8 heures pour maximiser vos chances.</p></div></div>`,
+    subject: "📬 Nouveau lead : {{fromCity}} → {{toCity}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Une nouvelle demande correspond à votre zone d&apos;intervention.</p>
+<div style="${CALLOUT_GREEN}">
+  <p style="margin:0;font-size:17px;color:#111827;"><strong>{{fromCity}}</strong> → <strong>{{toCity}}</strong></p>
+</div>
+<a href="{{baseUrl}}/demandes-de-devis/{{leadId}}" style="${BTN_PRIMARY}">Voir la demande</a>
+<p style="margin:24px 0 0;font-size:13px;color:#6b7280;">💡 Les déménageurs qui contactent un client dans les 2 premières heures obtiennent 3× plus de contrats.</p>`,
   },
   quoteConfirmation: {
-    subject: "Votre demande de devis a bien été envoyée",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{clientName}},</h2><p>Votre demande de devis pour un déménagement de <strong>{{fromCity}}</strong> vers <strong>{{toCity}}</strong> a bien été enregistrée.</p><p>Numéro de suivi : <strong>{{prospectId}}</strong></p><p>Jusqu'à 6 déménageurs professionnels vous contacteront dans les prochaines 48 heures.</p><div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:24px 0"><strong style="color:#16a34a">Que se passe-t-il ensuite ?</strong><ol style="margin:8px 0 0;padding-left:20px;color:#374151"><li>Les déménageurs de votre région reçoivent votre demande</li><li>Ils vous contactent avec leur devis personnalisé</li><li>Vous comparez et choisissez librement</li></ol></div><p style="color:#6b7280;font-size:14px">Ce service est entièrement gratuit et sans engagement.</p></div></div>`,
+    subject: "Votre demande de devis est confirmée ✅",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{clientName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre demande pour un déménagement <strong>{{fromCity}}</strong> → <strong>{{toCity}}</strong> est bien enregistrée.</p>
+<div style="${CALLOUT_GRAY}">
+  <p style="margin:0;font-size:13px;color:#6b7280;">Numéro de suivi</p>
+  <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:18px;font-weight:700;color:#111827;">{{prospectId}}</p>
+</div>
+<div style="${CALLOUT_GREEN}">
+  <p style="margin:0 0 8px;font-weight:600;color:#16a34a;">Et maintenant ?</p>
+  <ol style="margin:0;padding-left:20px;color:#374151;">
+    <li style="margin-bottom:6px;">Jusqu&apos;à 6 déménageurs professionnels reçoivent votre demande</li>
+    <li style="margin-bottom:6px;">Ils vous contactent avec leur devis sous 48h</li>
+    <li>Vous comparez et choisissez librement</li>
+  </ol>
+</div>
+<p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Service <strong>100% gratuit et sans engagement</strong>.</p>`,
   },
   invoice: {
-    subject: "Facture {{invoiceNumber}} — {{amount}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Votre paiement de <strong>{{amount}}</strong> a été confirmé.</p><div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:24px 0"><p style="margin:0"><strong>Facture :</strong> {{invoiceNumber}}</p><p style="margin:8px 0 0"><strong>Description :</strong> {{description}}</p></div><p style="color:#6b7280;font-size:14px">Votre facture est disponible dans votre espace <a href="{{baseUrl}}/facturation" style="color:#22c55e;text-decoration:underline">Facturation</a>.</p></div></div>`,
+    subject: "Facture {{invoiceNumber}} — {{amount}} payée ✅",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre paiement de <strong>{{amount}}</strong> est confirmé.</p>
+<div style="${CALLOUT_GREEN}">
+  <p style="margin:0 0 6px;font-size:13px;color:#166534;font-weight:600;">Facture</p>
+  <p style="margin:0 0 10px;font-size:16px;color:#111827;"><strong>{{invoiceNumber}}</strong></p>
+  <p style="margin:0;font-size:13px;color:#166534;font-weight:600;">Description</p>
+  <p style="margin:0;color:#111827;">{{description}}</p>
+</div>
+<a href="{{baseUrl}}/facturation" style="${BTN_PRIMARY}">Voir mes factures</a>`,
   },
   paymentFailed: {
-    subject: "Échec de paiement — {{amount}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Votre paiement de <strong>{{amount}}</strong> a échoué le <strong>{{dateTime}}</strong>.</p><p>Veuillez réessayer depuis votre espace ou contacter votre banque.</p><a href="{{baseUrl}}/demandes-de-devis" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:16px">Réessayer</a></div></div>`,
+    subject: "⚠ Paiement échoué — {{amount}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre paiement de <strong>{{amount}}</strong> a échoué le <strong>{{dateTime}}</strong>.</p>
+<div style="${CALLOUT_RED}">
+  <p style="margin:0;color:#991b1b;">Causes fréquentes : plafond carte atteint, code 3D Secure non validé, fonds insuffisants.</p>
+</div>
+<p style="margin:0 0 16px;color:#374151;">Vous pouvez réessayer immédiatement avec une autre carte depuis votre espace.</p>
+<a href="{{baseUrl}}/demandes-de-devis" style="${BTN_PRIMARY}">Réessayer le paiement</a>`,
   },
   kycApproved: {
-    subject: "Votre identité a été vérifiée avec succès",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Félicitations, {{companyName}} !</h2><p>Votre vérification d'identité a été <strong style="color:#16a34a">approuvée</strong>. Votre compte est maintenant actif.</p><div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:24px 0"><strong style="color:#16a34a">Vous pouvez maintenant :</strong><ul style="margin:8px 0 0;padding-left:20px;color:#374151"><li>Consulter et déverrouiller des demandes de devis</li><li>Contacter directement les clients</li><li>Développer votre activité</li></ul></div><a href="{{baseUrl}}/demandes-de-devis" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir les demandes disponibles</a></div></div>`,
+    subject: "✅ Votre compte est activé, {{companyName}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Félicitations 🎉</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre vérification d&apos;identité est <strong style="color:#16a34a;">approuvée</strong>. Votre compte {{companyName}} est maintenant actif.</p>
+<div style="${CALLOUT_GREEN}">
+  <p style="margin:0 0 8px;font-weight:600;color:#16a34a;">Vous pouvez désormais :</p>
+  <ul style="margin:0;padding-left:20px;color:#374151;">
+    <li style="margin-bottom:4px;">Acheter et débloquer des leads</li>
+    <li style="margin-bottom:4px;">Contacter directement les clients</li>
+    <li>Utiliser tous les outils de votre espace mover</li>
+  </ul>
+</div>
+<a href="{{baseUrl}}/demandes-de-devis" style="${BTN_PRIMARY}">Voir les demandes disponibles</a>`,
   },
   kycRejected: {
-    subject: "Vérification d'identité refusée",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Votre vérification d'identité a été <strong style="color:#dc2626">refusée</strong>.</p><div style="background:#fef2f2;border-radius:8px;padding:16px;margin:24px 0"><p style="margin:0"><strong>Motif :</strong> {{reason}}</p></div><p>Veuillez vérifier vos documents et réessayer.</p><a href="{{baseUrl}}/verification-identite" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Réessayer la vérification</a></div></div>`,
+    subject: "Vérification d&apos;identité à compléter",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre vérification d&apos;identité nécessite des corrections avant de pouvoir être validée.</p>
+<div style="${CALLOUT_RED}">
+  <p style="margin:0 0 6px;font-weight:600;color:#991b1b;">Motif</p>
+  <p style="margin:0;color:#7f1d1d;">{{reason}}</p>
+</div>
+<p style="margin:0 0 16px;color:#374151;">Corrigez les points ci-dessus puis relancez la vérification.</p>
+<a href="{{baseUrl}}/verification-identite" style="${BTN_PRIMARY}">Reprendre la vérification</a>`,
   },
   claimReceived: {
-    subject: "Réclamation reçue — {{reason}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Votre réclamation a bien été enregistrée.</p><div style="background:#f9fafb;border-radius:8px;padding:16px;margin:24px 0;border:1px solid #e5e7eb"><p style="margin:0"><strong>Référence :</strong> {{claimRef}}</p><p style="margin:8px 0 0"><strong>Motif :</strong> {{reason}}</p></div><p>Notre équipe examinera votre réclamation sous 48 heures ouvrées.</p></div></div>`,
+    subject: "Réclamation enregistrée — {{reason}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre réclamation a bien été enregistrée. Nous l&apos;examinerons dans les 48 heures ouvrées.</p>
+<div style="${CALLOUT_GRAY}">
+  <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">Référence</p>
+  <p style="margin:0 0 10px;font-family:'Courier New',monospace;font-size:15px;font-weight:700;color:#111827;">{{claimRef}}</p>
+  <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">Motif</p>
+  <p style="margin:0;color:#111827;">{{reason}}</p>
+</div>
+<p style="margin:0;font-size:13px;color:#6b7280;">Vous serez notifié par email dès que la réclamation sera traitée.</p>`,
   },
   claimResolved: {
     subject: "Réclamation {{statusLabel}} — {{reason}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Votre réclamation pour <strong>{{reason}}</strong> a été traitée.</p><div style="background:{{statusBg}};border-radius:8px;padding:16px;margin:24px 0"><p style="margin:0;font-size:18px;font-weight:bold;color:{{statusColor}}">{{statusLabel}}</p></div><a href="{{baseUrl}}/facturation" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir ma facturation</a></div></div>`,
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Votre réclamation pour <strong>{{reason}}</strong> a été traitée.</p>
+<div style="background:{{statusBg}};border-radius:8px;padding:18px 20px;margin:20px 0;text-align:center;">
+  <p style="margin:0;font-size:18px;font-weight:700;color:{{statusColor}};">{{statusLabel}}</p>
+</div>
+<a href="{{baseUrl}}/facturation" style="${BTN_PRIMARY}">Voir ma facturation</a>`,
   },
   refund: {
-    subject: "Remboursement de {{amount}} effectué",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}}</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Bonjour {{companyName}},</h2><p>Un remboursement de <strong>{{amount}}</strong> a été effectué sur votre compte.</p><div style="background:#eff6ff;border-radius:8px;padding:16px;margin:24px 0"><p style="margin:0"><strong>Montant :</strong> {{amount}}</p><p style="margin:8px 0 0">Le crédit apparaîtra sur votre moyen de paiement sous 5 à 10 jours ouvrés.</p></div><a href="{{baseUrl}}/facturation" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir ma facturation</a></div></div>`,
+    subject: "💸 Remboursement de {{amount}} en route",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Un remboursement de <strong>{{amount}}</strong> a été initié sur votre moyen de paiement.</p>
+<div style="${CALLOUT_GREEN}">
+  <p style="margin:0 0 8px;font-weight:600;color:#166534;">Montant</p>
+  <p style="margin:0 0 14px;font-size:24px;font-weight:700;color:#166534;">{{amount}}</p>
+  <p style="margin:0;font-size:13px;color:#166534;">Le crédit apparaîtra sur votre moyen de paiement sous <strong>5 à 10 jours ouvrés</strong>.</p>
+</div>
+<a href="{{baseUrl}}/facturation" style="${BTN_PRIMARY}">Voir ma facturation</a>`,
   },
   walletRefund: {
-    subject: "Vous avez reçu un remboursement de {{amount}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0;text-align:center"><h1 style="color:white;margin:0;font-size:24px;font-weight:700">{{siteName}}</h1></div><div style="padding:32px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0;font-size:20px;color:#111827">Bonjour {{companyName}},</h2><p style="color:#374151;line-height:1.6">Un remboursement vient d&apos;être crédité sur votre portefeuille {{siteName}}.</p><div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:24px 0;text-align:center"><p style="margin:0 0 4px;color:#166534;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Montant crédité</p><p style="margin:0;font-size:36px;font-weight:700;color:#166534">{{amount}}</p><p style="margin:12px 0 0;color:#166534;font-size:13px">Utilisable jusqu&apos;au <strong>{{expiryDate}}</strong></p></div><div style="background:#f9fafb;border-radius:8px;padding:16px;margin:16px 0"><p style="margin:0;color:#374151"><strong>Solde du portefeuille :</strong> {{balance}}</p><p style="margin:6px 0 0;color:#6b7280;font-size:13px">Ce crédit sera automatiquement utilisé lors de votre prochain achat de lead.</p></div><div style="text-align:center;margin-top:24px"><a href="{{baseUrl}}/facturation" style="display:inline-block;background:#22c55e;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Voir mon portefeuille</a></div></div></div>`,
+    subject: "🎁 Vous avez reçu {{amount}} sur votre portefeuille",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Un crédit vient d&apos;être ajouté à votre portefeuille {{siteName}}.</p>
+<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:20px 0;text-align:center;">
+  <p style="margin:0 0 4px;color:#166534;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Montant crédité</p>
+  <p style="margin:0;font-size:38px;font-weight:700;color:#166534;">{{amount}}</p>
+  <p style="margin:14px 0 0;color:#166534;font-size:13px;">Utilisable jusqu&apos;au <strong>{{expiryDate}}</strong></p>
+</div>
+<div style="${CALLOUT_GRAY}">
+  <p style="margin:0;color:#374151;"><strong>Solde actuel du portefeuille :</strong> {{balance}}</p>
+  <p style="margin:6px 0 0;color:#6b7280;font-size:13px;">Ce crédit est automatiquement utilisé en priorité sur votre prochain achat de lead — 0 action requise.</p>
+</div>
+<a href="{{baseUrl}}/facturation" style="${BTN_PRIMARY}">Voir mon portefeuille</a>`,
   },
   adminPaymentSuccess: {
-    subject: "Paiement reçu — {{amount}} de {{companyName}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}} — Admin</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Nouveau paiement confirmé</h2><div style="background:#f0fdf4;border-radius:8px;padding:16px;margin:16px 0"><p style="margin:0"><strong>Entreprise :</strong> {{companyName}}</p><p style="margin:8px 0 0"><strong>Montant :</strong> {{amount}}</p><p style="margin:8px 0 0"><strong>Facture :</strong> {{invoiceNumber}}</p></div><a href="{{baseUrl}}/admin/transactions" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir les transactions</a></div></div>`,
+    subject: "💰 Paiement confirmé — {{amount}} de {{companyName}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Nouveau paiement confirmé</h2>
+<div style="${CALLOUT_GREEN}">
+  <p style="margin:0 0 6px;"><strong style="color:#166534;">Entreprise :</strong> <span style="color:#111827;">{{companyName}}</span></p>
+  <p style="margin:0 0 6px;"><strong style="color:#166534;">Montant :</strong> <span style="color:#111827;">{{amount}}</span></p>
+  <p style="margin:0;"><strong style="color:#166534;">Facture :</strong> <span style="color:#111827;">{{invoiceNumber}}</span></p>
+</div>
+<a href="{{baseUrl}}/admin/transactions" style="${BTN_PRIMARY}">Voir les transactions</a>`,
   },
   adminPaymentFailed: {
-    subject: "Échec de paiement — {{amount}} de {{companyName}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}} — Admin</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Paiement échoué</h2><div style="background:#fef2f2;border-radius:8px;padding:16px;margin:16px 0"><p style="margin:0"><strong>Entreprise :</strong> {{companyName}}</p><p style="margin:8px 0 0"><strong>Montant :</strong> {{amount}}</p><p style="margin:8px 0 0"><strong>Date :</strong> {{dateTime}}</p></div><a href="{{baseUrl}}/admin/transactions" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir les transactions</a></div></div>`,
+    subject: "⚠ Paiement échoué — {{amount}} de {{companyName}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Paiement échoué</h2>
+<div style="${CALLOUT_RED}">
+  <p style="margin:0 0 6px;"><strong style="color:#991b1b;">Entreprise :</strong> <span style="color:#111827;">{{companyName}}</span></p>
+  <p style="margin:0 0 6px;"><strong style="color:#991b1b;">Montant :</strong> <span style="color:#111827;">{{amount}}</span></p>
+  <p style="margin:0;"><strong style="color:#991b1b;">Date :</strong> <span style="color:#111827;">{{dateTime}}</span></p>
+</div>
+<a href="{{baseUrl}}/admin/transactions" style="${BTN_PRIMARY}">Voir les transactions</a>`,
   },
   adminNewClaim: {
-    subject: "Nouvelle réclamation de {{companyName}} — {{reason}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:32px;border-radius:12px 12px 0 0"><h1 style="color:white;margin:0;font-size:24px">{{siteName}} — Admin</h1></div><div style="padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0">Nouvelle réclamation</h2><div style="background:#fffbeb;border-radius:8px;padding:16px;margin:16px 0"><p style="margin:0"><strong>Entreprise :</strong> {{companyName}}</p><p style="margin:8px 0 0"><strong>Motif :</strong> {{reason}}</p><p style="margin:8px 0 0"><strong>Réf :</strong> {{claimRef}}</p></div><a href="{{baseUrl}}/admin/claims" style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Traiter la réclamation</a></div></div>`,
+    subject: "🔔 Nouvelle réclamation — {{companyName}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Nouvelle réclamation</h2>
+<div style="${CALLOUT_AMBER}">
+  <p style="margin:0 0 6px;"><strong style="color:#92400e;">Entreprise :</strong> <span style="color:#111827;">{{companyName}}</span></p>
+  <p style="margin:0 0 6px;"><strong style="color:#92400e;">Motif :</strong> <span style="color:#111827;">{{reason}}</span></p>
+  <p style="margin:0;"><strong style="color:#92400e;">Référence :</strong> <span style="color:#111827;">{{claimRef}}</span></p>
+</div>
+<a href="{{baseUrl}}/admin/claims" style="${BTN_PRIMARY}">Traiter la réclamation</a>`,
   },
   passwordReset: {
-    subject: "Code de réinitialisation — {{siteName}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0;text-align:center"><h1 style="color:white;margin:0;font-size:24px;font-weight:700">{{siteName}}</h1></div><div style="padding:32px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0;font-size:20px;color:#111827">Réinitialisation de votre mot de passe</h2><p style="color:#374151;line-height:1.6">Vous avez demandé à réinitialiser votre mot de passe. Utilisez le code ci-dessous pour choisir un nouveau mot de passe :</p><div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:28px 0;text-align:center"><p style="margin:0 0 8px;color:#166534;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Votre code de vérification</p><p style="margin:0;font-family:'Courier New',monospace;font-size:36px;font-weight:700;letter-spacing:8px;color:#166534">{{otpCode}}</p></div><div style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;padding:12px 16px;margin:20px 0"><p style="margin:0;color:#92400e;font-size:14px"><strong>⏱ Expire dans {{expiryMinutes}} minutes.</strong> Ce code est à usage unique.</p></div><p style="color:#6b7280;font-size:14px;line-height:1.6;margin-top:24px">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email — votre mot de passe restera inchangé.</p><hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"><p style="color:#9ca3af;font-size:12px;text-align:center;margin:0">© {{siteName}} — Ne partagez jamais ce code avec qui que ce soit.</p></div></div>`,
+    subject: "🔐 Code de réinitialisation — {{siteName}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Réinitialisation de mot de passe</h2>
+<p style="margin:0 0 16px;color:#374151;">Vous avez demandé à réinitialiser votre mot de passe. Saisissez ce code sur la page de réinitialisation :</p>
+<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:20px 0;text-align:center;">
+  <p style="margin:0 0 8px;color:#166534;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Code de vérification</p>
+  <p style="margin:0;font-family:'Courier New',monospace;font-size:38px;font-weight:700;letter-spacing:10px;color:#166534;">{{otpCode}}</p>
+</div>
+<div style="${CALLOUT_AMBER}">
+  <p style="margin:0;color:#92400e;font-size:14px;"><strong>⏱ Expire dans {{expiryMinutes}} minutes.</strong> Code à usage unique.</p>
+</div>
+<p style="margin:0;font-size:13px;color:#6b7280;">Vous n&apos;avez pas fait cette demande ? Ignorez cet email — votre mot de passe reste inchangé. Ne partagez jamais ce code.</p>`,
   },
   quoteVerification: {
-    subject: "Confirmez votre demande de devis — {{siteName}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px"><div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:32px;border-radius:12px 12px 0 0;text-align:center"><h1 style="color:white;margin:0;font-size:24px;font-weight:700">{{siteName}}</h1></div><div style="padding:32px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0;font-size:20px;color:#111827">Bonjour {{clientName}},</h2><p style="color:#374151;line-height:1.6">Merci pour votre demande de devis. Pour la valider et permettre aux déménageurs de vous recontacter, saisissez ce code sur la page de confirmation :</p><div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:28px 0;text-align:center"><p style="margin:0 0 8px;color:#166534;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Votre code de vérification</p><p style="margin:0;font-family:'Courier New',monospace;font-size:36px;font-weight:700;letter-spacing:8px;color:#166534">{{otpCode}}</p></div><div style="text-align:center;margin:24px 0"><a href="{{verifyUrl}}" style="display:inline-block;background:#22c55e;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">Valider ma demande</a></div><div style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;padding:12px 16px;margin:20px 0"><p style="margin:0;color:#92400e;font-size:14px"><strong>⏱ Expire dans {{expiryMinutes}} minutes.</strong></p></div><p style="color:#6b7280;font-size:14px;line-height:1.6">Si vous n&apos;êtes pas à l&apos;origine de cette demande, ignorez cet email.</p><hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0"><p style="color:#9ca3af;font-size:12px;text-align:center;margin:0">© {{siteName}}</p></div></div>`,
+    subject: "📧 Confirmez votre demande de devis — {{siteName}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{clientName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Plus qu&apos;une étape ! Saisissez ce code pour valider votre demande de devis et permettre aux déménageurs de vous contacter.</p>
+<div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:24px;margin:20px 0;text-align:center;">
+  <p style="margin:0 0 8px;color:#166534;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Code de vérification</p>
+  <p style="margin:0;font-family:'Courier New',monospace;font-size:38px;font-weight:700;letter-spacing:10px;color:#166534;">{{otpCode}}</p>
+</div>
+<a href="{{verifyUrl}}" style="${BTN_PRIMARY}">Valider ma demande</a>
+<div style="${CALLOUT_AMBER}">
+  <p style="margin:0;color:#92400e;font-size:14px;"><strong>⏱ Expire dans {{expiryMinutes}} minutes.</strong></p>
+</div>
+<p style="margin:0;font-size:13px;color:#6b7280;">Si vous n&apos;êtes pas à l&apos;origine de cette demande, ignorez cet email.</p>`,
   },
   adminDistributionFailed: {
-    subject: "[Urgent] Distribution lead échouée — {{clientName}}",
-    body: `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;background:#f9fafb;padding:24px"><div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:32px;border-radius:12px 12px 0 0;text-align:center"><h1 style="color:white;margin:0;font-size:24px;font-weight:700">{{siteName}} — Admin</h1></div><div style="padding:32px;background:white;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px"><h2 style="margin-top:0;font-size:20px;color:#111827">Distribution d&apos;un lead a échoué</h2><p style="color:#374151;line-height:1.6">Le client a vérifié son contact mais le lead n&apos;a pas pu être distribué aux déménageurs. Intervention manuelle requise.</p><div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:20px 0"><p style="margin:0 0 6px"><strong>Client :</strong> {{clientName}}</p><p style="margin:0 0 6px"><strong>Trajet :</strong> {{fromCity}} → {{toCity}}</p><p style="margin:0 0 6px"><strong>Quote ID :</strong> <code style="font-family:monospace;font-size:12px">{{quoteId}}</code></p><p style="margin:0"><strong>Erreur :</strong> {{errorMessage}}</p></div><a href="{{baseUrl}}/admin/leads" style="display:inline-block;background:#dc2626;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Voir les leads admin</a></div></div>`,
+    subject: "[URGENT] Distribution lead échouée — {{clientName}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#991b1b;">🚨 Distribution lead échouée</h2>
+<p style="margin:0 0 16px;color:#374151;">Le client a vérifié son contact mais le lead n&apos;a pas pu être distribué aux déménageurs. <strong>Intervention manuelle requise.</strong></p>
+<div style="${CALLOUT_RED}">
+  <p style="margin:0 0 6px;"><strong style="color:#991b1b;">Client :</strong> <span style="color:#111827;">{{clientName}}</span></p>
+  <p style="margin:0 0 6px;"><strong style="color:#991b1b;">Trajet :</strong> <span style="color:#111827;">{{fromCity}} → {{toCity}}</span></p>
+  <p style="margin:0 0 6px;"><strong style="color:#991b1b;">Quote ID :</strong> <code style="font-family:'Courier New',monospace;font-size:12px;background:#ffffff;padding:2px 6px;border-radius:3px;">{{quoteId}}</code></p>
+  <p style="margin:0;"><strong style="color:#991b1b;">Erreur :</strong> <span style="color:#111827;">{{errorMessage}}</span></p>
+</div>
+<a href="{{baseUrl}}/admin/leads" style="display:inline-block;background:#dc2626;color:#ffffff;padding:13px 26px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Voir les leads admin</a>`,
   },
 };
 
