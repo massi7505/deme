@@ -205,10 +205,11 @@ export default function AdminDashboard() {
         </div>
         <button
           onClick={fetchStats}
-          className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50"
+          className="flex shrink-0 items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50"
+          aria-label="Actualiser"
         >
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-          Actualiser
+          <span className="hidden sm:inline">Actualiser</span>
         </button>
       </div>
 
@@ -227,7 +228,7 @@ export default function AdminDashboard() {
       )}
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4">
         {kpiCards.map((kpi, i) => (
           <motion.div
             key={kpi.label}
@@ -235,18 +236,18 @@ export default function AdminDashboard() {
             animate="visible"
             variants={fadeIn}
             custom={i}
-            className="rounded-xl border bg-white p-5 shadow-sm"
+            className="rounded-xl border bg-white p-3 shadow-sm sm:p-5"
           >
-            <div className={cn("inline-flex rounded-lg p-2", kpi.color)}>
-              <kpi.icon className="h-5 w-5" />
+            <div className={cn("inline-flex rounded-lg p-1.5 sm:p-2", kpi.color)}>
+              <kpi.icon className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div className="mt-3">
-              <div className="font-display text-2xl font-bold">
+            <div className="mt-2 sm:mt-3">
+              <div className="font-display text-lg font-bold sm:text-2xl">
                 {loading ? "..." : kpi.value}
               </div>
-              <div className="text-sm text-muted-foreground">{kpi.label}</div>
+              <div className="text-xs text-muted-foreground sm:text-sm">{kpi.label}</div>
               {kpi.sublabel && (
-                <div className="mt-1 text-[11px] text-muted-foreground/80">
+                <div className="mt-1 hidden text-[11px] text-muted-foreground/80 sm:block">
                   {kpi.sublabel}
                 </div>
               )}
@@ -257,10 +258,10 @@ export default function AdminDashboard() {
 
       {/* Revenue sparkline + Top movers */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border bg-white p-5 shadow-sm lg:col-span-2">
+        <div className="rounded-xl border bg-white p-4 shadow-sm sm:p-5 lg:col-span-2">
           <div className="mb-3 flex items-center gap-2">
-            <Receipt className="h-4 w-4 text-[var(--brand-green)]" />
-            <h3 className="font-display text-base font-semibold">
+            <Receipt className="h-4 w-4 shrink-0 text-[var(--brand-green)]" />
+            <h3 className="font-display text-sm font-semibold sm:text-base">
               Revenus plateforme sur 30 jours
             </h3>
           </div>
@@ -383,7 +384,7 @@ export default function AdminDashboard() {
           <p className="py-6 text-center text-sm text-muted-foreground">Aucun lead créé ces 30 derniers jours</p>
         ) : (
           <>
-            <div className="mb-5 grid gap-3 sm:grid-cols-4">
+            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-lg border bg-green-50/50 p-3">
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-green-700">
                   <ShieldCheck className="h-3 w-3" /> Email + Tél
@@ -459,15 +460,15 @@ export default function AdminDashboard() {
           ) : (
             <div className="divide-y">
               {recentCompanies.map((c) => (
-                <div key={c.id} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <span className="text-sm font-medium">{c.name}</span>
+                <div key={c.id} className="flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-5">
+                  <div className="min-w-0">
+                    <span className="truncate text-sm font-medium">{c.name}</span>
                     {c.city && <span className="ml-2 text-xs text-muted-foreground">{c.city}</span>}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-xs font-semibold",
+                        "rounded-full px-2 py-0.5 text-[11px] font-semibold",
                         c.account_status === "active"
                           ? "bg-green-50 text-green-700"
                           : c.account_status === "trial"
@@ -481,7 +482,7 @@ export default function AdminDashboard() {
                           ? "Essai"
                           : "En attente"}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground">
                       {formatDateShort(c.created_at)}
                     </span>
                   </div>
@@ -509,16 +510,16 @@ export default function AdminDashboard() {
           ) : (
             <div className="divide-y">
               {recentLeads.map((lead) => (
-                <div key={lead.id} className="flex items-center justify-between px-5 py-3">
-                  <div>
+                <div key={lead.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <div className="min-w-0">
                     <span className="font-mono text-xs text-muted-foreground">
                       {lead.prospect_id}
                     </span>
-                    <p className="text-sm">
+                    <p className="truncate text-sm">
                       {lead.from_city || "?"} → {lead.to_city || "?"}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[11px] text-muted-foreground">
                     {formatDateShort(lead.created_at)}
                   </span>
                 </div>
