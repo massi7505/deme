@@ -17,7 +17,7 @@ export async function GET(
       created_at,
       company_regions(department_code, department_name, categories),
       company_photos(id, url, caption, order_index),
-      reviews(id, rating, comment, reviewer_name, is_anonymous, is_verified, created_at)
+      reviews(id, rating, comment, reviewer_name, is_anonymous, is_verified, created_at, mover_reply, mover_reply_at)
     `)
     .eq("slug", params.slug)
     .single();
