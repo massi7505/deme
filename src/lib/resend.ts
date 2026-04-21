@@ -31,6 +31,16 @@ function emailBaseUrl(): string {
   return url || "http://localhost:3000";
 }
 
+/** Escape user-controlled text before injecting into inline HTML templates. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /** Replace {{variable}} placeholders with values */
 function replaceVars(template: string, vars: Record<string, string>): string {
   let result = template;
@@ -263,9 +273,10 @@ export async function notifyAdminPhotoPending(
   companyId: string,
   photoUrl: string
 ) {
+  const safeName = escapeHtml(companyName);
   const html = `<div style="font-family:system-ui,sans-serif;padding:24px;max-width:560px">
     <h2 style="margin:0 0 12px">Nouvelle photo à modérer</h2>
-    <p style="margin:0 0 8px;color:#555"><strong>${companyName}</strong> vient d'uploader une photo qui attend votre validation.</p>
+    <p style="margin:0 0 8px;color:#555"><strong>${safeName}</strong> vient d'uploader une photo qui attend votre validation.</p>
     <div style="margin:16px 0">
       <img src="${photoUrl}" alt="" style="max-width:100%;max-height:260px;border-radius:8px;border:1px solid #e5e7eb" />
     </div>
