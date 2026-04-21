@@ -316,6 +316,9 @@ export default function AdminLeads() {
       const updated = leads.find(l => l.id === selectedLead.id);
       if (updated) setSelectedLead(updated);
     }
+    // Only id as dep: passing full selectedLead would re-run every time
+    // setSelectedLead replaces the ref with the fresh object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leads, selectedLead?.id]);
 
   // ─── DETAIL VIEW ─────────────────────────────────────────

@@ -331,6 +331,9 @@ export default function AdminCompanies() {
       const updated = companies.find(c => c.id === selectedCompany.id);
       if (updated) setSelectedCompany(updated);
     }
+    // Only id as dep: passing full selectedCompany would re-run every time
+    // setSelectedCompany replaces the ref with the fresh object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companies, selectedCompany?.id]);
 
   const filtered = companies.filter((c) => {

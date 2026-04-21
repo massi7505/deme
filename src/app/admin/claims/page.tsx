@@ -136,6 +136,9 @@ export default function AdminClaims() {
       const updated = claims.find(c => c.id === selectedClaim.id);
       if (updated) setSelectedClaim(updated);
     }
+    // Only id as dep: passing full selectedClaim would re-run every time
+    // setSelectedClaim replaces the ref with the fresh object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claims, selectedClaim?.id]);
 
   async function handleStatusChange(id: string, status: string) {

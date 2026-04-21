@@ -166,7 +166,7 @@ export default function DevisPage() {
         setIsSubmitting(false);
       }
     },
-    [formData]
+    [formData, router]
   );
 
   const handleBack = useCallback(() => {
