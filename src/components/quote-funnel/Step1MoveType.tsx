@@ -297,7 +297,10 @@ export function Step1MoveType({ defaultValues, onNext }: Step1MoveTypeProps) {
                     type="number"
                     min={1}
                     placeholder="ex: 25"
-                    {...register("volumeM3", { valueAsNumber: true })}
+                    {...register("volumeM3", {
+                      setValueAs: (v) =>
+                        v === "" || v === null || v === undefined ? undefined : Number(v),
+                    })}
                   />
                   {errors.volumeM3 && (
                     <p className="text-sm text-red-600">{errors.volumeM3.message}</p>
