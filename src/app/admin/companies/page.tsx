@@ -8,6 +8,8 @@ import {
   Eye, RefreshCw, Download, Trash2, ChevronLeft, MapPin,
   Mail, Building2, Star, Play, Wallet,
   RotateCcw, Loader2, X as XIcon, Gift,
+  LayoutDashboard, User as UserIcon, Activity, CreditCard,
+  Inbox, ShoppingCart, Hourglass, Calendar,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { EditableTextField } from "@/components/shared/EditableField";
@@ -114,6 +116,7 @@ export default function AdminCompanies() {
     };
   } | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "profile" | "finances" | "activity">("overview");
 
   // Refund modal state (reused for any transaction on this company)
   const [refundTarget, setRefundTarget] = useState<
@@ -683,8 +686,172 @@ export default function AdminCompanies() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
+        {/* Tabs navigation */}
+        {(() => {
+          const tabs: Array<{ id: "overview" | "profile" | "finances" | "activity"; label: string; icon: typeof LayoutDashboard; hide?: boolean }> = [
+            { id: "overview", label: "Vue d'ensemble", icon: LayoutDashboard },
+            { id: "profile", label: "Profil", icon: UserIcon },
+            { id: "finances", label: "Finances", icon: CreditCard, hide: !refundsEnabled },
+            { id: "activity", label: "Activité", icon: Activity },
+          ];
+          const unlocked = (c.quote_distributions || []).filter(d => d.status === "unlocked").length;
+          const pending = (c.quote_distributions || []).filter(d => d.status === "pending").length;
+          const received = (c.quote_distributions || []).length;
+          return (
+            <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+              <nav className="flex border-b bg-gray-50/60 px-2" aria-label="Onglets">
+                {tabs.filter(t => !t.hide).map((t) => {
+                  const Icon = t.icon;
+                  const active = activeTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setActiveTab(t.id)}
+                      className={cn(
+                        "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
+                        active
+                          ? "border-[var(--brand-green)] text-[var(--brand-green-dark)]"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {t.label}
+                      {t.id === "activity" && pending > 0 && (
+                        <span className="ml-1 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700">{pending}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {/* ─── OVERVIEW TAB ─────────────────────────────────────── */}
+              {activeTab === "overview" && (
+                <div className="space-y-4 p-5">
+                  {/* KPIs */}
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {refundsEnabled && (
+                      <div className="rounded-xl border bg-gradient-to-br from-green-50 to-white p-4">
+                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                          <Wallet className="h-3.5 w-3.5" /> Solde portefeuille
+                        </div>
+                        <p className="mt-2 text-2xl font-bold text-[var(--brand-green-dark)]">
+                          {walletLoading ? "…" : formatPrice(walletData?.balance || 0)}
+                        </p>
+                        <button
+                          onClick={() => setActiveTab("finances")}
+                          className="mt-1 text-[11px] font-medium text-[var(--brand-green)] hover:underline"
+                        >
+                          Voir les transactions →
+                        </button>
+                      </div>
+                    )}
+                    <div className="rounded-xl border bg-white p-4">
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <Inbox className="h-3.5 w-3.5" /> Leads reçus
+                      </div>
+                      <p className="mt-2 text-2xl font-bold">{received}</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Depuis l&apos;inscription</p>
+                    </div>
+                    <div className="rounded-xl border bg-white p-4">
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <ShoppingCart className="h-3.5 w-3.5" /> Leads achetés
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-[var(--brand-green)]">{unlocked}</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {received > 0 ? `${Math.round((unlocked / received) * 100)}% de conversion` : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border bg-white p-4">
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <Hourglass className="h-3.5 w-3.5" /> En attente
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-amber-600">{pending}</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">À traiter par le déménageur</p>
+                    </div>
+                  </div>
+
+                  {/* Summary cards */}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Régions couvertes */}
+                    <div className="rounded-xl border bg-white">
+                      <div className="flex items-center justify-between border-b px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
+                          <h4 className="text-sm font-semibold">Régions couvertes ({c.company_regions?.length || 0})</h4>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab("profile")}
+                          className="text-[11px] font-medium text-[var(--brand-green)] hover:underline"
+                        >
+                          Gérer
+                        </button>
+                      </div>
+                      <div className="p-3">
+                        {(c.company_regions || []).length === 0 ? (
+                          <p className="py-2 text-center text-xs text-muted-foreground">Aucune région couverte</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {c.company_regions.slice(0, 12).map((r) => (
+                              <span key={r.id} className="inline-flex items-center gap-1 rounded-full border bg-gray-50 px-2 py-0.5 text-[11px]">
+                                <span className="font-semibold">{r.department_code}</span>
+                                <span className="text-muted-foreground">{r.department_name}</span>
+                              </span>
+                            ))}
+                            {c.company_regions.length > 12 && (
+                              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-muted-foreground">
+                                +{c.company_regions.length - 12}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Dates */}
+                    <div className="rounded-xl border bg-white">
+                      <div className="flex items-center gap-2 border-b px-4 py-2.5">
+                        <Calendar className="h-4 w-4 text-[var(--brand-green)]" />
+                        <h4 className="text-sm font-semibold">Dates clés</h4>
+                      </div>
+                      <div className="space-y-2 p-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Inscrit le</span>
+                          <span className="font-medium">{formatDateShort(c.created_at)}</span>
+                        </div>
+                        {c.trial_ends_at && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Fin d&apos;essai</span>
+                            <span className="font-medium">{formatDateShort(c.trial_ends_at)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Note</span>
+                          <span className="font-medium">
+                            <Star className="inline h-3 w-3 text-amber-500" /> {Number(c.rating).toFixed(1)}/10 ({c.review_count})
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Public profile CTA */}
+                  <a
+                    href={`/entreprises-demenagement/${c.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-green-200 bg-green-50/40 p-3 text-sm font-medium text-[var(--brand-green-dark)] transition-colors hover:border-green-300 hover:bg-green-50"
+                  >
+                    <Eye className="h-4 w-4" /> Voir le profil public
+                  </a>
+                </div>
+              )}
+
+              {/* ─── PROFILE TAB ──────────────────────────────────────── */}
+              {activeTab === "profile" && (
+                <div className="grid gap-4 p-5 lg:grid-cols-2">
+                  <div className="space-y-4 lg:col-span-2">
+
             {/* Infos entreprise */}
             <div className="rounded-xl border bg-white shadow-sm">
               <div className="flex items-center gap-2 border-b px-5 py-3"><Building2 className="h-4 w-4 text-[var(--brand-green)]" /><h3 className="text-sm font-semibold">Informations entreprise</h3></div>
@@ -783,270 +950,239 @@ export default function AdminCompanies() {
                 />
               </div>
             </div>
-          </div>
+                  </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Régions */}
-            <div className="rounded-xl border bg-white shadow-sm">
-              <div className="flex items-center gap-2 border-b px-5 py-3"><MapPin className="h-4 w-4 text-[var(--brand-green)]" /><h3 className="text-sm font-semibold">Régions ({c.company_regions?.length || 0})</h3></div>
-              <div className="p-4">
-                {(c.company_regions || []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">Aucune région</p>
-                ) : (
-                  <div className="space-y-2">
-                    {c.company_regions.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between rounded-lg border p-2.5 text-sm">
-                        <div>
-                          <span className="font-medium">{r.department_name} ({r.department_code})</span>
-                          <div className="flex gap-1 mt-1">{r.categories.map(cat => (
-                            <span key={cat} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium capitalize">{cat}</span>
-                          ))}</div>
-                        </div>
-                        <button onClick={() => handleDeleteRegion(r.id)} className="rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Supprimer cette région">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                  {/* Régions — deuxième colonne pleine largeur (profile tab) */}
+                  <div className="space-y-4 lg:col-span-2">
+                    <div className="rounded-xl border bg-white shadow-sm">
+                      <div className="flex items-center gap-2 border-b px-5 py-3">
+                        <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
+                        <h3 className="text-sm font-semibold">Régions couvertes ({c.company_regions?.length || 0})</h3>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Wallet / remboursements */}
-            {refundsEnabled && (
-              <div className="rounded-xl border bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b px-5 py-3">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-[var(--brand-green)]" />
-                    <h3 className="text-sm font-semibold">Portefeuille</h3>
-                  </div>
-                  {walletData?.caps?.maxPercent && walletData.caps.maxPercent < 100 && (
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
-                      Plafond {walletData.caps.maxPercent} %
-                    </span>
-                  )}
-                </div>
-
-                <div className="space-y-3 p-4">
-                  {/* Balance + caps usage */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-lg bg-green-50 px-3 py-2">
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Solde
-                      </p>
-                      <p className="mt-0.5 text-base font-bold text-[var(--brand-green-dark)]">
-                        {walletLoading ? "…" : formatPrice(walletData?.balance || 0)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border px-3 py-2">
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Mois
-                      </p>
-                      <p className="mt-0.5 text-sm font-semibold">
-                        {formatPrice(walletData?.caps?.monthRefundedCents || 0)}
-                      </p>
-                      {walletData?.caps && walletData.caps.monthlyCapCents > 0 && (
-                        <p className="text-[9px] text-muted-foreground">
-                          / {formatPrice(walletData.caps.monthlyCapCents)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="rounded-lg border px-3 py-2">
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        365 j
-                      </p>
-                      <p className="mt-0.5 text-sm font-semibold">
-                        {formatPrice(walletData?.caps?.yearRefundedCents || 0)}
-                      </p>
-                      {walletData?.caps && walletData.caps.yearlyCapCents > 0 && (
-                        <p className="text-[9px] text-muted-foreground">
-                          / {formatPrice(walletData.caps.yearlyCapCents)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Refundable transactions */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold">Geste commercial</p>
-                      <span className="text-[10px] text-muted-foreground">
-                        Sélectionnez une transaction à rembourser
-                      </span>
-                    </div>
-                    <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border bg-gray-50/50 p-1.5">
-                      {walletLoading ? (
-                        <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                          Chargement…
-                        </p>
-                      ) : (walletData?.refundableTransactions?.length || 0) === 0 ? (
-                        <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                          Aucune transaction remboursable.
-                        </p>
-                      ) : (
-                        walletData?.refundableTransactions.map((t) => {
-                          const pctMax = walletData.caps?.maxPercent ?? 100;
-                          const capEuros = ((Math.abs(t.amount_cents) * pctMax) / 10000).toFixed(2);
-                          return (
-                            <div
-                              key={t.id}
-                              className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5 text-xs shadow-sm"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium">
-                                  {formatPrice(t.amount_cents)}
-                                  <span className="ml-1.5 text-[10px] text-muted-foreground">
-                                    {formatDateShort(t.created_at)}
-                                  </span>
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {t.already_refunded
-                                    ? "Déjà remboursé"
-                                    : `Max remboursable : ${capEuros} €`}
-                                </p>
+                      <div className="p-4">
+                        {(c.company_regions || []).length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">Aucune région couverte</p>
+                        ) : (
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {c.company_regions.map((r) => (
+                              <div key={r.id} className="flex items-center justify-between rounded-lg border p-2.5 text-sm">
+                                <div className="min-w-0">
+                                  <span className="font-medium">{r.department_name} ({r.department_code})</span>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {r.categories.map((cat) => (
+                                      <span key={cat} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium capitalize">{cat}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <button onClick={() => handleDeleteRegion(r.id)} className="ml-2 shrink-0 rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Supprimer cette région">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               </div>
-                              <button
-                                onClick={() =>
-                                  openRefund({
-                                    id: t.id,
-                                    amount_cents: t.amount_cents,
-                                    mollie_payment_id: t.mollie_payment_id,
-                                  })
-                                }
-                                disabled={t.already_refunded}
-                                className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--brand-green)] px-2 py-1 text-[11px] font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                <Gift className="h-3 w-3" />
-                                Rembourser
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Wallet ledger history */}
-                  {(walletData?.transactions?.length || 0) > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-semibold">Historique portefeuille</p>
-                      <div className="max-h-48 space-y-1 overflow-y-auto">
-                        {walletData?.transactions.slice(0, 10).map((t) => {
-                          const isBank = t.refund_method === "bank";
-                          return (
-                            <div
-                              key={t.id}
-                              className="flex items-center justify-between rounded border px-2 py-1.5 text-xs"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium">
-                                  {t.reason || t.type}
-                                  {t.refund_percent != null && (
-                                    <span className="ml-1 text-[10px] text-muted-foreground">
-                                      ({t.refund_percent.toFixed(0)} %)
-                                    </span>
-                                  )}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {formatDateShort(t.created_at)}
-                                  {t.expires_at && t.amount_cents > 0 &&
-                                    ` · Expire ${formatDateShort(t.expires_at)}`}
-                                  {isBank && " · Carte"}
-                                </p>
-                              </div>
-                              <span
-                                className={cn(
-                                  "shrink-0 font-semibold",
-                                  isBank
-                                    ? "text-red-600"
-                                    : t.amount_cents > 0
-                                      ? "text-green-600"
-                                      : "text-gray-600"
-                                )}
-                              >
-                                {t.amount_cents > 0 && !isBank ? "+" : isBank ? "-" : ""}
-                                {formatPrice(Math.abs(t.amount_cents))}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Distribution stats */}
-            <div className="rounded-xl border bg-white shadow-sm">
-              <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Distribution de leads</h3></div>
-              <div className="grid grid-cols-3 divide-x p-4 text-center text-sm">
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{(c.quote_distributions || []).length}</p>
-                  <p className="text-xs text-muted-foreground">Reçus</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-[var(--brand-green)]">{(c.quote_distributions || []).filter(d => d.status === "unlocked").length}</p>
-                  <p className="text-xs text-muted-foreground">Achetés</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-amber-600">{(c.quote_distributions || []).filter(d => d.status === "pending").length}</p>
-                  <p className="text-xs text-muted-foreground">En attente</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Leads achetés */}
-            <div className="rounded-xl border bg-white shadow-sm">
-              <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Leads achetés ({(c.quote_distributions || []).filter(d => d.status === "unlocked").length})</h3></div>
-              <div className="p-4">
-                {(c.quote_distributions || []).filter(d => d.status === "unlocked").length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">Aucun lead acheté</p>
-                ) : (
-                  <div className="space-y-2">
-                    {c.quote_distributions.filter(d => d.status === "unlocked").map((d) => (
-                      <div key={d.id} className="rounded-lg border p-2.5 text-sm">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-medium">{d.quote_requests?.from_city || "?"} → {d.quote_requests?.to_city || "?"}</span>
-                            <p className="text-xs text-muted-foreground">{d.quote_requests?.client_name || "Client"} · {d.quote_requests?.prospect_id}</p>
+                            ))}
                           </div>
-                          <span className="text-xs font-semibold">{formatPrice(d.price_cents)}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── FINANCES TAB ─────────────────────────────────────── */}
+              {activeTab === "finances" && refundsEnabled && (
+                <div className="p-5">
+                  <div className="rounded-xl border bg-white">
+                    <div className="flex items-center justify-between border-b px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 text-[var(--brand-green)]" />
+                        <h3 className="text-sm font-semibold">Portefeuille</h3>
+                      </div>
+                      {walletData?.caps?.maxPercent && walletData.caps.maxPercent < 100 && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
+                          Plafond {walletData.caps.maxPercent} %
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-4 p-5">
+                      {/* Balance + caps usage */}
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-lg bg-green-50 px-4 py-3">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Solde</p>
+                          <p className="mt-0.5 text-xl font-bold text-[var(--brand-green-dark)]">
+                            {walletLoading ? "…" : formatPrice(walletData?.balance || 0)}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border px-4 py-3">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Mois en cours</p>
+                          <p className="mt-0.5 text-base font-semibold">
+                            {formatPrice(walletData?.caps?.monthRefundedCents || 0)}
+                          </p>
+                          {walletData?.caps && walletData.caps.monthlyCapCents > 0 && (
+                            <p className="text-[10px] text-muted-foreground">
+                              / {formatPrice(walletData.caps.monthlyCapCents)} plafond
+                            </p>
+                          )}
+                        </div>
+                        <div className="rounded-lg border px-4 py-3">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">12 derniers mois</p>
+                          <p className="mt-0.5 text-base font-semibold">
+                            {formatPrice(walletData?.caps?.yearRefundedCents || 0)}
+                          </p>
+                          {walletData?.caps && walletData.caps.yearlyCapCents > 0 && (
+                            <p className="text-[10px] text-muted-foreground">
+                              / {formatPrice(walletData.caps.yearlyCapCents)} plafond
+                            </p>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-                {(c.quote_distributions || []).filter(d => d.status === "pending").length > 0 && (
-                  <div className="mt-3 pt-3 border-t">
-                    <p className="text-xs text-muted-foreground mb-2">En attente ({c.quote_distributions.filter(d => d.status === "pending").length})</p>
-                    {c.quote_distributions.filter(d => d.status === "pending").map((d) => (
-                      <div key={d.id} className="flex items-center justify-between rounded-lg border border-dashed p-2 text-xs text-muted-foreground mb-1">
-                        <span>{d.quote_requests?.from_city || "?"} → {d.quote_requests?.to_city || "?"}</span>
-                        <span>{formatPrice(d.price_cents)}</span>
+
+                      {/* Refundable transactions */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold">Geste commercial</p>
+                          <span className="text-[11px] text-muted-foreground">Sélectionnez une transaction à rembourser</span>
+                        </div>
+                        <div className="max-h-80 space-y-1 overflow-y-auto rounded-lg border bg-gray-50/50 p-1.5">
+                          {walletLoading ? (
+                            <p className="px-2 py-4 text-center text-xs text-muted-foreground">Chargement…</p>
+                          ) : (walletData?.refundableTransactions?.length || 0) === 0 ? (
+                            <p className="px-2 py-4 text-center text-xs text-muted-foreground">Aucune transaction remboursable.</p>
+                          ) : (
+                            walletData?.refundableTransactions.map((t) => {
+                              const pctMax = walletData.caps?.maxPercent ?? 100;
+                              const capEuros = ((Math.abs(t.amount_cents) * pctMax) / 10000).toFixed(2);
+                              return (
+                                <div key={t.id} className="flex items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-xs shadow-sm">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-medium">
+                                      {formatPrice(t.amount_cents)}
+                                      <span className="ml-1.5 text-[10px] text-muted-foreground">{formatDateShort(t.created_at)}</span>
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {t.already_refunded ? "Déjà remboursé" : `Max remboursable : ${capEuros} €`}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => openRefund({ id: t.id, amount_cents: t.amount_cents, mollie_payment_id: t.mollie_payment_id })}
+                                    disabled={t.already_refunded}
+                                    className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--brand-green)] px-2 py-1 text-[11px] font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <Gift className="h-3 w-3" /> Rembourser
+                                  </button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
-                    ))}
+
+                      {/* Wallet ledger history */}
+                      {(walletData?.transactions?.length || 0) > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold">Historique portefeuille</p>
+                          <div className="max-h-64 space-y-1 overflow-y-auto">
+                            {walletData?.transactions.slice(0, 20).map((t) => {
+                              const isBank = t.refund_method === "bank";
+                              return (
+                                <div key={t.id} className="flex items-center justify-between rounded border px-2.5 py-1.5 text-xs">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate font-medium">
+                                      {t.reason || t.type}
+                                      {t.refund_percent != null && (
+                                        <span className="ml-1 text-[10px] text-muted-foreground">({t.refund_percent.toFixed(0)} %)</span>
+                                      )}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {formatDateShort(t.created_at)}
+                                      {t.expires_at && t.amount_cents > 0 && ` · Expire ${formatDateShort(t.expires_at)}`}
+                                      {isBank && " · Carte"}
+                                    </p>
+                                  </div>
+                                  <span className={cn("shrink-0 font-semibold", isBank ? "text-red-600" : t.amount_cents > 0 ? "text-green-600" : "text-gray-600")}>
+                                    {t.amount_cents > 0 && !isBank ? "+" : isBank ? "-" : ""}
+                                    {formatPrice(Math.abs(t.amount_cents))}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              )}
 
-            {/* Dates */}
-            <div className="rounded-xl border bg-white shadow-sm">
-              <div className="border-b px-5 py-3"><h3 className="text-sm font-semibold">Dates</h3></div>
-              <div className="space-y-2 p-4 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Inscrit le</span><span className="font-medium">{formatDateShort(c.created_at)}</span></div>
-                {c.trial_ends_at && <div className="flex justify-between"><span className="text-muted-foreground">Fin d&apos;essai</span><span className="font-medium">{formatDateShort(c.trial_ends_at)}</span></div>}
-              </div>
-            </div>
+              {/* ─── ACTIVITY TAB ─────────────────────────────────────── */}
+              {activeTab === "activity" && (
+                <div className="space-y-4 p-5">
+                  {/* Stats bar */}
+                  <div className="grid grid-cols-3 divide-x rounded-xl border bg-white">
+                    <div className="p-4 text-center">
+                      <p className="text-2xl font-bold">{received}</p>
+                      <p className="text-xs text-muted-foreground">Reçus</p>
+                    </div>
+                    <div className="p-4 text-center">
+                      <p className="text-2xl font-bold text-[var(--brand-green)]">{unlocked}</p>
+                      <p className="text-xs text-muted-foreground">Achetés</p>
+                    </div>
+                    <div className="p-4 text-center">
+                      <p className="text-2xl font-bold text-amber-600">{pending}</p>
+                      <p className="text-xs text-muted-foreground">En attente</p>
+                    </div>
+                  </div>
 
-            {/* Profil public */}
-            <a href={`/entreprises-demenagement/${c.slug}`} target="_blank" className="flex items-center justify-center gap-2 rounded-xl border bg-white p-3 text-sm font-medium text-[var(--brand-green)] hover:bg-green-50 transition-colors">
-              <Eye className="h-4 w-4" /> Voir le profil public
-            </a>
-          </div>
-        </div>
+                  {/* Leads achetés */}
+                  <div className="rounded-xl border bg-white">
+                    <div className="flex items-center gap-2 border-b px-5 py-3">
+                      <ShoppingCart className="h-4 w-4 text-[var(--brand-green)]" />
+                      <h3 className="text-sm font-semibold">Leads achetés ({unlocked})</h3>
+                    </div>
+                    <div className="p-4">
+                      {unlocked === 0 ? (
+                        <p className="py-3 text-center text-xs text-muted-foreground">Aucun lead acheté</p>
+                      ) : (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {c.quote_distributions.filter((d) => d.status === "unlocked").map((d) => (
+                            <div key={d.id} className="rounded-lg border p-2.5 text-sm">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <span className="font-medium">{d.quote_requests?.from_city || "?"} → {d.quote_requests?.to_city || "?"}</span>
+                                  <p className="truncate text-xs text-muted-foreground">{d.quote_requests?.client_name || "Client"} · {d.quote_requests?.prospect_id}</p>
+                                </div>
+                                <span className="shrink-0 text-xs font-semibold">{formatPrice(d.price_cents)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* En attente */}
+                  {pending > 0 && (
+                    <div className="rounded-xl border bg-white">
+                      <div className="flex items-center gap-2 border-b px-5 py-3">
+                        <Hourglass className="h-4 w-4 text-amber-600" />
+                        <h3 className="text-sm font-semibold">En attente ({pending})</h3>
+                      </div>
+                      <div className="p-4">
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {c.quote_distributions.filter((d) => d.status === "pending").map((d) => (
+                            <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-dashed p-2.5 text-xs text-muted-foreground">
+                              <span>{d.quote_requests?.from_city || "?"} → {d.quote_requests?.to_city || "?"}</span>
+                              <span className="shrink-0 font-semibold">{formatPrice(d.price_cents)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     );
   }
