@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
     // a legitimate submission on detection unavailability.
     let isFraudFlagged = false;
     try {
+      console.log("[fraud-debug] starting scoring, email=", body.email);
       const { score, reasons } = await scoreLead(
         {
           email: body.email,
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
         },
         { supabase, quoteId: quote.id }
       );
+      console.log("[fraud-debug] scored", { quoteId: quote.id, email: body.email, score, reasons });
 
       if (score >= FRAUD_THRESHOLD) {
         const { error: flagErr } = await supabase
