@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,6 +15,15 @@ import { Badge } from "@/components/ui/badge";
 import toast from "react-hot-toast";
 import DOMPurify from "isomorphic-dompurify";
 import { useSiteSettings } from "@/hooks/use-site-settings";
+
+// Ensure external links carry rel=noopener noreferrer to prevent tabnabbing.
+if (typeof DOMPurify.addHook === "function") {
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
+      node.setAttribute("rel", "noopener noreferrer");
+    }
+  });
+}
 
 interface Article {
   id: string;
@@ -77,6 +86,14 @@ export default function BlogArticlePage() {
     fetchArticle();
   }, [fetchArticle]);
 
+  // Content stored as HTML string by the admin editor. Sanitize before
+  // render so a future editorial delegation can't inject <script> / onclick.
+  // Hook must run before any early returns (Rules of Hooks).
+  const sanitizedHtml = useMemo(
+    () => DOMPurify.sanitize(article?.content || ""),
+    [article?.content]
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -101,10 +118,6 @@ export default function BlogArticlePage() {
       </div>
     );
   }
-
-  // Content stored as HTML string by the admin editor. Sanitize before
-  // render so a future editorial delegation can't inject <script> / onclick.
-  const sanitizedHtml = DOMPurify.sanitize(article.content || "");
 
   const jsonLd = {
     "@context": "https://schema.org",
