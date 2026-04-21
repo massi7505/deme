@@ -6,8 +6,11 @@ import {
   hasUrlInNotes,
   hasForeignScriptOrSpam,
   hasPostalMismatch,
+  normalizeEmail,
+  normalizePhone,
   FRAUD_THRESHOLD,
   HONEYPOT_FIELD_NAME,
+  scoreLead as scoreLeadFn,
 } from "./fraud-detection";
 
 describe("isDisposableEmail", () => {
@@ -117,5 +120,118 @@ describe("constants", () => {
   });
   it("honeypot field name is stable", () => {
     expect(HONEYPOT_FIELD_NAME).toBe("__nickname");
+  });
+});
+
+describe("normalizeEmail", () => {
+  it("lower-cases and trims", () => {
+    expect(normalizeEmail("  Jean@Gmail.COM  ")).toBe("jean@gmail.com");
+  });
+});
+
+describe("normalizePhone", () => {
+  it("folds leading 0 to 33", () => {
+    expect(normalizePhone("06 12 34 56 78")).toBe("33612345678");
+  });
+  it("folds +33 to 33", () => {
+    expect(normalizePhone("+33 6 12 34 56 78")).toBe("33612345678");
+  });
+  it("folds 0033 to 33", () => {
+    expect(normalizePhone("0033612345678")).toBe("33612345678");
+  });
+  it("keeps already-canonical", () => {
+    expect(normalizePhone("33612345678")).toBe("33612345678");
+  });
+  it("strips non-digits on unknown format", () => {
+    expect(normalizePhone("abc-123-def")).toBe("123");
+  });
+});
+
+describe("scoreLead", () => {
+  function mockCtx(dupPhone = false, dupEmail = false) {
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          eq: (col: string) => ({
+            gte: () => ({
+              neq: async () => {
+                if (col === "client_phone_normalized") return { count: dupPhone ? 1 : 0 };
+                if (col === "client_email_normalized") return { count: dupEmail ? 1 : 0 };
+                return { count: 0 };
+              },
+            }),
+          }),
+        }),
+      }),
+    } as unknown as Parameters<typeof scoreLeadFn>[1]["supabase"];
+    return { supabase, quoteId: "q-test" };
+  }
+
+  it("returns score 0 and empty reasons for a clean lead", async () => {
+    const result = await scoreLeadFn(
+      {
+        email: "jean@gmail.com",
+        phone: "0612345678",
+        firstName: "Jean",
+        lastName: "Dupont",
+        notes: "J'ai un piano",
+        fromPostalCode: "75001",
+        fromCity: "Paris",
+      },
+      mockCtx()
+    );
+    expect(result.score).toBe(0);
+    expect(result.reasons).toEqual([]);
+  });
+
+  it("trips honeypot alone (score 100)", async () => {
+    const result = await scoreLeadFn(
+      { email: "jean@gmail.com", honeypot: "bot-fill" },
+      mockCtx()
+    );
+    expect(result.score).toBe(100);
+    expect(result.reasons.map((r) => r.code)).toContain("honeypot_filled");
+  });
+
+  it("trips disposable email alone (score 50)", async () => {
+    const result = await scoreLeadFn(
+      { email: "user@yopmail.com" },
+      mockCtx()
+    );
+    expect(result.score).toBe(50);
+    expect(result.reasons.map((r) => r.code)).toEqual(["disposable_email"]);
+  });
+
+  it("sums multiple signals", async () => {
+    const result = await scoreLeadFn(
+      {
+        email: "user@yopmail.com",
+        firstName: "DUPONT",
+        notes: "visit https://scam.example",
+      },
+      mockCtx()
+    );
+    // disposable_email (50) + suspicious_name (20) + url_in_notes (40) = 110
+    expect(result.score).toBe(110);
+    const codes = result.reasons.map((r) => r.code);
+    expect(codes).toContain("disposable_email");
+    expect(codes).toContain("suspicious_name");
+    expect(codes).toContain("url_in_notes");
+  });
+
+  it("surfaces dup_phone_7d via mocked DB", async () => {
+    const result = await scoreLeadFn(
+      { phone: "0612345678", email: "jean@gmail.com" },
+      mockCtx(true, false)
+    );
+    expect(result.reasons.map((r) => r.code)).toContain("dup_phone_7d");
+  });
+
+  it("surfaces dup_email_7d via mocked DB", async () => {
+    const result = await scoreLeadFn(
+      { phone: "0612345678", email: "jean@gmail.com" },
+      mockCtx(false, true)
+    );
+    expect(result.reasons.map((r) => r.code)).toContain("dup_email_7d");
   });
 });

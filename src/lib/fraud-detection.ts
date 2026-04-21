@@ -3,6 +3,22 @@ import { DISPOSABLE_DOMAINS } from "./disposable-emails";
 
 type Admin = ReturnType<typeof createUntypedAdminClient>;
 
+/** Lower-cased trimmed email for equality comparisons. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/** Canonical French phone number: digits only, leading 0 replaced by 33.
+ * Handles "06 12 34 56 78", "+33 6 12 34 56 78", "0033612345678" → "33612345678".
+ * Returns the input cleaned-of-non-digits if format is unrecognizable. */
+export function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D+/g, "");
+  if (digits.startsWith("0033")) return "33" + digits.slice(4);
+  if (digits.startsWith("33") && digits.length === 11) return digits;
+  if (digits.startsWith("0") && digits.length === 10) return "33" + digits.slice(1);
+  return digits;
+}
+
 export const FRAUD_THRESHOLD = 50;
 export const HONEYPOT_FIELD_NAME = "__nickname";
 
@@ -58,7 +74,8 @@ export function hasUrlInNotes(notes: string | undefined): boolean {
 
 export function hasForeignScriptOrSpam(notes: string | undefined, name: string | undefined): boolean {
   const haystack = `${notes || ""} ${name || ""}`;
-  if (/[Ѐ-ӿ一-鿿]/.test(haystack)) return true;
+  // Cyrillic + Hiragana + Katakana + CJK Unified Ideographs + Hangul Syllables.
+  if (/[Ѐ-ӿ぀-ゟ゠-ヿ一-鿿가-힯]/.test(haystack)) return true;
   if (/\b(casino|loan|bitcoin|viagra|crypto|btc)\b/i.test(haystack)) return true;
   return false;
 }
@@ -143,11 +160,13 @@ async function hasDuplicatePhone7d(
   ctx: ScoreContext
 ): Promise<boolean> {
   if (!phone) return false;
+  const normalized = normalizePhone(phone);
+  if (!normalized) return false;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { count } = await ctx.supabase
     .from("quote_requests")
     .select("id", { count: "exact", head: true })
-    .eq("client_phone", phone)
+    .eq("client_phone_normalized", normalized)
     .gte("created_at", sevenDaysAgo)
     .neq("id", ctx.quoteId);
   return (count ?? 0) > 0;
@@ -162,7 +181,7 @@ async function hasDuplicateEmail7d(
   const { count } = await ctx.supabase
     .from("quote_requests")
     .select("id", { count: "exact", head: true })
-    .eq("client_email", email.toLowerCase())
+    .eq("client_email_normalized", normalizeEmail(email))
     .gte("created_at", sevenDaysAgo)
     .neq("id", ctx.quoteId);
   return (count ?? 0) > 0;
@@ -170,6 +189,13 @@ async function hasDuplicateEmail7d(
 
 // ─── Aggregator ──────────────────────────────────────────────────────────
 
+/**
+ * Aggregate all detectors into a single score + reason list.
+ *
+ * Throws if the Supabase duplicate-phone/email queries fail. Callers
+ * should wrap in try/catch and treat detector failure as "clean lead" —
+ * never block a legitimate submission on detection unavailability.
+ */
 export async function scoreLead(
   lead: LeadInput,
   ctx: ScoreContext
