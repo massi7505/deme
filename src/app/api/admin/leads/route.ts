@@ -129,6 +129,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  if (body.action === "approve_review") {
+    const { id } = body;
+    if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+
+    // Flip the lead back to 'new' and run distribution.
+    const { error: upErr } = await supabase
+      .from("quote_requests")
+      .update({
+        status: "new",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: "admin",
+      })
+      .eq("id", id)
+      .eq("status", "review_pending");
+    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+
+    try {
+      const result = await distributeLead(id);
+      return NextResponse.json({ success: true, matchedMovers: result.matchedMovers });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[admin/leads approve_review] ${id}:`, message);
+      return NextResponse.json({ error: `Distribution échouée : ${message}` }, { status: 500 });
+    }
+  }
+
+  if (body.action === "reject_review") {
+    const { id } = body;
+    if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+
+    const { error } = await supabase
+      .from("quote_requests")
+      .update({
+        status: "rejected",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: "admin",
+      })
+      .eq("id", id)
+      .eq("status", "review_pending");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   // Retry distribution for a lead whose distributeLead previously failed.
   // Allowed only when: distributed_at IS NOT NULL AND no quote_distributions
   // rows exist — i.e. the "stamped-then-crashed" state. If distributions

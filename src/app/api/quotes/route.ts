@@ -7,6 +7,7 @@ import { distributeLead } from "@/lib/distribute-lead";
 import { generateOtp, otpExpiryIso, OTP_EXPIRY_MS } from "@/lib/quote-verification";
 import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 import { emailBaseUrl } from "@/lib/base-url";
+import { scoreLead, FRAUD_THRESHOLD, HONEYPOT_FIELD_NAME, normalizeEmail, normalizePhone } from "@/lib/fraud-detection";
 
 const FEATURE_ENABLED = process.env.LEAD_VERIFICATION_ENABLED !== "false";
 
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
         client_name: `${body.firstName ?? ""} ${body.lastName ?? ""}`.trim(),
         client_phone: body.phone,
         client_email: body.email,
+        client_email_normalized: body.email ? normalizeEmail(body.email) : null,
+        client_phone_normalized: body.phone ? normalizePhone(body.phone) : null,
         source: "website",
         geographic_zone: departmentCode,
         status: "new",
@@ -92,6 +95,53 @@ export async function POST(request: NextRequest) {
     if (quoteError || !quote) {
       console.error("[quotes] insert error:", quoteError);
       return NextResponse.json({ error: "Erreur lors de la création de la demande" }, { status: 500 });
+    }
+
+    // Fraud detection. Silent: response stays identical whether flagged
+    // or clean. A flagged lead is parked in status='review_pending' with
+    // no distribution; admin approves/rejects from /admin/leads.
+    // Throws on DB error — we treat failure as clean-lead, never block
+    // a legitimate submission on detection unavailability.
+    let isFraudFlagged = false;
+    try {
+      const { score, reasons } = await scoreLead(
+        {
+          email: body.email,
+          phone: body.phone,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          notes: body.notes,
+          fromPostalCode: body.fromPostalCode,
+          fromCity: body.fromCity,
+          honeypot: body[HONEYPOT_FIELD_NAME],
+        },
+        { supabase, quoteId: quote.id }
+      );
+
+      if (score >= FRAUD_THRESHOLD) {
+        isFraudFlagged = true;
+        await supabase
+          .from("quote_requests")
+          .update({
+            status: "review_pending",
+            fraud_score: score,
+            fraud_reasons: reasons,
+          })
+          .eq("id", quote.id);
+        await supabase.from("notifications").insert({
+          type: "system",
+          title: "Lead en attente de vérification",
+          body: `Score ${score} — ${reasons.map((r) => r.label).join(", ")}`,
+          data: { quoteRequestId: quote.id, fraudScore: score },
+        });
+      } else {
+        await supabase
+          .from("quote_requests")
+          .update({ fraud_score: score, fraud_reasons: reasons })
+          .eq("id", quote.id);
+      }
+    } catch (err) {
+      console.error("[quotes] fraud-detection error:", err);
     }
 
     // Verification email only goes out when the feature is enabled;
@@ -129,9 +179,11 @@ export async function POST(request: NextRequest) {
 
     // Feature-flag bypass: behave like the pre-feature flow.
     if (!FEATURE_ENABLED) {
-      await distributeLead(quote.id).catch((err) =>
-        console.error("[quotes] distributeLead error:", err)
-      );
+      if (!isFraudFlagged) {
+        await distributeLead(quote.id).catch((err) =>
+          console.error("[quotes] distributeLead error:", err)
+        );
+      }
       return NextResponse.json({
         success: true,
         prospectId,
