@@ -419,6 +419,8 @@ export default function AdminLeads() {
               <option value="blocked">Bloqué</option>
               <option value="completed">Terminé</option>
               <option value="archived">Archivé</option>
+              <option value="review_pending">À vérifier</option>
+              <option value="rejected">Rejeté</option>
             </select>
             <button onClick={() => handleDelete(lead.id)} className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100">
               <Trash2 className="h-3 w-3" /> Supprimer
@@ -595,6 +597,7 @@ export default function AdminLeads() {
           <option value="active">Actif</option>
           <option value="blocked">Bloqué</option>
           <option value="completed">Terminé</option>
+          <option value="rejected">Rejeté</option>
         </select>
         <select value={filterVerif} onChange={(e) => setFilterVerif(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
           <option value="all">Vérification : tous</option>
