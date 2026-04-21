@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
     }
 
     // Store admin token in cookie
-    document.cookie = `admin_token=${data.token}; path=/admin; max-age=86400; SameSite=Strict`;
+    document.cookie = `admin_token=${data.token}; path=/; max-age=86400; SameSite=Strict`;
     router.push("/admin/dashboard");
     router.refresh();
   }

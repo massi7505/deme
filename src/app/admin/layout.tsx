@@ -41,7 +41,7 @@ function getAdminToken(): string | null {
 }
 
 function clearAdminToken() {
-  document.cookie = "admin_token=; path=/admin; max-age=0";
+  document.cookie = "admin_token=; path=/; max-age=0";
 }
 
 export default function AdminLayout({

@@ -13,13 +13,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import toast from "react-hot-toast";
+import DOMPurify from "isomorphic-dompurify";
 import { useSiteSettings } from "@/hooks/use-site-settings";
-
-interface Section {
-  id: string;
-  heading: string;
-  body: string;
-}
 
 interface Article {
   id: string;
@@ -28,10 +23,10 @@ interface Article {
   excerpt: string;
   category: string;
   author: string;
-  cover_image_url?: string;
+  cover_image?: string;
   read_time: string;
   published_at: string;
-  content: Section[];
+  content: string;
 }
 
 interface RelatedArticle {
@@ -39,7 +34,7 @@ interface RelatedArticle {
   slug: string;
   title: string;
   category: string;
-  cover_image_url?: string;
+  cover_image?: string;
   read_time: string;
 }
 
@@ -56,7 +51,11 @@ export default function BlogArticlePage() {
   const fetchArticle = useCallback(async () => {
     if (!slug) return;
     try {
-      const res = await fetch(`/api/public/blog/${slug}`);
+      const previewQs = typeof window !== "undefined"
+        && new URL(window.location.href).searchParams.get("preview") === "1"
+        ? "?preview=1"
+        : "";
+      const res = await fetch(`/api/public/blog/${slug}${previewQs}`);
       if (res.status === 404) {
         setNotFound(true);
         return;
@@ -103,10 +102,9 @@ export default function BlogArticlePage() {
     );
   }
 
-  // Sections for the body
-  const sections: Section[] = Array.isArray(article.content)
-    ? article.content
-    : [];
+  // Content stored as HTML string by the admin editor. Sanitize before
+  // render so a future editorial delegation can't inject <script> / onclick.
+  const sanitizedHtml = DOMPurify.sanitize(article.content || "");
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -156,7 +154,7 @@ export default function BlogArticlePage() {
       </div>
 
       <div className="container py-10">
-        <div className="grid gap-10 lg:grid-cols-[1fr_280px]">
+        <div className="mx-auto max-w-3xl">
           {/* Article content */}
           <article className="min-w-0">
             {/* Header */}
@@ -195,10 +193,10 @@ export default function BlogArticlePage() {
 
             {/* Cover image */}
             <div className="mt-8 flex aspect-[2/1] items-center justify-center rounded-2xl bg-gray-100 text-gray-300 overflow-hidden">
-              {article.cover_image_url ? (
+              {article.cover_image ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={article.cover_image_url}
+                  src={article.cover_image}
                   alt={article.title}
                   className="h-full w-full object-cover"
                 />
@@ -208,47 +206,18 @@ export default function BlogArticlePage() {
             </div>
 
             {/* Body */}
-            <div className="prose-like mt-10 space-y-8">
-              {sections.map((section) => (
-                <section key={section.id} id={section.id}>
-                  <h2 className="font-display text-xl font-bold text-gray-950">
-                    {section.heading}
-                  </h2>
-                  <p className="mt-3 leading-relaxed text-muted-foreground">
-                    {section.body}
-                  </p>
-                </section>
-              ))}
-
-              {sections.length === 0 && article.excerpt && (
-                <p className="leading-relaxed text-muted-foreground">
-                  {article.excerpt}
-                </p>
-              )}
-            </div>
+            {sanitizedHtml ? (
+              <div
+                className="prose prose-lg max-w-none mt-10 text-gray-800"
+                dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+              />
+            ) : article.excerpt ? (
+              <p className="mt-10 leading-relaxed text-muted-foreground">
+                {article.excerpt}
+              </p>
+            ) : null}
           </article>
 
-          {/* Sidebar - Table of contents */}
-          {sections.length > 0 && (
-            <aside className="hidden lg:block">
-              <div className="sticky top-24">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                  Sommaire
-                </h3>
-                <nav className="mt-4 space-y-1">
-                  {sections.map((section) => (
-                    <a
-                      key={section.id}
-                      href={`#${section.id}`}
-                      className="block rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-green-50 hover:text-green-700"
-                    >
-                      {section.heading}
-                    </a>
-                  ))}
-                </nav>
-              </div>
-            </aside>
-          )}
         </div>
       </div>
 
@@ -267,10 +236,10 @@ export default function BlogArticlePage() {
                   className="group rounded-2xl border bg-white p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
                 >
                   <div className="flex aspect-[16/9] items-center justify-center rounded-xl bg-gray-100 text-gray-300 overflow-hidden">
-                    {relArticle.cover_image_url ? (
+                    {relArticle.cover_image ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={relArticle.cover_image_url}
+                        src={relArticle.cover_image}
                         alt={relArticle.title}
                         className="h-full w-full object-cover"
                       />

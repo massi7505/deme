@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { verifyAdminToken } from "@/lib/admin-auth";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
   const supabase = createUntypedAdminClient();
 
-  const { data, error } = await supabase
-    .from("blog_posts")
-    .select("*")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .single();
+  const url = new URL(request.url);
+  const previewRequested = url.searchParams.get("preview") === "1";
+  const adminCookie = request.cookies.get("admin_token")?.value;
+  const isAdminPreview =
+    previewRequested && !!adminCookie && verifyAdminToken(adminCookie);
+
+  let query = supabase.from("blog_posts").select("*").eq("slug", slug);
+  if (!isAdminPreview) {
+    query = query.eq("status", "published");
+  }
+  const { data, error } = await query.single();
 
   if (error || !data) {
     return NextResponse.json(
@@ -22,7 +28,6 @@ export async function GET(
     );
   }
 
-  // Get related articles (same category, excluding current)
   const { data: related } = await supabase
     .from("blog_posts")
     .select("id, slug, title, category, cover_image, excerpt")
