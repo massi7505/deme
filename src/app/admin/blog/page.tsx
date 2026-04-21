@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { cn, formatDateShort } from "@/lib/utils";
-import { Plus, Edit, Trash2, Eye, Search, RefreshCw, Loader2, Save, ArrowLeft } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Search, RefreshCw, Loader2, Save, ArrowLeft, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
+import { BlogEditor } from "@/components/blog/BlogEditor";
+import { BlogImageUpload } from "@/components/blog/BlogImageUpload";
 
 interface BlogPost {
   id: string;
@@ -132,6 +134,18 @@ export default function AdminBlog() {
           </h2>
           <div className="flex gap-2">
             <button onClick={closeForm} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50">Annuler</button>
+            <button
+              onClick={async () => {
+                await handleSave();
+                if (formData.slug) window.open(`/blog/${formData.slug}?preview=1`, "_blank");
+              }}
+              disabled={saving || !formData.slug}
+              className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+              title="Enregistre et ouvre l'aperçu dans un nouvel onglet"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Prévisualiser
+            </button>
             <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 rounded-lg bg-brand-gradient px-5 py-2 text-sm font-bold text-white hover:brightness-110 disabled:opacity-50">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {saving ? "Enregistrement..." : "Enregistrer"}
@@ -171,13 +185,10 @@ export default function AdminBlog() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Contenu (HTML)</label>
-                <textarea
+                <label className="mb-1.5 block text-sm font-medium">Contenu</label>
+                <BlogEditor
                   value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  rows={20}
-                  className="w-full rounded-lg border px-3 py-2.5 font-mono text-xs outline-none focus:border-[var(--brand-green)] resize-y"
-                  placeholder="<h2>Titre section</h2><p>Paragraphe...</p>"
+                  onChange={(html) => setFormData({ ...formData, content: html })}
                 />
               </div>
             </div>
@@ -199,10 +210,10 @@ export default function AdminBlog() {
                 <label className="mb-1.5 block text-sm font-medium">Catégorie</label>
                 <input value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]" placeholder="Conseils, Guides..." />
               </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Image de couverture (URL)</label>
-                <input value={formData.cover_image} onChange={(e) => setFormData({ ...formData, cover_image: e.target.value })} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)]" placeholder="https://..." />
-              </div>
+              <BlogImageUpload
+                value={formData.cover_image}
+                onChange={(url) => setFormData({ ...formData, cover_image: url })}
+              />
             </div>
 
             <div className="rounded-xl border bg-white p-5 shadow-sm space-y-4">
