@@ -53,6 +53,7 @@ export interface QuoteFormData {
   phone: string;
   email: string;
   acceptCgu: true;
+  __nickname?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +135,7 @@ export default function DevisPage() {
             heavyItems: completeData.heavyItems,
             services: completeData.services,
             notes: completeData.notes,
+            __nickname: completeData.__nickname,
           }),
         });
 

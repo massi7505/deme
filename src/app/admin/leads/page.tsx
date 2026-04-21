@@ -56,6 +56,8 @@ interface Lead {
   email_verified: boolean | null;
   phone_verified: boolean | null;
   distributed_at: string | null;
+  fraud_score: number | null;
+  fraud_reasons: Array<{ code: string; label: string; weight: number }> | null;
 }
 
 interface Company {
@@ -71,6 +73,8 @@ const statusMap: Record<string, { label: string; color: string }> = {
   blocked: { label: "Bloqué", color: "bg-red-50 text-red-700" },
   completed: { label: "Terminé", color: "bg-gray-100 text-gray-600" },
   archived: { label: "Archivé", color: "bg-gray-100 text-gray-500" },
+  review_pending: { label: "À vérifier", color: "bg-orange-50 text-orange-700" },
+  rejected: { label: "Rejeté", color: "bg-gray-100 text-gray-500" },
 };
 
 const categoryMap: Record<string, { label: string; color: string }> = {
@@ -168,6 +172,39 @@ export default function AdminLeads() {
     });
     if (res.ok) { toast.success("Statut mis à jour"); fetchLeads(); }
     else toast.error("Erreur");
+  }
+
+  async function handleApproveReview(id: string) {
+    if (!confirm("Approuver ce lead et le distribuer aux déménageurs ?")) return;
+    const res = await fetch("/api/admin/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve_review", id }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      toast.success(`Lead approuvé — ${data.matchedMovers ?? 0} déménageur(s) matché(s)`);
+      fetchLeads();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error || "Erreur lors de l'approbation");
+    }
+  }
+
+  async function handleRejectReview(id: string) {
+    if (!confirm("Rejeter ce lead ? Il ne sera pas distribué.")) return;
+    const res = await fetch("/api/admin/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reject_review", id }),
+    });
+    if (res.ok) {
+      toast.success("Lead rejeté");
+      fetchLeads();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error || "Erreur lors du rejet");
+    }
   }
 
   async function handleRetryDistribution(leadId: string) {
@@ -332,6 +369,35 @@ export default function AdminLeads() {
         <button onClick={() => setSelectedLead(null)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" /> Retour à la liste
         </button>
+
+        {selectedLead.status === "review_pending" && (
+          <div className="mb-4 rounded-lg border-2 border-orange-300 bg-orange-50 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-orange-900">
+              🚩 Lead en attente de vérification — Score {selectedLead.fraud_score ?? 0}
+            </h3>
+            {Array.isArray(selectedLead.fraud_reasons) && selectedLead.fraud_reasons.length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs text-orange-800">
+                {selectedLead.fraud_reasons.map((r) => (
+                  <li key={r.code}>• {r.label} <span className="opacity-60">({r.weight})</span></li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => handleApproveReview(selectedLead.id)}
+                className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+              >
+                ✓ Approuver et distribuer
+              </button>
+              <button
+                onClick={() => handleRejectReview(selectedLead.id)}
+                className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+              >
+                ✗ Rejeter
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -524,6 +590,7 @@ export default function AdminLeads() {
         </select>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
           <option value="all">Tous statuts</option>
+          <option value="review_pending">À vérifier</option>
           <option value="new">Nouveau</option>
           <option value="active">Actif</option>
           <option value="blocked">Bloqué</option>
@@ -727,6 +794,11 @@ export default function AdminLeads() {
                     <td className="px-5 py-3 text-center">{lead.distributions}</td>
                     <td className="px-5 py-3">
                       <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold", status.color)}>{status.label}</span>
+                      {lead.status === "review_pending" && typeof lead.fraud_score === "number" && (
+                        <span className="ml-1 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                          🚩 {lead.fraud_score}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">

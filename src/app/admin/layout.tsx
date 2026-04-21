@@ -55,6 +55,7 @@ export default function AdminLayout({
   const [siteName, setSiteName] = useState("Admin");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [pendingPhotos, setPendingPhotos] = useState(0);
+  const [pendingLeadReviews, setPendingLeadReviews] = useState(0);
 
   // Close mobile nav when navigating to another page
   useEffect(() => {
@@ -80,7 +81,10 @@ export default function AdminLayout({
       fetch("/api/admin/stats/moderation")
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
-          if (!cancelled && d) setPendingPhotos(d.pendingPhotos || 0);
+          if (!cancelled && d) {
+            setPendingPhotos(d.pendingPhotos || 0);
+            setPendingLeadReviews(d.pendingLeadReviews || 0);
+          }
         })
         .catch(() => {});
     };
@@ -161,7 +165,15 @@ export default function AdminLayout({
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3 scrollbar-thin">
         {ADMIN_NAV.map((item) => {
           const isActive = pathname.startsWith(item.href);
-          const badge = item.href === "/admin/companies" && pendingPhotos > 0 ? pendingPhotos : 0;
+          let badge = 0;
+          let badgeTitle = "";
+          if (item.href === "/admin/companies" && pendingPhotos > 0) {
+            badge = pendingPhotos;
+            badgeTitle = `${badge} photo${badge > 1 ? "s" : ""} à modérer`;
+          } else if (item.href === "/admin/leads" && pendingLeadReviews > 0) {
+            badge = pendingLeadReviews;
+            badgeTitle = `${badge} lead${badge > 1 ? "s" : ""} à vérifier`;
+          }
           return (
             <Link
               key={item.href}
@@ -178,7 +190,7 @@ export default function AdminLayout({
               {badge > 0 && (
                 <span
                   className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white shadow-sm ring-2 ring-red-500/30 animate-pulse"
-                  title={`${badge} photo${badge > 1 ? "s" : ""} à modérer`}
+                  title={badgeTitle}
                 >
                   {badge}
                 </span>

@@ -31,6 +31,7 @@ const step4Schema = z.object({
   acceptCgu: z.literal(true, {
     message: "Vous devez accepter les conditions générales d'utilisation",
   }),
+  __nickname: z.string().optional(),
 });
 
 export type Step4Data = z.infer<typeof step4Schema>;
@@ -71,6 +72,7 @@ export function Step4Contact({
       phone: defaultValues?.phone ?? "",
       email: defaultValues?.email ?? "",
       acceptCgu: defaultValues?.acceptCgu ?? (false as unknown as true),
+      __nickname: "",
     },
   });
 
@@ -84,6 +86,15 @@ export function Step4Contact({
       transition={{ duration: 0.3 }}
     >
       <form onSubmit={handleSubmit(onNext)} className="space-y-6">
+        {/* Honeypot — bots that auto-fill every field will trip this. Hidden from humans. */}
+        <input
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          style={{ position: "absolute", left: "-9999px", width: "1px", height: "1px", opacity: 0, pointerEvents: "none" }}
+          {...register("__nickname")}
+        />
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h3 className="mb-6 text-lg font-semibold text-gray-900">
             Vos coordonnées
