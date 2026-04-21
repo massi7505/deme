@@ -119,8 +119,7 @@ export async function POST(request: NextRequest) {
       );
 
       if (score >= FRAUD_THRESHOLD) {
-        isFraudFlagged = true;
-        await supabase
+        const { error: flagErr } = await supabase
           .from("quote_requests")
           .update({
             status: "review_pending",
@@ -128,18 +127,28 @@ export async function POST(request: NextRequest) {
             fraud_reasons: reasons,
           })
           .eq("id", quote.id);
-        await supabase.from("notifications").insert({
-          type: "system",
-          title: "Lead en attente de vérification",
-          body: `Score ${score} — ${reasons.map((r) => r.label).join(", ")}`,
-          data: { quoteRequestId: quote.id, fraudScore: score },
-        });
-      } else {
+        // Only honor the in-memory fraud-flagged state if the DB update
+        // actually succeeded. Otherwise the lead is status='new' in DB
+        // and we must not create a memory/DB divergence by skipping
+        // distribution silently.
+        if (!flagErr) {
+          isFraudFlagged = true;
+          await supabase.from("notifications").insert({
+            type: "system",
+            title: "Lead en attente de vérification",
+            body: `Score ${score} — ${reasons.map((r) => r.label).join(", ")}`,
+            data: { quoteRequestId: quote.id, fraudScore: score },
+          });
+        } else {
+          console.error("[quotes] fraud-flag UPDATE failed:", flagErr);
+        }
+      } else if (score > 0) {
         await supabase
           .from("quote_requests")
           .update({ fraud_score: score, fraud_reasons: reasons })
           .eq("id", quote.id);
       }
+      // When score === 0, skip the UPDATE — defaults are already 0 / [].
     } catch (err) {
       console.error("[quotes] fraud-detection error:", err);
     }

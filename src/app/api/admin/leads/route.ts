@@ -151,6 +151,13 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[admin/leads approve_review] ${id}:`, message);
+      // Revert status so admin can retry approve_review idempotently.
+      // If distributeLead partially stamped distributed_at, the existing
+      // retry_distribution action is the recovery path instead.
+      await supabase
+        .from("quote_requests")
+        .update({ status: "review_pending" })
+        .eq("id", id);
       return NextResponse.json({ error: `Distribution échouée : ${message}` }, { status: 500 });
     }
   }

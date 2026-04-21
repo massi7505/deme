@@ -64,16 +64,15 @@ export async function POST(request: NextRequest) {
     try {
       // Don't distribute a lead held by fraud detection. A flagged lead
       // in 'review_pending' needs admin approval before movers see it,
-      // even after the client verifies OTP.
+      // even after the client verifies OTP. Errors bubble to the outer
+      // try/catch so notifyAdminDistributionFailed fires.
       const { data: currentLead } = await supabase
         .from("quote_requests")
         .select("status")
         .eq("id", quoteId)
         .single();
       if ((currentLead as { status?: string } | null)?.status !== "review_pending") {
-        await distributeLead(quoteId).catch((err) =>
-          console.error("[verify-email] distributeLead error:", err)
-        );
+        await distributeLead(quoteId);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
