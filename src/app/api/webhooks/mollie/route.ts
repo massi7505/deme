@@ -3,7 +3,7 @@ import { getPayment } from "@/lib/mollie";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { generateInvoice } from "@/lib/invoice";
 import { notifyPaymentSuccess } from "@/lib/onesignal";
-import { sendInvoiceEmail, sendPaymentFailedEmail, notifyAdminPaymentSuccess, notifyAdminPaymentFailed } from "@/lib/resend";
+import { sendInvoiceEmail, sendPaymentFailedEmail, notifyAdminPaymentSuccess, notifyAdminPaymentFailed, notifyAdminLeadCompleted } from "@/lib/resend";
 import { formatPrice } from "@/lib/utils";
 import { debitWallet, getWalletBalanceCents } from "@/lib/wallet";
 
@@ -208,10 +208,21 @@ export async function POST(request: NextRequest) {
           .eq("status", "unlocked");
 
         if ((count || 0) >= 6) {
-          await supabase
+          const { data: finishedQuote } = await supabase
             .from("quote_requests")
             .update({ status: "completed" })
-            .eq("id", dist.quote_request_id);
+            .eq("id", dist.quote_request_id)
+            .neq("status", "completed")
+            .select("id, prospect_id, from_city, to_city")
+            .maybeSingle();
+          if (finishedQuote) {
+            await notifyAdminLeadCompleted(
+              finishedQuote.id,
+              finishedQuote.prospect_id || finishedQuote.id.slice(0, 8),
+              finishedQuote.from_city || "",
+              finishedQuote.to_city || ""
+            ).catch((err) => console.error("[mollie webhook] lead-completed notify:", err));
+          }
         }
       }
 

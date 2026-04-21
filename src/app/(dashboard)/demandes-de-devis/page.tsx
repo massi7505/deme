@@ -16,6 +16,8 @@ interface Lead {
   isTrial: boolean;
   status: string;
   competitorCount: number;
+  totalUnlocks: number;
+  maxUnlocks: number;
   createdAt: string;
   unlockedAt: string | null;
   clientName: string | null;
@@ -224,7 +226,25 @@ export default function DemandesDeDevisPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="text-[10px]">{lead.competitorCount} concurrent{lead.competitorCount !== 1 ? "s" : ""}</Badge>
+                        {(() => {
+                          const sold = lead.totalUnlocks ?? 0;
+                          const max = lead.maxUnlocks ?? 6;
+                          const remaining = Math.max(0, max - sold);
+                          const tone =
+                            remaining === 0
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : remaining <= 2
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-gray-50 text-gray-700";
+                          return (
+                            <Badge variant="outline" className={cn("text-[10px]", tone)}>
+                              {sold}/{max} acheteur{sold > 1 ? "s" : ""}
+                              {remaining > 0 && lead.status !== "unlocked" && (
+                                <span className="ml-1 font-normal opacity-75">· {remaining} place{remaining > 1 ? "s" : ""}</span>
+                              )}
+                            </Badge>
+                          );
+                        })()}
                         <span className="text-sm font-bold">{formatPrice(lead.priceCents)}</span>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       </div>

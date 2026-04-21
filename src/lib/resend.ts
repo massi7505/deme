@@ -258,6 +258,31 @@ export async function sendQuoteVerificationEmail(
   });
 }
 
+export async function notifyAdminLeadCompleted(
+  quoteId: string,
+  prospectId: string,
+  fromCity: string,
+  toCity: string
+) {
+  // Inline template: this is a notice to admin only, no need for DB override.
+  const route = `${fromCity || "?"} → ${toCity || "?"}`;
+  const html = `<div style="font-family:system-ui,sans-serif;padding:24px;max-width:560px">
+    <h2 style="margin:0 0 12px">Lead terminé — 6 acheteurs atteints</h2>
+    <p style="margin:0 0 8px;color:#555">Le lead <strong>${prospectId}</strong> a été vendu 6 fois. Il est désormais masqué du marketplace des déménageurs.</p>
+    <ul style="margin:8px 0 16px;padding-left:20px;color:#333">
+      <li><strong>Trajet :</strong> ${route}</li>
+      <li><strong>Référence interne :</strong> ${quoteId}</li>
+    </ul>
+    <p style="margin:0;font-size:12px;color:#888">Ce message est automatique.</p>
+  </div>`;
+  return getResend().emails.send({
+    from: FROM,
+    to: ADMIN_EMAIL,
+    subject: `[Lead terminé] ${prospectId} — ${route}`,
+    html,
+  });
+}
+
 export async function notifyAdminDistributionFailed(
   quoteId: string,
   clientName: string,

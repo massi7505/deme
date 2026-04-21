@@ -3,7 +3,7 @@ import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { createLeadPayment } from "@/lib/mollie";
 import { generateInvoice } from "@/lib/invoice";
-import { sendInvoiceEmail } from "@/lib/resend";
+import { sendInvoiceEmail, notifyAdminLeadCompleted } from "@/lib/resend";
 import { getWalletBalanceCents, debitWallet } from "@/lib/wallet";
 
 const MAX_UNLOCKS_PER_LEAD = 6;
@@ -188,10 +188,21 @@ export async function POST(request: NextRequest) {
         .eq("quote_request_id", distribution.quote_request_id)
         .eq("status", "unlocked");
       if ((totalAfterWallet || 0) >= MAX_UNLOCKS_PER_LEAD) {
-        await supabase
+        const { data: finishedQuote } = await supabase
           .from("quote_requests")
           .update({ status: "completed" })
-          .eq("id", distribution.quote_request_id);
+          .eq("id", distribution.quote_request_id)
+          .neq("status", "completed")
+          .select("id, prospect_id, from_city, to_city")
+          .maybeSingle();
+        if (finishedQuote) {
+          await notifyAdminLeadCompleted(
+            finishedQuote.id,
+            finishedQuote.prospect_id || finishedQuote.id.slice(0, 8),
+            finishedQuote.from_city || "",
+            finishedQuote.to_city || ""
+          ).catch((err) => console.error("[unlock wallet] lead-completed notify:", err));
+        }
       }
 
       return NextResponse.json({ success: true, paidFromWallet: true });
@@ -296,10 +307,21 @@ export async function POST(request: NextRequest) {
         .eq("status", "unlocked");
 
       if ((totalAfter || 0) >= MAX_UNLOCKS_PER_LEAD) {
-        await supabase
+        const { data: finishedQuote } = await supabase
           .from("quote_requests")
           .update({ status: "completed" })
-          .eq("id", distribution.quote_request_id);
+          .eq("id", distribution.quote_request_id)
+          .neq("status", "completed")
+          .select("id, prospect_id, from_city, to_city")
+          .maybeSingle();
+        if (finishedQuote) {
+          await notifyAdminLeadCompleted(
+            finishedQuote.id,
+            finishedQuote.prospect_id || finishedQuote.id.slice(0, 8),
+            finishedQuote.from_city || "",
+            finishedQuote.to_city || ""
+          ).catch((err) => console.error("[unlock test] lead-completed notify:", err));
+        }
       }
 
       return NextResponse.json({ success: true, testMode: true });
