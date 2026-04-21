@@ -49,9 +49,13 @@ export async function deleteBlob(url: string): Promise<void> {
 }
 
 export function extFromFile(file: File, fallback = "jpg"): string {
+  // Trust the filename extension only if it matches a safe, whitelist-ish
+  // alphanumeric pattern. Otherwise a file named `pwn.php` would end up in
+  // the blob path as `.php` — harmless today (Blob serves with the stored
+  // Content-Type, not the URL extension) but confusing and brittle.
   const nameExt = file.name.split(".").pop()?.toLowerCase();
-  if (nameExt && nameExt.length <= 5) return nameExt;
-  // Fallback from MIME when no name extension
+  if (nameExt && /^[a-z0-9]{1,5}$/.test(nameExt)) return nameExt;
+  // MIME fallback.
   if (file.type === "image/jpeg") return "jpg";
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";

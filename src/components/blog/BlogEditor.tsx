@@ -26,7 +26,6 @@ interface BlogEditorProps {
 export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const initializedRef = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -60,14 +59,18 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
     },
   });
 
-  // Sync external value changes ONLY when swapping to a different article
-  // (not on every keystroke — that would cause cursor-jumps).
+  // Sync external value → editor without fighting the user:
+  // - skip if editor's current HTML already matches value (prevents cursor jumps during typing)
+  // - skip if the editor has focus (user is actively typing — don't stomp their cursor)
   useEffect(() => {
     if (!editor) return;
-    if (!initializedRef.current) {
-      editor.commands.setContent(value || "");
-      initializedRef.current = true;
-    }
+    const incoming = value || "";
+    const current = editor.getHTML();
+    // TipTap's "empty" representation is "<p></p>"; treat it as equivalent to "".
+    const normalizedCurrent = current === "<p></p>" ? "" : current;
+    if (incoming === normalizedCurrent) return;
+    if (typeof document !== "undefined" && document.activeElement === editor.view.dom) return;
+    editor.commands.setContent(incoming, { emitUpdate: false });
   }, [editor, value]);
 
   async function uploadAndInsert(file: File) {
