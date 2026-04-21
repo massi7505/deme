@@ -5,12 +5,20 @@ import { sendOtpSMS } from "@/lib/smsfactor";
 import { sendQuoteVerificationEmail } from "@/lib/resend";
 import { distributeLead } from "@/lib/distribute-lead";
 import { generateOtp, otpExpiryIso, OTP_EXPIRY_MS } from "@/lib/quote-verification";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 import { emailBaseUrl } from "@/lib/base-url";
 
 const FEATURE_ENABLED = process.env.LEAD_VERIFICATION_ENABLED !== "false";
 
 export async function POST(request: NextRequest) {
   try {
+    const ipCheck = await checkIpRateLimit(getClientIp(request), "quotes-submit", 600, 5);
+    if (!ipCheck.ok) {
+      return NextResponse.json(
+        { error: "Trop de demandes envoyées. Merci de réessayer plus tard.", retryAfterSec: ipCheck.retryAfterSec },
+        { status: 429, headers: { "Retry-After": String(ipCheck.retryAfterSec ?? 60) } }
+      );
+    }
     const body = await request.json();
     if (!body?.email && !body?.phone) {
       return NextResponse.json(

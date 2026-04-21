@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 import { sendPasswordResetEmail } from "@/lib/resend";
 
 // OTP expires in 60 minutes (Supabase default for recovery tokens).
 const OTP_EXPIRY_MINUTES = 60;
 
 export async function POST(request: NextRequest) {
+  const ipCheck = await checkIpRateLimit(getClientIp(request), "forgot-password", 900, 3);
+  if (!ipCheck.ok) {
+    return NextResponse.json(
+      { error: "Trop de demandes. Merci de réessayer plus tard.", retryAfterSec: ipCheck.retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(ipCheck.retryAfterSec ?? 60) } }
+    );
+  }
+
   const { email } = await request.json().catch(() => ({ email: "" }));
 
   if (!email || typeof email !== "string") {

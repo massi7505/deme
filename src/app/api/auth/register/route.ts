@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 import { slugify } from "@/lib/utils";
 import { sendWelcomeEmail } from "@/lib/resend";
 import { backfillLeadsForCompany } from "@/lib/backfill-leads";
 
 export async function POST(request: NextRequest) {
   try {
+    const ipCheck = await checkIpRateLimit(getClientIp(request), "auth-register", 3600, 3);
+    if (!ipCheck.ok) {
+      return NextResponse.json(
+        { error: "Trop de créations de compte. Merci de réessayer plus tard.", retryAfterSec: ipCheck.retryAfterSec },
+        { status: 429, headers: { "Retry-After": String(ipCheck.retryAfterSec ?? 60) } }
+      );
+    }
     const body = await request.json();
     const supabase = createUntypedAdminClient();
 
