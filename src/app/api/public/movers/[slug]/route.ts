@@ -16,7 +16,6 @@ export async function GET(
       employee_count, legal_status, siret, vat_number, website,
       created_at,
       company_regions(department_code, department_name, categories),
-      company_photos(id, url, caption, order_index),
       reviews(id, rating, comment, reviewer_name, is_anonymous, is_verified, created_at, mover_reply, mover_reply_at)
     `)
     .eq("slug", params.slug)
@@ -59,5 +58,16 @@ export async function GET(
     .filter((r) => r.answer && r.answer.trim() !== "")
     .map(({ id, question, answer, order_index }) => ({ id, question, answer, order_index }));
 
-  return NextResponse.json({ ...company, company_qna });
+  // Public gallery: only approved photos, capped at 4, oldest first so the
+  // mover's first choices stay stable as they add new ones.
+  const { data: company_photos } = await supabase
+    .from("company_photos")
+    .select("id, url, caption, order_index")
+    .eq("company_id", company.id)
+    .eq("status", "approved")
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(4);
+
+  return NextResponse.json({ ...company, company_qna, company_photos: company_photos || [] });
 }

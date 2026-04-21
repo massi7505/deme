@@ -82,6 +82,8 @@ interface QnA {
 interface Photo {
   id: string;
   url: string;
+  status?: "pending" | "approved" | "rejected";
+  rejected_reason?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -405,8 +407,8 @@ export default function ProfilEntreprisePage() {
         throw new Error(data.error || "Erreur lors de l'upload");
       }
       const { url } = await res.json();
-      setPhotos((prev) => [...prev, { id: Date.now().toString(), url }]);
-      toast.success("Photo ajoutée");
+      setPhotos((prev) => [...prev, { id: Date.now().toString(), url, status: "pending" }]);
+      toast.success("Photo ajoutée — en attente de validation par l'admin");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Impossible de télécharger la photo");
     } finally {
@@ -657,7 +659,15 @@ export default function ProfilEntreprisePage() {
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Images des projets</CardTitle>
+            <div>
+              <CardTitle className="text-base">Images des projets</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {(() => {
+                  const active = photos.filter((p) => p.status !== "rejected").length;
+                  return `${active}/4 photos · validation admin sous 24h`;
+                })()}
+              </p>
+            </div>
             <input
               ref={photoInputRef}
               type="file"
@@ -669,7 +679,7 @@ export default function ProfilEntreprisePage() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              disabled={uploadingPhoto}
+              disabled={uploadingPhoto || photos.filter((p) => p.status !== "rejected").length >= 4}
               onClick={() => photoInputRef.current?.click()}
             >
               {uploadingPhoto ? (
@@ -677,7 +687,7 @@ export default function ProfilEntreprisePage() {
               ) : (
                 <Plus className="h-3.5 w-3.5" />
               )}
-              Ajouter des photos
+              Ajouter une photo
             </Button>
           </CardHeader>
           <CardContent>
@@ -692,8 +702,29 @@ export default function ProfilEntreprisePage() {
                       <img
                         src={photo.url}
                         alt="Photo projet"
-                        className="h-full w-full object-cover"
+                        className={cn(
+                          "h-full w-full object-cover",
+                          photo.status === "rejected" && "opacity-40"
+                        )}
                       />
+                      {/* Status badge */}
+                      {photo.status && photo.status !== "approved" && (
+                        <div className="absolute left-1.5 top-1.5">
+                          {photo.status === "pending" && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/95 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow">
+                              En attente
+                            </span>
+                          )}
+                          {photo.status === "rejected" && (
+                            <span
+                              className="inline-flex items-center gap-0.5 rounded-full bg-red-500/95 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow"
+                              title={photo.rejected_reason || "Refusée par l'admin"}
+                            >
+                              Refusée
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <button
                         onClick={() => handleDeletePhoto(photo.id)}
                         className="absolute right-1 top-1 hidden rounded-full bg-black/60 p-1 text-white hover:bg-red-600 group-hover:flex"

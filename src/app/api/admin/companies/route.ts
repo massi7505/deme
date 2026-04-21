@@ -11,6 +11,7 @@ export async function GET() {
       *,
       profiles(id, email, full_name, phone),
       company_regions(id, department_code, department_name, categories),
+      company_photos(id, url, status, rejected_reason, created_at),
       quote_distributions(id, status, price_cents, created_at, quote_requests(id, prospect_id, from_city, to_city, client_name))
     `)
     .order("created_at", { ascending: false });
@@ -283,6 +284,43 @@ export async function POST(request: NextRequest) {
       .delete()
       .eq("id", body.regionId);
 
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (body.action === "approve_photo") {
+    const { error } = await supabase
+      .from("company_photos")
+      .update({
+        status: "approved",
+        rejected_reason: null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: "admin",
+      })
+      .eq("id", body.photoId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (body.action === "reject_photo") {
+    const { error } = await supabase
+      .from("company_photos")
+      .update({
+        status: "rejected",
+        rejected_reason: (body.reason || "").toString().slice(0, 500) || null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: "admin",
+      })
+      .eq("id", body.photoId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (body.action === "delete_photo") {
+    const { error } = await supabase
+      .from("company_photos")
+      .delete()
+      .eq("id", body.photoId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
   }

@@ -9,7 +9,7 @@ import {
   Mail, Building2, Star, Play, Wallet,
   RotateCcw, Loader2, X as XIcon, Gift,
   LayoutDashboard, User as UserIcon, Activity, CreditCard,
-  Inbox, ShoppingCart, Hourglass, Calendar,
+  Inbox, ShoppingCart, Hourglass, Calendar, Image as ImageIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { EditableTextField } from "@/components/shared/EditableField";
@@ -50,6 +50,13 @@ interface Company {
   created_at: string;
   profiles: { id: string; email: string; full_name: string | null; phone: string | null } | null;
   company_regions: Region[];
+  company_photos: Array<{
+    id: string;
+    url: string;
+    status: "pending" | "approved" | "rejected";
+    rejected_reason: string | null;
+    created_at: string;
+  }>;
   quote_distributions: Array<{
     id: string;
     status: string;
@@ -243,6 +250,21 @@ export default function AdminCompanies() {
     });
     if (res.ok) { toast.success("Région supprimée"); fetchCompanies(); }
     else toast.error("Erreur lors de la suppression");
+  }
+
+  async function handlePhotoAction(photoId: string, action: "approve_photo" | "reject_photo" | "delete_photo", reason?: string) {
+    if (action === "delete_photo" && !confirm("Supprimer cette photo ?")) return;
+    const res = await fetch("/api/admin/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, photoId, reason }),
+    });
+    if (res.ok) {
+      toast.success(
+        action === "approve_photo" ? "Photo approuvée" : action === "reject_photo" ? "Photo refusée" : "Photo supprimée"
+      );
+      fetchCompanies();
+    } else toast.error("Erreur");
   }
 
   async function updateField(id: string, field: string, value: string) {
@@ -697,6 +719,8 @@ export default function AdminCompanies() {
           const unlocked = (c.quote_distributions || []).filter(d => d.status === "unlocked").length;
           const pending = (c.quote_distributions || []).filter(d => d.status === "pending").length;
           const received = (c.quote_distributions || []).length;
+          const photos = c.company_photos || [];
+          const pendingPhotos = photos.filter((p) => p.status === "pending").length;
           return (
             <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
               <nav className="flex border-b bg-gray-50/60 px-2" aria-label="Onglets">
@@ -719,6 +743,9 @@ export default function AdminCompanies() {
                       {t.label}
                       {t.id === "activity" && pending > 0 && (
                         <span className="ml-1 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700">{pending}</span>
+                      )}
+                      {t.id === "profile" && pendingPhotos > 0 && (
+                        <span className="ml-1 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700" title="Photos en attente de modération">{pendingPhotos}</span>
                       )}
                     </button>
                   );
@@ -979,6 +1006,87 @@ export default function AdminCompanies() {
                                 </button>
                               </div>
                             ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Photos — moderation */}
+                    <div className="rounded-xl border bg-white shadow-sm">
+                      <div className="flex items-center justify-between border-b px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4 text-[var(--brand-green)]" />
+                          <h3 className="text-sm font-semibold">Photos ({photos.length}/4)</h3>
+                          {pendingPhotos > 0 && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                              {pendingPhotos} à modérer
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        {photos.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">Aucune photo uploadée</p>
+                        ) : (
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            {photos
+                              .slice()
+                              .sort((a, b) => {
+                                const order = { pending: 0, approved: 1, rejected: 2 };
+                                return order[a.status] - order[b.status];
+                              })
+                              .map((p) => (
+                                <div key={p.id} className="overflow-hidden rounded-lg border bg-white">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={p.url} alt="" className="h-32 w-full object-cover" />
+                                  <div className="p-2.5 space-y-2">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-semibold">
+                                      {p.status === "pending" && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-amber-700"><Clock className="h-3 w-3" />En attente</span>
+                                      )}
+                                      {p.status === "approved" && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-green-700"><CheckCircle2 className="h-3 w-3" />Approuvée</span>
+                                      )}
+                                      {p.status === "rejected" && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-red-700"><XCircle className="h-3 w-3" />Refusée</span>
+                                      )}
+                                    </div>
+                                    {p.rejected_reason && (
+                                      <p className="text-[10px] text-muted-foreground italic truncate" title={p.rejected_reason}>
+                                        « {p.rejected_reason} »
+                                      </p>
+                                    )}
+                                    <div className="flex gap-1">
+                                      {p.status !== "approved" && (
+                                        <button
+                                          onClick={() => handlePhotoAction(p.id, "approve_photo")}
+                                          className="flex-1 rounded border bg-green-50 px-2 py-1 text-[11px] font-semibold text-green-700 hover:bg-green-100"
+                                        >
+                                          Approuver
+                                        </button>
+                                      )}
+                                      {p.status !== "rejected" && (
+                                        <button
+                                          onClick={() => {
+                                            const reason = prompt("Motif du refus (optionnel) :") ?? undefined;
+                                            handlePhotoAction(p.id, "reject_photo", reason);
+                                          }}
+                                          className="flex-1 rounded border bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                                        >
+                                          Refuser
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handlePhotoAction(p.id, "delete_photo")}
+                                        className="rounded border px-2 py-1 text-[11px] text-muted-foreground hover:bg-gray-50"
+                                        title="Supprimer"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                           </div>
                         )}
                       </div>

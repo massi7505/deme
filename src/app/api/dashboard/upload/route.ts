@@ -64,9 +64,23 @@ export async function POST(request: NextRequest) {
     if (type === "logo") {
       await admin.from("companies").update({ logo_url: url }).eq("id", companyId);
     } else if (type === "photo") {
+      // Cap at 4 non-rejected photos (approved + pending count; rejected don't,
+      // so a mover can replace a refused image).
+      const { count } = await admin
+        .from("company_photos")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .neq("status", "rejected");
+      if ((count ?? 0) >= 4) {
+        return NextResponse.json(
+          { error: "Maximum 4 photos par profil. Supprimez-en une avant d'en ajouter." },
+          { status: 400 }
+        );
+      }
       await admin.from("company_photos").insert({
         company_id: companyId,
         url,
+        status: "pending",
       });
     }
 
