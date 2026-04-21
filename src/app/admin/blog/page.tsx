@@ -72,8 +72,8 @@ export default function AdminBlog() {
     setFormData(EMPTY_FORM);
   }
 
-  async function handleSave() {
-    if (!formData.title || !formData.slug) { toast.error("Titre et slug requis"); return; }
+  async function handleSave(): Promise<boolean> {
+    if (!formData.title || !formData.slug) { toast.error("Titre et slug requis"); return false; }
     setSaving(true);
     try {
       const action = editingPost ? "update" : "create";
@@ -86,11 +86,13 @@ export default function AdminBlog() {
         toast.success(editingPost ? "Article mis à jour !" : "Article créé !");
         closeForm();
         fetchPosts();
+        return true;
       } else {
         const data = await res.json();
         toast.error(data.error || "Erreur");
+        return false;
       }
-    } catch { toast.error("Erreur réseau"); }
+    } catch { toast.error("Erreur réseau"); return false; }
     finally { setSaving(false); }
   }
 
@@ -136,8 +138,9 @@ export default function AdminBlog() {
             <button onClick={closeForm} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50">Annuler</button>
             <button
               onClick={async () => {
-                await handleSave();
-                if (formData.slug) window.open(`/blog/${formData.slug}?preview=1`, "_blank");
+                const slug = formData.slug;
+                const ok = await handleSave();
+                if (ok && slug) window.open(`/blog/${slug}?preview=1`, "_blank");
               }}
               disabled={saving || !formData.slug}
               className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"

@@ -16,7 +16,7 @@ interface Article {
   excerpt: string;
   category: string;
   author: string;
-  cover_image_url?: string;
+  cover_image?: string;
   read_time: string;
   published_at: string;
 }
@@ -161,10 +161,10 @@ export default function BlogPage() {
                 >
                   {/* Cover image */}
                   <div className="flex aspect-[16/9] items-center justify-center bg-gray-100 text-gray-300">
-                    {article.cover_image_url ? (
+                    {article.cover_image ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={article.cover_image_url}
+                        src={article.cover_image}
                         alt={article.title}
                         className="h-full w-full object-cover"
                       />
