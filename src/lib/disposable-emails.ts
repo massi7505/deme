@@ -1,0 +1,52 @@
+/**
+ * Disposable / throwaway email domains. Used by fraud-detection's
+ * disposable_email detector. Kept in its own file so the list can be
+ * bumped without touching detection logic.
+ *
+ * Source: curated subset of common public lists (mailinator, yopmail,
+ * guerrillamail, tempmail variants). Lowercased.
+ */
+export const DISPOSABLE_DOMAINS = new Set<string>([
+  "10minutemail.com", "10minutemail.net", "20minutemail.com",
+  "anonbox.net", "anonymbox.com", "armyspy.com",
+  "binkmail.com", "bobmail.info", "bspamfree.org",
+  "brefmail.com", "burnermail.io",
+  "cuvox.de",
+  "deadaddress.com", "despam.it", "discard.email", "discardmail.com", "dispostable.com",
+  "einrot.com", "email60.com", "email-fake.com",
+  "fakeinbox.com", "fake-mail.net", "fakemailgenerator.com", "fakeplace.com", "filzmail.com",
+  "gmx.click", "grr.la", "guerrillamail.biz", "guerrillamail.com", "guerrillamail.de",
+  "guerrillamail.info", "guerrillamail.net", "guerrillamail.org", "guerrillamailblock.com",
+  "harakirimail.com",
+  "inboxalias.com", "inboxbear.com", "incognitomail.org",
+  "jetable.org",
+  "kurzepost.de",
+  "linshiyouxiang.net",
+  "mail-temp.com", "mailcatch.com", "maildrop.cc", "mailfa.tk",
+  "mailforspam.com", "mailinator.com", "mailinator.net", "mailinator2.com",
+  "mailmoat.com", "mailnesia.com", "mailnull.com", "mailtemp.info", "mailtothis.com",
+  "mohmal.com", "mvrht.net", "mytemp.email",
+  "nada.email", "noclickemail.com", "nospamfor.us", "nwldx.com",
+  "objectmail.com", "oneoffemail.com", "onewaymail.com", "opentrash.com",
+  "poofy.org", "pookmail.com", "proxymail.eu",
+  "rcpt.at", "re-gister.com", "rmqkr.net",
+  "sharklasers.com", "shieldedmail.com", "shitmail.me", "slopsbox.com", "sneakemail.com",
+  "spam4.me", "spambox.us", "spamdecoy.net", "spamfree24.com", "spamfree24.eu",
+  "spamfree24.info", "spamfree24.net", "spamfree24.org", "spamgourmet.com",
+  "spamherelots.com", "spamhereplease.com", "spamhole.com", "spaminator.de",
+  "spamthis.co.uk",
+  "tafmail.com", "tagyourself.com", "teleworm.com", "teleworm.us",
+  "temp-mail.org", "temp-mail.ru", "tempail.com", "tempe-mail.com",
+  "tempemail.biz", "tempemail.com", "tempinbox.co.uk", "tempinbox.com",
+  "tempmail.co", "tempmail.eu", "tempmail.ninja", "tempmail.us",
+  "tempmailer.com", "tempmailer.de", "tempthe.net",
+  "thankyou2010.com", "thisisnotmyrealemail.com", "throwaway.email",
+  "throwawayemailaddress.com", "trashmail.at", "trashmail.com", "trashmail.de",
+  "trashmail.me", "trashmail.net", "trashmail.ws", "trashymail.com",
+  "trbvm.com", "trialmail.de",
+  "upliftnow.com",
+  "veryrealemail.com",
+  "wegwerfmail.de", "wegwerfmail.net", "wegwerfmail.org",
+  "yopmail.com", "yopmail.fr", "yopmail.net", "you-spam.com",
+  "zetmail.com",
+]);
