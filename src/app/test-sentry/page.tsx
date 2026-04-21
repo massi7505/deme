@@ -1,10 +1,15 @@
-export const dynamic = "force-dynamic";
+"use client";
+
+import { useEffect } from "react";
 
 function throwFromNamedHelper(): never {
-  const message = "[sentry-sourcemaps-test] If you see this helper name and line 6 in Sentry, source maps work.";
+  const message = "[sentry-sourcemaps-test-client] If Sentry shows this helper name and line 6, source maps work.";
   throw new Error(message);
 }
 
 export default function TestSentryPage() {
-  throwFromNamedHelper();
+  useEffect(() => {
+    throwFromNamedHelper();
+  }, []);
+  return <div>Triggering client-side error…</div>;
 }
