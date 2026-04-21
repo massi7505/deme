@@ -56,17 +56,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ext = extFromFile(file);
-    const folder = type === "logo" ? "logos" : "photos";
-    const pathname = `${folder}/${companyId}/${Date.now()}.${ext}`;
-
-    const { url } = await uploadBlob(file, pathname);
-
-    if (type === "logo") {
-      await admin.from("companies").update({ logo_url: url }).eq("id", companyId);
-    } else if (type === "photo") {
-      // Cap at 4 non-rejected photos (approved + pending count; rejected don't,
-      // so a mover can replace a refused image).
+    // Cap check runs BEFORE uploadBlob so a rejected 5th upload doesn't
+    // leave an orphaned file on Vercel Blob. Approved + pending count;
+    // rejected don't, so a mover can replace a refused image.
+    if (type === "photo") {
       const { count } = await admin
         .from("company_photos")
         .select("id", { count: "exact", head: true })
@@ -78,6 +71,17 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    }
+
+    const ext = extFromFile(file);
+    const folder = type === "logo" ? "logos" : "photos";
+    const pathname = `${folder}/${companyId}/${Date.now()}.${ext}`;
+
+    const { url } = await uploadBlob(file, pathname);
+
+    if (type === "logo") {
+      await admin.from("companies").update({ logo_url: url }).eq("id", companyId);
+    } else if (type === "photo") {
       await admin.from("company_photos").insert({
         company_id: companyId,
         url,
@@ -85,17 +89,19 @@ export async function POST(request: NextRequest) {
       });
 
       // Fire-and-forget admin notification. Never blocks upload response.
-      admin
-        .from("companies")
-        .select("name")
-        .eq("id", companyId)
-        .single()
-        .then(({ data }) => {
+      void (async () => {
+        try {
+          const { data } = await admin
+            .from("companies")
+            .select("name")
+            .eq("id", companyId)
+            .single();
           const companyName = (data as { name?: string } | null)?.name || "Déménageur";
-          return notifyAdminPhotoPending(companyName, companyId, url).catch((err) =>
-            console.error("[upload] admin notify failed:", err)
-          );
-        });
+          await notifyAdminPhotoPending(companyName, companyId, url);
+        } catch (err) {
+          console.error("[upload] admin notify failed:", err);
+        }
+      })();
     }
 
     return NextResponse.json({ url });
