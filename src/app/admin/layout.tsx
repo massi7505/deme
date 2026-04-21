@@ -54,6 +54,7 @@ export default function AdminLayout({
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [siteName, setSiteName] = useState("Admin");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [pendingPhotos, setPendingPhotos] = useState(0);
 
   // Close mobile nav when navigating to another page
   useEffect(() => {
@@ -69,6 +70,27 @@ export default function AdminLayout({
       .then((data) => { if (data?.siteName) setSiteName(data.siteName); })
       .catch(() => {});
   }, []);
+
+  // Poll moderation badges. Re-fetches on every route change so the counter
+  // updates right after the admin approves/rejects from inside /admin/companies.
+  useEffect(() => {
+    if (isLoginPage || !authenticated) return;
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/admin/stats/moderation")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!cancelled && d) setPendingPhotos(d.pendingPhotos || 0);
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [isLoginPage, authenticated, pathname]);
 
   useEffect(() => {
     if (isLoginPage) {
@@ -139,6 +161,7 @@ export default function AdminLayout({
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3 scrollbar-thin">
         {ADMIN_NAV.map((item) => {
           const isActive = pathname.startsWith(item.href);
+          const badge = item.href === "/admin/companies" && pendingPhotos > 0 ? pendingPhotos : 0;
           return (
             <Link
               key={item.href}
@@ -151,7 +174,15 @@ export default function AdminLayout({
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {badge > 0 && (
+                <span
+                  className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white shadow-sm ring-2 ring-red-500/30 animate-pulse"
+                  title={`${badge} photo${badge > 1 ? "s" : ""} à modérer`}
+                >
+                  {badge}
+                </span>
+              )}
             </Link>
           );
         })}

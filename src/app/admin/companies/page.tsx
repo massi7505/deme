@@ -334,7 +334,11 @@ export default function AdminCompanies() {
   }, [companies, selectedCompany?.id]);
 
   const filtered = companies.filter((c) => {
-    if (filterStatus !== "all" && c.account_status !== filterStatus) return false;
+    if (filterStatus === "photos_pending") {
+      if (!(c.company_photos || []).some((p) => p.status === "pending")) return false;
+    } else if (filterStatus !== "all" && c.account_status !== filterStatus) {
+      return false;
+    }
     if (search) {
       const q = search.toLowerCase();
       return c.name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email_contact || "").toLowerCase().includes(q) || c.siret.includes(q);
@@ -1324,8 +1328,58 @@ export default function AdminCompanies() {
           <option value="active">Actif</option>
           <option value="pending">En attente</option>
           <option value="suspended">Suspendu</option>
+          <option value="photos_pending">Photos à modérer</option>
         </select>
       </div>
+
+      {(() => {
+        const withPendingPhotos = companies.filter(
+          (c) => (c.company_photos || []).some((p) => p.status === "pending")
+        );
+        if (withPendingPhotos.length === 0) return null;
+        const totalPhotos = withPendingPhotos.reduce(
+          (sum, c) => sum + (c.company_photos || []).filter((p) => p.status === "pending").length,
+          0
+        );
+        return (
+          <div className="rounded-xl border-2 border-red-300 bg-red-50/70 p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-red-900">
+                  🔔 {totalPhotos} photo{totalPhotos > 1 ? "s" : ""} à modérer
+                </p>
+                <p className="mt-0.5 text-xs text-red-800">
+                  {withPendingPhotos.length} déménageur{withPendingPhotos.length > 1 ? "s" : ""} concerné{withPendingPhotos.length > 1 ? "s" : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => setFilterStatus("photos_pending")}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700"
+              >
+                Voir la liste
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {withPendingPhotos.slice(0, 8).map((c) => {
+                const n = (c.company_photos || []).filter((p) => p.status === "pending").length;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCompany(c)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-red-900 shadow-sm hover:bg-red-100"
+                  >
+                    {c.name}
+                    <span className="rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{n}</span>
+                  </button>
+                );
+              })}
+              {withPendingPhotos.length > 8 && (
+                <span className="px-3 py-1.5 text-xs text-red-900">+{withPendingPhotos.length - 8}</span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {(() => {
         const pending = companies.filter((c) => c.pending_name);
@@ -1378,11 +1432,29 @@ export default function AdminCompanies() {
                 const unlockedCount = dists.filter((d) => d.status === "unlocked").length;
                 const totalCount = dists.length;
 
+                const pendingPhotosCount = (company.company_photos || []).filter((p) => p.status === "pending").length;
+
                 return (
-                  <tr key={company.id} className="border-b last:border-0 hover:bg-gray-50/50">
+                  <tr
+                    key={company.id}
+                    className={cn(
+                      "border-b last:border-0 hover:bg-gray-50/50",
+                      pendingPhotosCount > 0 && "bg-red-50/30"
+                    )}
+                  >
                     <td className="px-5 py-3">
-                      <span className="font-medium">{company.name}</span>
-                      {company.city && <span className="ml-2 text-xs text-muted-foreground">{company.city}</span>}
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{company.name}</span>
+                        {pendingPhotosCount > 0 && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700"
+                            title={`${pendingPhotosCount} photo${pendingPhotosCount > 1 ? "s" : ""} à modérer`}
+                          >
+                            📷 {pendingPhotosCount}
+                          </span>
+                        )}
+                      </div>
+                      {company.city && <span className="text-xs text-muted-foreground">{company.city}</span>}
                     </td>
                     <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{company.siret}</td>
                     <td className="px-5 py-3"><span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold", status.color)}>{status.label}</span></td>

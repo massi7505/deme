@@ -7,6 +7,7 @@ import {
   MAX_IMAGE_SIZE,
   extFromFile,
 } from "@/lib/blob";
+import { notifyAdminPhotoPending } from "@/lib/resend";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -82,6 +83,19 @@ export async function POST(request: NextRequest) {
         url,
         status: "pending",
       });
+
+      // Fire-and-forget admin notification. Never blocks upload response.
+      admin
+        .from("companies")
+        .select("name")
+        .eq("id", companyId)
+        .single()
+        .then(({ data }) => {
+          const companyName = (data as { name?: string } | null)?.name || "Déménageur";
+          return notifyAdminPhotoPending(companyName, companyId, url).catch((err) =>
+            console.error("[upload] admin notify failed:", err)
+          );
+        });
     }
 
     return NextResponse.json({ url });

@@ -258,6 +258,31 @@ export async function sendQuoteVerificationEmail(
   });
 }
 
+export async function notifyAdminPhotoPending(
+  companyName: string,
+  companyId: string,
+  photoUrl: string
+) {
+  const html = `<div style="font-family:system-ui,sans-serif;padding:24px;max-width:560px">
+    <h2 style="margin:0 0 12px">Nouvelle photo à modérer</h2>
+    <p style="margin:0 0 8px;color:#555"><strong>${companyName}</strong> vient d'uploader une photo qui attend votre validation.</p>
+    <div style="margin:16px 0">
+      <img src="${photoUrl}" alt="" style="max-width:100%;max-height:260px;border-radius:8px;border:1px solid #e5e7eb" />
+    </div>
+    <a href="${emailBaseUrl()}/admin/companies"
+       style="display:inline-block;padding:10px 18px;background:#16a34a;color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px">
+      Ouvrir la modération
+    </a>
+    <p style="margin:16px 0 0;font-size:11px;color:#999">ID déménageur : ${companyId}</p>
+  </div>`;
+  return getResend().emails.send({
+    from: FROM,
+    to: ADMIN_EMAIL,
+    subject: `[Photo à modérer] ${companyName}`,
+    html,
+  });
+}
+
 export async function notifyAdminLeadCompleted(
   quoteId: string,
   prospectId: string,
