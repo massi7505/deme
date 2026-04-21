@@ -17,12 +17,21 @@ import DOMPurify from "isomorphic-dompurify";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 // Ensure external links carry rel=noopener noreferrer to prevent tabnabbing.
-if (typeof DOMPurify.addHook === "function") {
+// Guard with globalThis so Next.js Fast Refresh doesn't double-register.
+declare global {
+  // eslint-disable-next-line no-var
+  var __dompurifyAnchorHookRegistered: boolean | undefined;
+}
+if (
+  typeof DOMPurify.addHook === "function" &&
+  !globalThis.__dompurifyAnchorHookRegistered
+) {
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
       node.setAttribute("rel", "noopener noreferrer");
     }
   });
+  globalThis.__dompurifyAnchorHookRegistered = true;
 }
 
 interface Article {
