@@ -381,7 +381,7 @@ export function Step1MoveType({ defaultValues, onNext }: Step1MoveTypeProps) {
           )}
         </AnimatePresence>
 
-        <div className="flex justify-end pt-4">
+        <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t bg-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:static md:mx-0 md:border-t-0 md:bg-transparent md:px-0 md:pb-0 md:pt-4 md:backdrop-blur-none">
           <Button type="submit" size="lg" className="px-8" disabled={!category || !moveType || !roomCount}>
             Suivant
           </Button>
