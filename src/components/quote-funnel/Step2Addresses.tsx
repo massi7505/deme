@@ -145,6 +145,7 @@ function AddressSection({
         <Input
           id={aptKey}
           placeholder="ex: Apt 4B, Bât C, Escalier 2..."
+          autoComplete="address-line2"
           {...register(aptKey)}
         />
       </div>
@@ -155,6 +156,7 @@ function AddressSection({
           <Input
             id={cityKey}
             placeholder="Rempli automatiquement"
+            autoComplete="address-level2"
             {...register(cityKey)}
             className="bg-gray-50"
           />
@@ -169,6 +171,8 @@ function AddressSection({
             id={postalKey}
             placeholder="Rempli automatiquement"
             maxLength={5}
+            inputMode="numeric"
+            autoComplete="postal-code"
             {...register(postalKey)}
             className="bg-gray-50"
           />

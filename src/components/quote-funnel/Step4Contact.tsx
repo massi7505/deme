@@ -121,6 +121,7 @@ export function Step4Contact({
               <Input
                 id="firstName"
                 placeholder="Prénom"
+                autoComplete="given-name"
                 {...register("firstName")}
               />
               {errors.firstName && (
@@ -132,6 +133,7 @@ export function Step4Contact({
               <Input
                 id="lastName"
                 placeholder="Nom"
+                autoComplete="family-name"
                 {...register("lastName")}
               />
               {errors.lastName && (
@@ -147,6 +149,8 @@ export function Step4Contact({
               <Input
                 id="phone"
                 type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 placeholder="06 12 34 56 78"
                 {...register("phone")}
               />
@@ -159,6 +163,9 @@ export function Step4Contact({
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
+                enterKeyHint="done"
                 placeholder="votre@email.com"
                 {...register("email")}
               />

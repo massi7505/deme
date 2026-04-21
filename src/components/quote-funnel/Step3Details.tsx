@@ -171,6 +171,7 @@ export function Step3Details({ defaultValues, onNext, onBack }: Step3DetailsProp
             id="notes"
             placeholder="Décrivez tout détail important pour votre déménagement..."
             rows={4}
+            enterKeyHint="done"
             {...register("notes")}
           />
           {errors.notes && (

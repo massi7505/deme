@@ -295,6 +295,7 @@ export function Step1MoveType({ defaultValues, onNext }: Step1MoveTypeProps) {
                   <Input
                     id="volumeM3"
                     type="number"
+                    inputMode="numeric"
                     min={1}
                     placeholder="ex: 25"
                     {...register("volumeM3", {
