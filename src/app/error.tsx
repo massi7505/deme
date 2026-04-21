@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
+import * as Sentry from "@sentry/nextjs";
 import { Home, MessageCircle, RefreshCw, AlertTriangle, Truck } from "lucide-react";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
@@ -17,6 +18,7 @@ export default function GlobalError({
 
   useEffect(() => {
     console.error("[app error]", error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (
