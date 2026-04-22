@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { sendClaimResolvedEmail } from "@/lib/resend";
 import { BRAND } from "@/lib/brand";
+import { requireAdmin } from "@/lib/admin-auth";
 
 async function getSiteName(supabase: ReturnType<typeof createUntypedAdminClient>): Promise<string> {
   try {
@@ -12,7 +13,10 @@ async function getSiteName(supabase: ReturnType<typeof createUntypedAdminClient>
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const supabase = createUntypedAdminClient();
 
   const { data: claims, error } = await supabase
@@ -149,6 +153,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const supabase = createUntypedAdminClient();
   const body = await request.json();
 

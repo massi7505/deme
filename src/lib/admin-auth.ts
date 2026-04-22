@@ -1,6 +1,26 @@
 import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
 
 const ADMIN_SECRET = process.env.ADMINJS_COOKIE_SECRET ?? "dev-admin-secret-change-me";
+
+/**
+ * Guard helper for /api/admin/* routes. Reads the admin_token cookie,
+ * verifies the HMAC + expiry. Returns null when the caller is a valid
+ * admin (route may proceed). Returns a 401 NextResponse when not — the
+ * route MUST return this response immediately.
+ *
+ * Usage:
+ *   const auth = requireAdmin(request);
+ *   if (auth) return auth;
+ *   // ... proceed with the handler
+ */
+export function requireAdmin(request: NextRequest): NextResponse | null {
+  const token = request.cookies.get("admin_token")?.value;
+  if (!token || !verifyAdminToken(token)) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+  return null;
+}
 
 export function generateAdminToken(email: string): string {
   const payload = `${email}:${Date.now() + 86400000}`;

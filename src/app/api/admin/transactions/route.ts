@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { createRefund, type RefundMethod } from "@/lib/wallet";
 import { sendRefundEmail, sendWalletRefundEmail } from "@/lib/resend";
+import { requireAdmin } from "@/lib/admin-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   try {
     const supabase = createUntypedAdminClient();
 
@@ -113,6 +117,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   try {
     const body = await request.json();
     const action = body.action as string;

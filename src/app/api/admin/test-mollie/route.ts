@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import createMollieClient from "@mollie/api-client";
+import { requireAdmin } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   try {
     const { apiKey } = await request.json();
 

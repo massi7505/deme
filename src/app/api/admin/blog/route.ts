@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const supabase = createUntypedAdminClient();
   const { data, error } = await supabase
     .from("blog_posts")
@@ -13,6 +17,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const supabase = createUntypedAdminClient();
   const body = await request.json();
 

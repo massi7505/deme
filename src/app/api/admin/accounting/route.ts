@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin-auth";
 
 /**
  * Financial snapshot for admin accounting tab.
@@ -7,6 +8,9 @@ import { createUntypedAdminClient } from "@/lib/supabase/admin";
  *   period = "month" | "year" | "all" (default "month")
  */
 export async function GET(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const admin = createUntypedAdminClient();
   const period = request.nextUrl.searchParams.get("period") || "month";
 

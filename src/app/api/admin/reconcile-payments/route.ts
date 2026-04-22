@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { reconcilePendingPayments } from "@/lib/reconcile-payments";
+import { requireAdmin } from "@/lib/admin-auth";
 
 /**
  * Admin-triggered manual reconciliation. Allows lowering the minAgeMinutes
@@ -9,7 +10,10 @@ import { reconcilePendingPayments } from "@/lib/reconcile-payments";
  * Also returns the current list of stuck (still-pending) transactions for
  * the admin dashboard.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const admin = createUntypedAdminClient();
 
   // Stuck = pending + has a mollie payment + older than 30 minutes
@@ -31,6 +35,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const body = await request.json().catch(() => ({}));
   const minAgeMinutes = Math.max(0, Number(body.minAgeMinutes ?? 0));
   const limit = Math.min(200, Math.max(1, Number(body.limit ?? 50)));

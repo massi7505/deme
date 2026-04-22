@@ -5,8 +5,12 @@ import {
   MAX_FAVICON_SIZE,
   extFromFile,
 } from "@/lib/blob";
+import { requireAdmin } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

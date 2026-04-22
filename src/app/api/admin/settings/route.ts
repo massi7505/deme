@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin-auth";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadSettings(): Promise<Record<string, any>> {
@@ -33,7 +34,10 @@ async function saveSettings(settings: Record<string, any>) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   try {
     const settings = await loadSettings();
     // Never expose full Mollie keys to the frontend — mask them
@@ -52,6 +56,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   try {
     const body = await request.json();
     const current = await loadSettings();

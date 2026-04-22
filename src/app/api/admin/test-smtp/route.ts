@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import * as nodemailer from "nodemailer";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { BRAND } from "@/lib/brand";
+import { requireAdmin } from "@/lib/admin-auth";
 
 async function getSiteName(): Promise<string> {
   try {
@@ -15,6 +16,9 @@ async function getSiteName(): Promise<string> {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   try {
     const body = await request.json();
     const { to, provider } = body;

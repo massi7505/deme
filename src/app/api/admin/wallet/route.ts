@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { getWalletBalanceCents } from "@/lib/wallet";
+import { requireAdmin } from "@/lib/admin-auth";
 
 interface SiteSettings {
   refundsEnabled?: boolean;
@@ -35,6 +36,9 @@ function eurosToCents(value: string | undefined): number {
  * POST is disabled — all refunds go through /api/admin/transactions action=refund.
  */
 export async function GET(request: NextRequest) {
+  const auth = requireAdmin(request);
+  if (auth) return auth;
+
   const admin = createUntypedAdminClient();
   const companyId = request.nextUrl.searchParams.get("companyId");
   if (!companyId) {
