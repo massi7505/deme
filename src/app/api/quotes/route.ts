@@ -104,12 +104,6 @@ export async function POST(request: NextRequest) {
     // a legitimate submission on detection unavailability.
     let isFraudFlagged = false;
     try {
-      // Direct probe of the yopmail detection path, standalone from scoreLead,
-      // to see if the module / Set is actually loaded in prod.
-      const { isDisposableEmail: probeIsDisp } = await import("@/lib/fraud-detection");
-      const probeResult = probeIsDisp(body.email);
-      console.error("[fraud-debug] probe isDisposableEmail(", body.email, ")=", probeResult);
-
       const { score, reasons } = await scoreLead(
         {
           email: body.email,
@@ -123,7 +117,6 @@ export async function POST(request: NextRequest) {
         },
         { supabase, quoteId: quote.id }
       );
-      console.error("[fraud-debug] scored", JSON.stringify({ quoteId: quote.id, email: body.email, score, reasons }));
 
       if (score >= FRAUD_THRESHOLD) {
         const { error: flagErr } = await supabase
