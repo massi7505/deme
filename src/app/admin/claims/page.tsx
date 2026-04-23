@@ -5,6 +5,7 @@ import { cn, formatPrice, formatDateShort, formatDate } from "@/lib/utils";
 import {
   CheckCircle2, XCircle, Clock, Loader2, FileX, ChevronLeft,
   Send, RefreshCw, MessageSquare, AlertTriangle, CreditCard, Search,
+  Wallet, X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -79,6 +80,22 @@ export default function AdminClaims() {
   const [actionLoading, setActionLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
 
+  // Refund modal state — mirrors /admin/transactions flow
+  const [refundTarget, setRefundTarget] = useState<Claim | null>(null);
+  const [refunding, setRefunding] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundCardMode, setRefundCardMode] = useState(false);
+  const [refundSourceTxn, setRefundSourceTxn] = useState<{
+    id: string;
+    mollie_payment_id: string | null;
+  } | null>(null);
+  const [walletCaps, setWalletCaps] = useState<{
+    maxPercent: number;
+    monthRemaining: number;
+    yearRemaining: number;
+  } | null>(null);
+
   const fetchClaims = useCallback(async () => {
     setLoading(true);
     try {
@@ -152,9 +169,105 @@ export default function AdminClaims() {
       if (res.ok) {
         toast.success(`Statut mis à jour : ${STATUS_CONFIG[status]?.label || status}`);
         fetchClaims();
-      } else toast.error("Erreur");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Erreur");
+      }
     } catch { toast.error("Erreur"); }
     finally { setActionLoading(false); }
+  }
+
+  async function openRefund(claim: Claim) {
+    setRefundTarget(claim);
+    setRefundReason(`Réclamation : ${claim.reason}`);
+    setRefundCardMode(false);
+    setRefundSourceTxn(null);
+    setWalletCaps(null);
+
+    try {
+      const res = await fetch(`/api/admin/wallet?companyId=${claim.company_id}`);
+      const data = await res.json();
+      if (!data.caps?.refundsEnabled) {
+        toast.error("Remboursements désactivés dans les paramètres");
+        setRefundTarget(null);
+        return;
+      }
+      const maxPct = data.caps.maxPercent ?? 30;
+      const sourceTxn = (data.refundableTransactions || []).find(
+        (t: { quote_distribution_id: string | null; already_refunded: boolean }) =>
+          t.quote_distribution_id === claim.quote_distribution_id && !t.already_refunded
+      );
+      if (!sourceTxn) {
+        toast.error("Aucune transaction payée non-remboursée trouvée pour ce lead");
+        setRefundTarget(null);
+        return;
+      }
+      setRefundSourceTxn({
+        id: sourceTxn.id,
+        mollie_payment_id: sourceTxn.mollie_payment_id,
+      });
+      const capCents = Math.floor((Math.abs(sourceTxn.amount_cents) * maxPct) / 100);
+      setRefundAmount((capCents / 100).toFixed(2));
+      setWalletCaps({
+        maxPercent: maxPct,
+        monthRemaining: data.caps.monthRemainingCents ?? -1,
+        yearRemaining: data.caps.yearRemainingCents ?? -1,
+      });
+    } catch {
+      toast.error("Impossible de charger les plafonds");
+      setRefundTarget(null);
+    }
+  }
+
+  function closeRefund() {
+    if (refunding) return;
+    setRefundTarget(null);
+    setRefundAmount("");
+    setRefundReason("");
+    setRefundCardMode(false);
+    setRefundSourceTxn(null);
+    setWalletCaps(null);
+  }
+
+  async function submitRefund() {
+    if (!refundTarget) return;
+    const amount = parseFloat(refundAmount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Montant invalide");
+      return;
+    }
+    if (refundCardMode && !refundSourceTxn?.mollie_payment_id) {
+      toast.error("Transaction source sans Mollie — impossible de rembourser par carte");
+      return;
+    }
+    setRefunding(true);
+    try {
+      const res = await fetch("/api/admin/claims", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "refund",
+          claimId: refundTarget.id,
+          amountCents: Math.round(amount * 100),
+          method: refundCardMode ? "bank" : "wallet",
+          reason: refundReason || "Réclamation acceptée",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Erreur de remboursement");
+        return;
+      }
+      toast.success(
+        refundCardMode ? "Remboursement carte effectué" : "Portefeuille crédité"
+      );
+      closeRefund();
+      fetchClaims();
+    } catch {
+      toast.error("Erreur de remboursement");
+    } finally {
+      setRefunding(false);
+    }
   }
 
   async function handleReply() {
@@ -191,6 +304,161 @@ export default function AdminClaims() {
 
   const filtered = claims.filter(c => filterStatus === "all" || c.status === filterStatus);
 
+  // ─── REFUND MODAL (shared by list + detail view) ─────────
+  const refundModal = refundTarget && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={closeRefund}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-green-light,#f0fdf4)]">
+              <Wallet className="h-5 w-5 text-[var(--brand-green-dark,#16a34a)]" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Remboursement — réclamation</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {refundTarget.company_name}
+                {refundTarget.amount_cents > 0 && (
+                  <> · {formatPrice(refundTarget.amount_cents)} initial</>
+                )}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={closeRefund}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-gray-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">
+              Montant (€)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={refundAmount}
+              onChange={(e) => setRefundAmount(e.target.value)}
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green,#22c55e)]"
+              disabled={refunding}
+            />
+            {walletCaps && refundTarget.amount_cents > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Maximum autorisé :{" "}
+                <strong>
+                  {((refundTarget.amount_cents * walletCaps.maxPercent) / 10000).toFixed(2)} €
+                </strong>{" "}
+                ({walletCaps.maxPercent} % de {formatPrice(refundTarget.amount_cents)})
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">
+              Motif
+            </label>
+            <input
+              type="text"
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[var(--brand-green,#22c55e)]"
+              disabled={refunding}
+            />
+          </div>
+
+          {!refundCardMode && (
+            <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
+              <p>
+                Le montant est crédité sur le <strong>portefeuille</strong> du déménageur.
+                Un email de remboursement est envoyé automatiquement.
+              </p>
+              {walletCaps && (
+                <div className="mt-2 space-y-1">
+                  {walletCaps.monthRemaining >= 0 && (
+                    <p>
+                      Reste ce mois :{" "}
+                      <strong>{(walletCaps.monthRemaining / 100).toFixed(2)} €</strong>
+                    </p>
+                  )}
+                  {walletCaps.yearRemaining >= 0 && (
+                    <p>
+                      Reste sur 365 j :{" "}
+                      <strong>{(walletCaps.yearRemaining / 100).toFixed(2)} €</strong>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {refundCardMode && (
+            <div className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+              Remboursement sur la carte d&apos;origine via Mollie. Le montant quitte
+              définitivement le compte — les plafonds restent appliqués.
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={refundCardMode}
+              onChange={(e) => setRefundCardMode(e.target.checked)}
+              disabled={refunding || !refundSourceTxn?.mollie_payment_id}
+              className="rounded"
+            />
+            <span>
+              Rembourser sur la carte (Mollie)
+              {!refundSourceTxn?.mollie_payment_id && (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  — indisponible (pas de paiement Mollie)
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t bg-gray-50 p-4">
+          <button
+            onClick={closeRefund}
+            disabled={refunding}
+            className="rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={submitRefund}
+            disabled={refunding || !refundAmount || !refundSourceTxn}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50",
+              refundCardMode
+                ? "bg-amber-600 hover:bg-amber-700"
+                : "bg-[var(--brand-green-dark,#16a34a)] hover:brightness-110"
+            )}
+          >
+            {refunding ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Wallet className="h-3.5 w-3.5" />
+            )}
+            {refunding
+              ? "Remboursement..."
+              : refundCardMode
+              ? "Rembourser sur carte"
+              : "Créditer le portefeuille"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // ─── DETAIL VIEW ─────────────────────────────────────────
   if (selectedClaim) {
     const claim = selectedClaim;
@@ -200,6 +468,7 @@ export default function AdminClaims() {
 
     return (
       <div className="space-y-6">
+        {refundModal}
         <button onClick={() => setSelectedClaim(null)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-4 w-4" /> Retour aux réclamations
         </button>
@@ -218,16 +487,18 @@ export default function AdminClaims() {
           </div>
           <div className="flex items-center gap-2">
             <select
-              value={claim.status}
+              value={claim.status === "refunded" ? "refunded" : claim.status}
               onChange={(e) => handleStatusChange(claim.id, e.target.value)}
-              disabled={actionLoading}
+              disabled={actionLoading || claim.status === "refunded"}
               className="rounded-lg border px-3 py-1.5 text-sm"
             >
               <option value="pending">En attente</option>
               <option value="in_review">En cours de vérification</option>
               <option value="approved">Approuvé</option>
               <option value="rejected">Rejeté</option>
-              <option value="refunded">Remboursé</option>
+              {claim.status === "refunded" && (
+                <option value="refunded" disabled>Remboursé</option>
+              )}
             </select>
           </div>
         </div>
@@ -320,8 +591,8 @@ export default function AdminClaims() {
               <div className="p-4 space-y-2">
                 {claim.status !== "refunded" && (
                   <button
-                    onClick={() => handleStatusChange(claim.id, "refunded")}
-                    disabled={actionLoading}
+                    onClick={() => openRefund(claim)}
+                    disabled={actionLoading || refunding}
                     className="w-full flex items-center justify-center gap-2 rounded-lg border border-purple-200 bg-purple-50 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-50"
                   >
                     <CreditCard className="h-3.5 w-3.5" /> Rembourser
@@ -363,6 +634,7 @@ export default function AdminClaims() {
   // ─── LIST VIEW ───────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {refundModal}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold">Réclamations</h2>

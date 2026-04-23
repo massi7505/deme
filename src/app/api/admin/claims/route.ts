@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
-import { sendClaimResolvedEmail } from "@/lib/resend";
+import { sendClaimResolvedEmail, sendRefundEmail, sendWalletRefundEmail } from "@/lib/resend";
+import { createRefund, type RefundMethod } from "@/lib/wallet";
 import { BRAND } from "@/lib/brand";
 import { requireAdmin } from "@/lib/admin-auth";
 
@@ -159,10 +160,18 @@ export async function POST(request: NextRequest) {
   const supabase = createUntypedAdminClient();
   const body = await request.json();
 
-  // Update status
+  // Update status. Note: "refunded" is not allowed here — it must go through
+  // the `refund` action below so the wallet/bank flow + guardrails run.
   if (body.action === "update_status") {
+    if (body.status === "refunded") {
+      return NextResponse.json(
+        { error: "Utilisez l'action 'refund' pour rembourser" },
+        { status: 400 }
+      );
+    }
+
     const updates: Record<string, unknown> = { status: body.status };
-    if (["approved", "rejected", "refunded"].includes(body.status)) {
+    if (["approved", "rejected"].includes(body.status)) {
       updates.resolved_at = new Date().toISOString();
     }
 
@@ -174,7 +183,7 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     // Send resolution email to mover
-    if (["approved", "rejected", "refunded"].includes(body.status)) {
+    if (["approved", "rejected"].includes(body.status)) {
       const { data: claimForEmail } = await supabase.from("claims").select("company_id, reason").eq("id", body.id).single();
       if (claimForEmail) {
         const { data: comp } = await supabase
@@ -186,39 +195,135 @@ export async function POST(request: NextRequest) {
           await sendClaimResolvedEmail(
             comp.email_contact,
             comp.name,
-            body.status as "approved" | "rejected" | "refunded",
+            body.status as "approved" | "rejected",
             claimForEmail.reason || "Réclamation"
           ).catch((err) => console.error("Claim resolved email error:", err));
         }
       }
     }
 
-    // If refunded, create refund transaction + update distribution
-    if (body.status === "refunded") {
-      const { data: claim } = await supabase.from("claims").select("*").eq("id", body.id).single();
-      if (claim) {
-        const { data: dist } = await supabase
-          .from("quote_distributions")
-          .select("price_cents")
-          .eq("id", claim.quote_distribution_id)
-          .single();
+    return NextResponse.json({ success: true });
+  }
 
-        await supabase.from("transactions").insert({
-          company_id: claim.company_id,
-          quote_distribution_id: claim.quote_distribution_id,
-          amount_cents: dist?.price_cents || 1200,
-          type: "refund",
-          status: "refunded",
-        });
+  // Unified refund for a claim — routes through /lib/wallet.createRefund so
+  // wallet/bank methods, percent caps, cooldown and monthly/yearly limits
+  // all run. Body: { claimId, amountCents, method, reason, adminNote? }
+  if (body.action === "refund") {
+    const {
+      claimId,
+      amountCents,
+      method = "wallet",
+      reason,
+      adminNote,
+    } = body as {
+      claimId?: string;
+      amountCents?: number;
+      method?: RefundMethod;
+      reason?: string;
+      adminNote?: string;
+    };
 
-        await supabase
-          .from("quote_distributions")
-          .update({ status: "refunded" })
-          .eq("id", claim.quote_distribution_id);
-      }
+    if (!claimId) {
+      return NextResponse.json({ error: "claimId requis" }, { status: 400 });
+    }
+    if (!amountCents || amountCents <= 0) {
+      return NextResponse.json({ error: "Montant invalide" }, { status: 400 });
+    }
+    if (method !== "wallet" && method !== "bank") {
+      return NextResponse.json({ error: "Méthode invalide" }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true });
+    const { data: claim } = await supabase
+      .from("claims")
+      .select("id, company_id, quote_distribution_id, reason, status")
+      .eq("id", claimId)
+      .maybeSingle();
+    if (!claim) {
+      return NextResponse.json({ error: "Réclamation introuvable" }, { status: 404 });
+    }
+    if (claim.status === "refunded") {
+      return NextResponse.json(
+        { error: "Réclamation déjà remboursée" },
+        { status: 409 }
+      );
+    }
+    if (!claim.quote_distribution_id) {
+      return NextResponse.json(
+        { error: "Réclamation sans distribution liée" },
+        { status: 400 }
+      );
+    }
+
+    // Find the paid unlock/lead_purchase transaction for this distribution —
+    // that's the source we refund against.
+    const { data: source } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("quote_distribution_id", claim.quote_distribution_id)
+      .eq("status", "paid")
+      .in("type", ["unlock", "lead_purchase"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!source) {
+      return NextResponse.json(
+        { error: "Aucune transaction payée trouvée pour ce lead" },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const result = await createRefund(supabase, {
+        sourceTransactionId: source.id,
+        amountCents: Math.round(amountCents),
+        method,
+        reason: (reason || "Réclamation acceptée").trim(),
+        adminNote: adminNote || null,
+      });
+
+      // Mark claim as refunded
+      await supabase
+        .from("claims")
+        .update({ status: "refunded", resolved_at: new Date().toISOString() })
+        .eq("id", claimId);
+
+      const emailTo = result.company.email_contact;
+      if (emailTo) {
+        if (method === "wallet" && result.expiresAt) {
+          await sendWalletRefundEmail(
+            emailTo,
+            result.company.name,
+            result.amountCents,
+            result.expiresAt,
+            result.newBalance
+          ).catch((err) => console.error("[claim refund] wallet email error:", err));
+        } else if (method === "bank") {
+          await sendRefundEmail(
+            emailTo,
+            result.company.name,
+            result.amountCents
+          ).catch((err) => console.error("[claim refund] bank email error:", err));
+        }
+        await sendClaimResolvedEmail(
+          emailTo,
+          result.company.name,
+          "refunded",
+          claim.reason || "Réclamation"
+        ).catch((err) => console.error("[claim refund] resolved email error:", err));
+      }
+
+      return NextResponse.json({
+        success: true,
+        method: result.method,
+        amountCents: result.amountCents,
+        percent: result.percent,
+        newBalance: result.newBalance,
+      });
+    } catch (err) {
+      const msg = (err as Error).message;
+      console.error("[claim refund] createRefund failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
   }
 
   // Add admin reply
