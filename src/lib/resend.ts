@@ -257,6 +257,9 @@ export async function sendWalletExpiryWarningEmail(
     month: "long",
     year: "numeric",
   });
+  // SECURITY: creditLines is injected raw into the template (HTML pass-through).
+  // Only deterministic formatters may feed it. If you add a field sourced from
+  // user or DB text (e.g. a refund reason), escape it with escapeHtml first.
   const creditLines = credits
     .map((c) => {
       const amount = new Intl.NumberFormat("fr-FR", {
@@ -269,7 +272,7 @@ export async function sendWalletExpiryWarningEmail(
     .join("");
   const thresholdLabel = threshold === 7 ? "7 jours" : "30 jours";
   return sendTemplated("walletExpiryWarning", to, {
-    companyName,
+    companyName: escapeHtml(companyName),
     thresholdLabel,
     totalAmount,
     creditLines,
