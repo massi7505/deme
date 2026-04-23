@@ -31,22 +31,26 @@ export async function POST(request: NextRequest) {
   try {
     payload = await buildClientExport(admin, { email, prospectId });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    console.error("[gdpr/export] buildClientExport failed", err);
+    return NextResponse.json({ error: "Erreur technique" }, { status: 500 });
   }
 
-  // Always log — even an empty export counts as "request handled in time".
-  const emailHash = payload.requestedFor
-    ? hashEmail(payload.requestedFor)
-    : "";
-  if (emailHash) {
-    await admin.from("gdpr_requests").insert({
-      action: "export",
-      email_hash: emailHash,
-      admin_email: adminEmail,
-      affected_rows: 0,
-      notes: typeof body.notes === "string" ? body.notes.slice(0, 500) : null,
-    });
-  }
+  // Always log — even an empty export counts as "request handled in time"
+  // under RGPD (1-month deadline). Hash source priority: resolved email
+  // from found rows → input email → prospectId (tagged to avoid collisions
+  // with real email hashes).
+  const hashSource =
+    payload.requestedFor ||
+    email ||
+    (prospectId ? `prospect:${prospectId}` : "");
+  const emailHash = hashSource ? hashEmail(hashSource) : "";
+  await admin.from("gdpr_requests").insert({
+    action: "export",
+    email_hash: emailHash,
+    admin_email: adminEmail,
+    affected_rows: 0,
+    notes: typeof body.notes === "string" ? body.notes.slice(0, 500) : null,
+  });
 
   const today = new Date().toISOString().slice(0, 10);
   const firstProspect = payload.quoteRequests[0]?.prospect_id || "unknown";

@@ -210,23 +210,30 @@ export async function buildClientExport(
     // Rate-limit summary: count events within ±2h of each quote creation
     // for the public form endpoints. Avoid exposing raw IPs (they can be
     // shared by unrelated users).
+    //
+    // Dedup by row id: two quotes created within 4h of each other produce
+    // overlapping windows; a single event would otherwise be counted twice,
+    // inflating the CNIL-facing number.
     const windows = quotes.map((q) => ({
       lo: new Date(new Date(q.created_at).getTime() - 2 * 3600_000).toISOString(),
       hi: new Date(new Date(q.created_at).getTime() + 2 * 3600_000).toISOString(),
     }));
     const endpointSet = new Set<string>();
+    const eventIdSet = new Set<string>();
     for (const w of windows) {
       const { data: rlRows } = await admin
         .from("rate_limit_events")
-        .select("endpoint")
+        .select("id, endpoint")
         .gte("created_at", w.lo)
         .lte("created_at", w.hi)
         .in("endpoint", ["quotes", "verify-email", "verify-phone"]);
-      for (const r of (rlRows || []) as Array<{ endpoint: string }>) {
+      for (const r of (rlRows || []) as Array<{ id: string; endpoint: string }>) {
+        if (eventIdSet.has(r.id)) continue;
+        eventIdSet.add(r.id);
         endpointSet.add(r.endpoint);
-        rateLimitCount += 1;
       }
     }
+    rateLimitCount = eventIdSet.size;
     rateLimitEndpoints = Array.from(endpointSet);
   }
 

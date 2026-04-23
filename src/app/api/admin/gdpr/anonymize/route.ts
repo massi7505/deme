@@ -41,40 +41,45 @@ export async function POST(request: NextRequest) {
   // Capture the original email BEFORE anonymization so we can hash it
   // for the audit log. Pick the first row's email (all ids in one request
   // should belong to the same client — enforced by the UI, not the API).
-  const { data: preRows } = await admin
+  const { data: preRows, error: preErr } = await admin
     .from("quote_requests")
     .select("id, client_email")
     .in("id", idList);
 
-  const originalEmail =
-    ((preRows || [])[0] as { client_email: string | null } | undefined)
-      ?.client_email || null;
-
-  const affected = {
-    quoteRequests: 0,
-    reviews: 0,
-    reviewTokens: 0,
-    rateLimitEvents: 0,
-  };
-
-  for (const id of idList) {
-    const { data, error } = await admin.rpc("anonymize_quote_request", {
-      p_quote_request_id: id,
-    });
-    if (error) {
-      return NextResponse.json(
-        { error: `RPC error on ${id}: ${error.message}` },
-        { status: 500 }
-      );
-    }
-    const row = (Array.isArray(data) ? data[0] : data) as AnonymizeCounts | null;
-    if (row) {
-      affected.quoteRequests += row.quote_requests_updated;
-      affected.reviews += row.reviews_updated;
-      affected.reviewTokens += row.review_tokens_deleted;
-      affected.rateLimitEvents += row.rate_limit_deleted;
-    }
+  if (preErr) {
+    console.error("[gdpr/anonymize] pre-fetch failed", preErr);
+    return NextResponse.json({ error: "Erreur technique" }, { status: 500 });
   }
+
+  // Ghost-delete guard: every id must resolve. Silent zero-count returns
+  // would orphan the audit log (no email to hash).
+  if (!preRows || preRows.length !== idList.length) {
+    return NextResponse.json(
+      { error: "Certains identifiants sont introuvables — rechargez la page" },
+      { status: 400 }
+    );
+  }
+
+  const originalEmail =
+    ((preRows[0] as { client_email: string | null } | undefined)
+      ?.client_email) || null;
+
+  // Single-transaction batch RPC (migration 027). Rolls back atomically
+  // if any step fails mid-batch.
+  const { data, error } = await admin.rpc("anonymize_quote_requests", {
+    p_quote_request_ids: idList,
+  });
+  if (error) {
+    console.error("[gdpr/anonymize] RPC failed", { idList, error });
+    return NextResponse.json({ error: "Erreur technique" }, { status: 500 });
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as AnonymizeCounts | null;
+  const affected = {
+    quoteRequests: row?.quote_requests_updated ?? 0,
+    reviews: row?.reviews_updated ?? 0,
+    reviewTokens: row?.review_tokens_deleted ?? 0,
+    rateLimitEvents: row?.rate_limit_deleted ?? 0,
+  };
 
   const totalAffected =
     affected.quoteRequests +

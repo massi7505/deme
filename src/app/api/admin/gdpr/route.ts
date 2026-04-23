@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
     .limit(50);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[gdpr/history] fetch failed", error);
+    return NextResponse.json({ error: "Erreur technique" }, { status: 500 });
   }
   return NextResponse.json({ history: data || [] });
 }
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
     const result = await findClientQuotes(admin, { email, prospectId });
     return NextResponse.json(result);
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    console.error("[gdpr/search] findClientQuotes failed", err);
+    return NextResponse.json({ error: "Erreur technique" }, { status: 500 });
   }
 }
