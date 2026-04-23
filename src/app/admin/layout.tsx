@@ -20,6 +20,7 @@ import {
   BookOpenCheck,
   Menu,
   X,
+  ShieldAlert,
 } from "lucide-react";
 
 const ADMIN_NAV = [
@@ -32,6 +33,7 @@ const ADMIN_NAV = [
   { href: "/admin/blog", label: "Blog", icon: Newspaper },
   { href: "/admin/pages", label: "Pages CMS", icon: FileEdit },
   { href: "/admin/reviews", label: "Avis", icon: Star },
+  { href: "/admin/gdpr", label: "RGPD", icon: ShieldAlert },
   { href: "/admin/settings", label: "Paramètres", icon: Settings },
 ];
 
