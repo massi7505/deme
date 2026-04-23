@@ -83,52 +83,87 @@ async function sendTemplated(
 }
 
 export async function sendQuoteConfirmation(to: string, clientName: string, fromCity: string, toCity: string, prospectId: string) {
-  return sendTemplated("quoteConfirmation", to, { clientName, fromCity, toCity, prospectId });
+  return sendTemplated("quoteConfirmation", to, {
+    clientName: escapeHtml(clientName),
+    fromCity: escapeHtml(fromCity),
+    toCity: escapeHtml(toCity),
+    prospectId,
+  });
 }
 
 export async function sendNewLeadNotification(to: string, companyName: string, fromCity: string, toCity: string, leadId: string) {
-  return sendTemplated("newLead", to, { companyName, fromCity, toCity, leadId });
+  return sendTemplated("newLead", to, {
+    companyName: escapeHtml(companyName),
+    fromCity: escapeHtml(fromCity),
+    toCity: escapeHtml(toCity),
+    leadId,
+  });
 }
 
 export async function sendWelcomeEmail(to: string, companyName: string) {
-  return sendTemplated("welcome", to, { companyName });
+  return sendTemplated("welcome", to, { companyName: escapeHtml(companyName) });
 }
 
 export async function sendContactForm(name: string, email: string, subject: string, message: string) {
-  // Contact form stays hardcoded — not a template the admin needs to edit
+  // Contact form stays hardcoded — not a template the admin needs to edit.
+  // Every field is user-controlled, so escape before interpolating.
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safeSubject = escapeHtml(subject);
+  const safeMessage = escapeHtml(message).replace(/\n/g, "<br />");
   return getResend().emails.send({
     from: FROM,
     to: ADMIN_EMAIL,
     replyTo: email,
     subject: `[Contact] ${subject} - ${name}`,
-    html: `<div style="font-family:system-ui,sans-serif"><h2>Nouveau message de contact</h2><p><strong>Nom :</strong> ${name}</p><p><strong>Email :</strong> ${email}</p><p><strong>Sujet :</strong> ${subject}</p><hr/><p>${message.replace(/\n/g, "<br />")}</p></div>`,
+    html: `<div style="font-family:system-ui,sans-serif"><h2>Nouveau message de contact</h2><p><strong>Nom :</strong> ${safeName}</p><p><strong>Email :</strong> ${safeEmail}</p><p><strong>Sujet :</strong> ${safeSubject}</p><hr/><p>${safeMessage}</p></div>`,
   });
 }
 
 export async function sendInvoiceEmail(to: string, companyName: string, invoiceNumber: string, amountCents: number, description: string) {
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
-  return sendTemplated("invoice", to, { companyName, amount, invoiceNumber, description });
+  return sendTemplated("invoice", to, {
+    companyName: escapeHtml(companyName),
+    amount,
+    invoiceNumber,
+    description: escapeHtml(description),
+  });
 }
 
 export async function sendPaymentFailedEmail(to: string, companyName: string, amountCents: number, dateTime: string) {
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
-  return sendTemplated("paymentFailed", to, { companyName, amount, dateTime });
+  return sendTemplated("paymentFailed", to, {
+    companyName: escapeHtml(companyName),
+    amount,
+    dateTime,
+  });
 }
 
 export async function sendKycApprovedEmail(to: string, companyName: string) {
-  return sendTemplated("kycApproved", to, { companyName });
+  return sendTemplated("kycApproved", to, { companyName: escapeHtml(companyName) });
 }
 
 export async function sendKycRejectedEmail(to: string, companyName: string, reason: string) {
-  return sendTemplated("kycRejected", to, { companyName, reason });
+  return sendTemplated("kycRejected", to, {
+    companyName: escapeHtml(companyName),
+    reason: escapeHtml(reason),
+  });
 }
 
 export async function sendClaimReceivedEmail(to: string, companyName: string, reason: string, claimId: string) {
-  return sendTemplated("claimReceived", to, { companyName, reason, claimRef: claimId.slice(0, 8).toUpperCase() });
+  return sendTemplated("claimReceived", to, {
+    companyName: escapeHtml(companyName),
+    reason: escapeHtml(reason),
+    claimRef: claimId.slice(0, 8).toUpperCase(),
+  });
 }
 
 export async function notifyAdminNewClaim(companyName: string, reason: string, claimId: string) {
-  return sendTemplated("adminNewClaim", ADMIN_EMAIL, { companyName, reason, claimRef: claimId.slice(0, 8).toUpperCase() });
+  return sendTemplated("adminNewClaim", ADMIN_EMAIL, {
+    companyName: escapeHtml(companyName),
+    reason: escapeHtml(reason),
+    claimRef: claimId.slice(0, 8).toUpperCase(),
+  });
 }
 
 export async function sendClaimResolvedEmail(to: string, companyName: string, status: "approved" | "rejected" | "refunded", reason: string) {
@@ -138,12 +173,18 @@ export async function sendClaimResolvedEmail(to: string, companyName: string, st
     refunded: { label: "Remboursée", color: "#2563eb", bg: "#eff6ff" },
   };
   const s = labels[status] || labels.approved;
-  return sendTemplated("claimResolved", to, { companyName, reason, statusLabel: s.label, statusColor: s.color, statusBg: s.bg });
+  return sendTemplated("claimResolved", to, {
+    companyName: escapeHtml(companyName),
+    reason: escapeHtml(reason),
+    statusLabel: s.label,
+    statusColor: s.color,
+    statusBg: s.bg,
+  });
 }
 
 export async function sendRefundEmail(to: string, companyName: string, amountCents: number) {
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
-  return sendTemplated("refund", to, { companyName, amount });
+  return sendTemplated("refund", to, { companyName: escapeHtml(companyName), amount });
 }
 
 export async function sendReviewReminderEmail(
@@ -154,16 +195,18 @@ export async function sendReviewReminderEmail(
 ) {
   const baseUrl = emailBaseUrl();
   const link = `${baseUrl}/avis/${token}`;
-  const siteName = await getSiteName();
-  const greeting = clientFirstName ? `Bonjour ${clientFirstName},` : "Bonjour,";
+  const siteName = escapeHtml(await getSiteName());
+  const safeFirstName = escapeHtml(clientFirstName);
+  const safeCompanyName = escapeHtml(companyName);
+  const greeting = clientFirstName ? `Bonjour ${safeFirstName},` : "Bonjour,";
   const subject = `Un petit rappel — votre avis sur ${companyName} ?`;
   const body = `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111;">
   <h1 style="font-size: 20px; margin: 0 0 16px;">${greeting}</h1>
   <p style="line-height: 1.6; margin: 0 0 16px;">
-    Il y a deux semaines, <strong>${companyName}</strong> s'est occupé de votre déménagement. Nous vous avions envoyé un lien pour laisser un avis.
+    Il y a deux semaines, <strong>${safeCompanyName}</strong> s'est occupé de votre déménagement. Nous vous avions envoyé un lien pour laisser un avis.
   </p>
   <p style="line-height: 1.6; margin: 0 0 24px;">
-    Si vous avez <strong>30 secondes</strong>, votre retour aidera les prochains clients à choisir — et aidera ${companyName} à s'améliorer si quelque chose s'est mal passé.
+    Si vous avez <strong>30 secondes</strong>, votre retour aidera les prochains clients à choisir — et aidera ${safeCompanyName} à s'améliorer si quelque chose s'est mal passé.
   </p>
   <p style="text-align: center; margin: 32px 0;">
     <a href="${link}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
@@ -190,13 +233,15 @@ export async function sendReviewRequestEmail(
 ) {
   const baseUrl = emailBaseUrl();
   const link = `${baseUrl}/avis/${token}`;
-  const siteName = await getSiteName();
-  const greeting = clientFirstName ? `Bonjour ${clientFirstName},` : "Bonjour,";
+  const siteName = escapeHtml(await getSiteName());
+  const safeFirstName = escapeHtml(clientFirstName);
+  const safeCompanyName = escapeHtml(companyName);
+  const greeting = clientFirstName ? `Bonjour ${safeFirstName},` : "Bonjour,";
   const subject = `Votre avis sur ${companyName} compte pour d'autres clients`;
   const body = `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111;">
   <h1 style="font-size: 20px; margin: 0 0 16px;">${greeting}</h1>
   <p style="line-height: 1.6; margin: 0 0 16px;">
-    Il y a environ une semaine, <strong>${companyName}</strong> s'est occupé de votre déménagement via ${siteName}.
+    Il y a environ une semaine, <strong>${safeCompanyName}</strong> s'est occupé de votre déménagement via ${siteName}.
   </p>
   <p style="line-height: 1.6; margin: 0 0 24px;">
     Votre retour aide les prochains clients à faire le bon choix. Cela ne prend que <strong>30 secondes</strong>.
@@ -233,7 +278,12 @@ export async function sendWalletRefundEmail(
     month: "long",
     year: "numeric",
   }).format(new Date(expiresAt));
-  return sendTemplated("walletRefund", to, { companyName, amount, expiryDate, balance });
+  return sendTemplated("walletRefund", to, {
+    companyName: escapeHtml(companyName),
+    amount,
+    expiryDate,
+    balance,
+  });
 }
 
 /**
@@ -281,12 +331,20 @@ export async function sendWalletExpiryWarningEmail(
 
 export async function notifyAdminPaymentSuccess(companyName: string, amountCents: number, invoiceNumber: string) {
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
-  return sendTemplated("adminPaymentSuccess", ADMIN_EMAIL, { companyName, amount, invoiceNumber });
+  return sendTemplated("adminPaymentSuccess", ADMIN_EMAIL, {
+    companyName: escapeHtml(companyName),
+    amount,
+    invoiceNumber,
+  });
 }
 
 export async function notifyAdminPaymentFailed(companyName: string, amountCents: number, dateTime: string) {
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
-  return sendTemplated("adminPaymentFailed", ADMIN_EMAIL, { companyName, amount, dateTime });
+  return sendTemplated("adminPaymentFailed", ADMIN_EMAIL, {
+    companyName: escapeHtml(companyName),
+    amount,
+    dateTime,
+  });
 }
 
 export async function sendPasswordResetEmail(to: string, otpCode: string, expiryMinutes: number) {
@@ -304,7 +362,7 @@ export async function sendQuoteVerificationEmail(
   verifyUrl: string
 ) {
   return sendTemplated("quoteVerification", to, {
-    clientName,
+    clientName: escapeHtml(clientName),
     otpCode,
     expiryMinutes: String(expiryMinutes),
     verifyUrl,
@@ -344,12 +402,15 @@ export async function notifyAdminLeadCompleted(
   toCity: string
 ) {
   // Inline template: this is a notice to admin only, no need for DB override.
-  const route = `${fromCity || "?"} → ${toCity || "?"}`;
+  // fromCity / toCity are user-controlled (quote form). Escape before HTML.
+  const safeFrom = escapeHtml(fromCity || "?");
+  const safeTo = escapeHtml(toCity || "?");
+  const safeRoute = `${safeFrom} → ${safeTo}`;
   const html = `<div style="font-family:system-ui,sans-serif;padding:24px;max-width:560px">
     <h2 style="margin:0 0 12px">Lead terminé — 6 acheteurs atteints</h2>
     <p style="margin:0 0 8px;color:#555">Le lead <strong>${prospectId}</strong> a été vendu 6 fois. Il est désormais masqué du marketplace des déménageurs.</p>
     <ul style="margin:8px 0 16px;padding-left:20px;color:#333">
-      <li><strong>Trajet :</strong> ${route}</li>
+      <li><strong>Trajet :</strong> ${safeRoute}</li>
       <li><strong>Référence interne :</strong> ${quoteId}</li>
     </ul>
     <p style="margin:0;font-size:12px;color:#888">Ce message est automatique.</p>
@@ -357,7 +418,7 @@ export async function notifyAdminLeadCompleted(
   return getResend().emails.send({
     from: FROM,
     to: ADMIN_EMAIL,
-    subject: `[Lead terminé] ${prospectId} — ${route}`,
+    subject: `[Lead terminé] ${prospectId} — ${fromCity || "?"} → ${toCity || "?"}`,
     html,
   });
 }
@@ -371,9 +432,9 @@ export async function notifyAdminDistributionFailed(
 ) {
   return sendTemplated("adminDistributionFailed", ADMIN_EMAIL, {
     quoteId,
-    clientName,
-    fromCity,
-    toCity,
-    errorMessage,
+    clientName: escapeHtml(clientName),
+    fromCity: escapeHtml(fromCity),
+    toCity: escapeHtml(toCity),
+    errorMessage: escapeHtml(errorMessage),
   });
 }
