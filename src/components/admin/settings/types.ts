@@ -121,6 +121,7 @@ export const EMAIL_TEMPLATE_DEFS: {
   { key: "claimResolved", label: "Réclamation résolue", category: "Déménageur", variables: ["siteName", "companyName", "reason", "statusLabel", "statusColor", "statusBg", "baseUrl"] },
   { key: "refund", label: "Remboursement", category: "Déménageur", variables: ["siteName", "companyName", "amount", "baseUrl"] },
   { key: "walletRefund", label: "Remboursement portefeuille", category: "Déménageur", variables: ["siteName", "companyName", "amount", "expiryDate", "balance", "baseUrl"] },
+  { key: "walletExpiryWarning", label: "Expiration crédits portefeuille", category: "Déménageur", variables: ["siteName", "companyName", "thresholdLabel", "totalAmount", "creditLines", "baseUrl"] },
   { key: "adminPaymentSuccess", label: "Paiement reçu", category: "Admin", variables: ["siteName", "companyName", "amount", "invoiceNumber", "baseUrl"] },
   { key: "adminPaymentFailed", label: "Paiement échoué", category: "Admin", variables: ["siteName", "companyName", "amount", "dateTime", "baseUrl"] },
   { key: "adminNewClaim", label: "Nouvelle réclamation", category: "Admin", variables: ["siteName", "companyName", "reason", "claimRef", "baseUrl"] },
@@ -270,6 +271,20 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
   <p style="margin:6px 0 0;color:#6b7280;font-size:13px;">Ce crédit est automatiquement utilisé en priorité sur votre prochain achat de lead — 0 action requise.</p>
 </div>
 <a href="{{baseUrl}}/facturation" style="${BTN_PRIMARY}">Voir mon portefeuille</a>`,
+  },
+  walletExpiryWarning: {
+    subject: "⏳ {{totalAmount}} de crédit portefeuille expirent sous {{thresholdLabel}}",
+    body: `<h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#111827;">Bonjour {{companyName}},</h2>
+<p style="margin:0 0 16px;color:#374151;">Vous avez <strong>{{totalAmount}}</strong> de crédit portefeuille qui vont expirer dans les <strong>{{thresholdLabel}}</strong> à venir.</p>
+<div style="${CALLOUT_AMBER}">
+  <p style="margin:0 0 10px;font-weight:600;color:#92400e;">Détail des crédits concernés</p>
+  <ul style="margin:0;padding-left:20px;color:#374151;">
+    {{creditLines}}
+  </ul>
+</div>
+<p style="margin:0 0 16px;color:#374151;">Ces crédits sont utilisés automatiquement sur vos prochains achats de leads — il suffit d&apos;acheter avant la date d&apos;expiration pour ne rien perdre.</p>
+<a href="{{baseUrl}}/demandes-de-devis" style="${BTN_PRIMARY}">Voir les leads disponibles</a>
+<p style="margin:24px 0 0;font-size:13px;color:#6b7280;">Passé la date d&apos;expiration, les crédits sont définitivement retirés de votre solde.</p>`,
   },
   adminPaymentSuccess: {
     subject: "💰 Paiement confirmé — {{amount}} de {{companyName}}",
