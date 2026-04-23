@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { sendClaimReceivedEmail, notifyAdminNewClaim } from "@/lib/resend";
 import { checkAndFlagDefectiveLead, isHardReason } from "@/lib/defect-detection";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,15 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
+    const ip = getClientIp(request);
+    const rl = await checkIpRateLimit(ip, "dashboard/claims", 3600, 20);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Trop de réclamations, réessayez plus tard" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 3600) } }
+      );
     }
 
     const admin = createUntypedAdminClient();

@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rl = await checkIpRateLimit(ip, "public/reviews:POST", 3600, 10);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes, réessayez plus tard" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 3600) } }
+    );
+  }
+
   const admin = createUntypedAdminClient();
   const body = await request.json().catch(() => ({}));
 
@@ -92,6 +102,15 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rl = await checkIpRateLimit(ip, "public/reviews:GET", 600, 30);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes, réessayez plus tard" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 600) } }
+    );
+  }
+
   const admin = createUntypedAdminClient();
   const token = request.nextUrl.searchParams.get("token");
   if (!token) {

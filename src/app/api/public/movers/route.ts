@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { REGIONS, REGION_SLUGS } from "@/lib/utils";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rl = await checkIpRateLimit(ip, "public/movers", 60, 60);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 60) } }
+    );
+  }
+
   const supabase = createUntypedAdminClient();
   const { searchParams } = request.nextUrl;
 
@@ -33,7 +43,14 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%`);
+    // Strip PostgREST filter delimiters (,()\) + % so user input can't break
+    // out of the .or() grammar and inject extra filters. Keep letters (incl.
+    // accents), digits, space, hyphen, apostrophe — enough for FR company +
+    // city names. Cap length so huge strings can't blow up the query.
+    const safe = search.replace(/[^a-zA-Z0-9À-ÖØ-öø-ÿ\s'-]/g, "").slice(0, 80);
+    if (safe) {
+      query = query.or(`name.ilike.%${safe}%,city.ilike.%${safe}%`);
+    }
   }
 
   const { data, error } = await query;

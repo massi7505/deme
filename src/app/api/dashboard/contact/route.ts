@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { notifyAdminNewClaim, sendClaimReceivedEmail } from "@/lib/resend";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const VALID_SUBJECTS = [
   "Question commerciale",
@@ -18,6 +19,15 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  const ip = getClientIp(request);
+  const rl = await checkIpRateLimit(ip, "dashboard/contact", 3600, 5);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de messages, réessayez plus tard" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 3600) } }
+    );
   }
 
   const admin = createUntypedAdminClient();

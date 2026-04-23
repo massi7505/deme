@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { verifyAdminToken } from "@/lib/admin-auth";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const ip = getClientIp(request);
+  const rl = await checkIpRateLimit(ip, "public/blog/slug", 60, 120);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 60) } }
+    );
+  }
+
   const { slug } = await params;
   const supabase = createUntypedAdminClient();
 

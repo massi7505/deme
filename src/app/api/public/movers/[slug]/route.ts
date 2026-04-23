@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { findPredefinedAnswer } from "@/lib/predefined-qna";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const ip = getClientIp(request);
+  const rl = await checkIpRateLimit(ip, "public/movers/slug", 60, 120);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 60) } }
+    );
+  }
+
   const supabase = createUntypedAdminClient();
 
   const { data: company, error } = await supabase
@@ -25,9 +35,9 @@ export async function GET(
     return NextResponse.json({ error: "Entreprise non trouvée" }, { status: 404 });
   }
 
-  // Fetch all Q&A for this company. Backfill empty answers on-the-fly from
-  // the predefined library, persist the backfilled answers so the mover sees
-  // them next time too, and only return rows that actually have content.
+  // Fetch all Q&A for this company. Empty answers get filled in the response
+  // from the predefined library (read-only) so anonymous GETs never write to
+  // the DB. Persistence happens in the authenticated dashboard profile GET.
   const { data: qnaRaw } = await supabase
     .from("company_qna")
     .select("id, question, answer, order_index")
@@ -41,22 +51,14 @@ export async function GET(
     order_index: number;
   }>;
 
-  const needBackfill = rows.filter(
-    (r) => (!r.answer || r.answer.trim() === "") && findPredefinedAnswer(r.question) !== null
-  );
-  if (needBackfill.length > 0) {
-    await Promise.all(
-      needBackfill.map((r) => {
-        const answer = findPredefinedAnswer(r.question)!;
-        r.answer = answer;
-        return supabase.from("company_qna").update({ answer }).eq("id", r.id);
-      })
-    );
-  }
-
   const company_qna = rows
-    .filter((r) => r.answer && r.answer.trim() !== "")
-    .map(({ id, question, answer, order_index }) => ({ id, question, answer, order_index }));
+    .map(({ id, question, answer, order_index }) => ({
+      id,
+      question,
+      answer: answer && answer.trim() !== "" ? answer : findPredefinedAnswer(question),
+      order_index,
+    }))
+    .filter((r) => r.answer && r.answer.trim() !== "");
 
   // Public gallery: only approved photos, capped at 4, oldest first so the
   // mover's first choices stay stable as they add new ones.

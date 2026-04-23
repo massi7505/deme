@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { REGIONS } from "@/lib/utils";
+
+const VALID_DEPT_CODES = new Set<string>(Object.values(REGIONS).flat());
+const VALID_CATEGORIES = new Set(["national", "entreprise", "international"]);
+
+function sanitizeCategories(input: unknown): string[] {
+  if (!Array.isArray(input)) return ["national"];
+  const clean = input.filter(
+    (v): v is string => typeof v === "string" && VALID_CATEGORIES.has(v)
+  );
+  return clean.length > 0 ? Array.from(new Set(clean)) : ["national"];
+}
 
 export async function GET() {
   const supabase = await createClient();
@@ -68,11 +80,15 @@ export async function POST(request: NextRequest) {
   if (action === "add_region") {
     const { department_code, categories } = body;
 
+    if (typeof department_code !== "string" || !VALID_DEPT_CODES.has(department_code)) {
+      return NextResponse.json({ error: "Code département invalide" }, { status: 400 });
+    }
+
     const { data, error } = await admin.from("company_regions").insert({
       company_id: company.id,
       department_code,
       department_name: department_code,
-      categories: categories || ["national"],
+      categories: sanitizeCategories(categories),
     }).select().single();
 
     if (error) {
@@ -103,13 +119,30 @@ export async function POST(request: NextRequest) {
   if (action === "add_radius") {
     const { departure_city, lat, lng, radius_km, move_types } = body;
 
+    const city = typeof departure_city === "string" ? departure_city.trim().slice(0, 100) : "";
+    if (!city) {
+      return NextResponse.json({ error: "Ville de départ requise" }, { status: 400 });
+    }
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
+    const radiusNum = Number(radius_km);
+    if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) {
+      return NextResponse.json({ error: "Latitude invalide" }, { status: 400 });
+    }
+    if (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180) {
+      return NextResponse.json({ error: "Longitude invalide" }, { status: 400 });
+    }
+    if (!Number.isFinite(radiusNum) || radiusNum <= 0 || radiusNum > 2000) {
+      return NextResponse.json({ error: "Rayon invalide (1-2000 km)" }, { status: 400 });
+    }
+
     const { data, error } = await admin.from("company_radius").insert({
       company_id: company.id,
-      departure_city,
-      lat: lat || 0,
-      lng: lng || 0,
-      radius_km,
-      move_types: move_types || ["national"],
+      departure_city: city,
+      lat: latNum,
+      lng: lngNum,
+      radius_km: radiusNum,
+      move_types: sanitizeCategories(move_types),
     }).select().single();
 
     if (error) {

@@ -196,6 +196,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (requested.length > 120) {
+      return NextResponse.json(
+        { error: "Le nom ne doit pas dépasser 120 caractères" },
+        { status: 400 }
+      );
+    }
     if (requested === ((company.name as string) || "").trim()) {
       return NextResponse.json(
         { error: "Le nouveau nom est identique au nom actuel" },

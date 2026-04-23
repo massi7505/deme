@@ -8,6 +8,7 @@ import {
   extFromFile,
 } from "@/lib/blob";
 import { notifyAdminPhotoPending } from "@/lib/resend";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -17,6 +18,15 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  const ip = getClientIp(request);
+  const rl = await checkIpRateLimit(ip, "dashboard/upload", 3600, 20);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop d'uploads, réessayez plus tard" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 3600) } }
+    );
   }
 
   const admin = createUntypedAdminClient();
@@ -37,6 +47,10 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const type = formData.get("type") as string | null; // "logo" or "photo"
+
+    if (type !== "logo" && type !== "photo") {
+      return NextResponse.json({ error: "Type invalide" }, { status: 400 });
+    }
 
     if (!file) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
