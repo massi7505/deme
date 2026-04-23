@@ -236,6 +236,46 @@ export async function sendWalletRefundEmail(
   return sendTemplated("walletRefund", to, { companyName, amount, expiryDate, balance });
 }
 
+/**
+ * Warn a mover that wallet credits are about to expire. The cron groups all
+ * credit rows crossing the same threshold (30d or 7d) into one email per
+ * mover so the inbox stays clean.
+ */
+export async function sendWalletExpiryWarningEmail(
+  to: string,
+  companyName: string,
+  threshold: 7 | 30,
+  credits: Array<{ amountCents: number; expiresAt: string }>
+) {
+  const totalCents = credits.reduce((s, c) => s + c.amountCents, 0);
+  const totalAmount = new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+  }).format(totalCents / 100);
+  const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const creditLines = credits
+    .map((c) => {
+      const amount = new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+      }).format(c.amountCents / 100);
+      const date = dateFormatter.format(new Date(c.expiresAt));
+      return `<li style="margin-bottom:4px;"><strong>${amount}</strong> — expire le ${date}</li>`;
+    })
+    .join("");
+  const thresholdLabel = threshold === 7 ? "7 jours" : "30 jours";
+  return sendTemplated("walletExpiryWarning", to, {
+    companyName,
+    thresholdLabel,
+    totalAmount,
+    creditLines,
+  });
+}
+
 export async function notifyAdminPaymentSuccess(companyName: string, amountCents: number, invoiceNumber: string) {
   const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amountCents / 100);
   return sendTemplated("adminPaymentSuccess", ADMIN_EMAIL, { companyName, amount, invoiceNumber });
