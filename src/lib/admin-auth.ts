@@ -51,3 +51,20 @@ export function verifyAdminToken(token: string): boolean {
     return false;
   }
 }
+
+/**
+ * Extract the admin email from a verified admin_token cookie. Returns null
+ * when the token is missing or invalid. Used by audit-logging routes that
+ * need to record WHO acted.
+ */
+export function getAdminEmailFromRequest(request: NextRequest): string | null {
+  const token = request.cookies.get("admin_token")?.value;
+  if (!token || !verifyAdminToken(token)) return null;
+  try {
+    const decoded = Buffer.from(token, "base64").toString("utf-8");
+    const [email] = decoded.split(":");
+    return email || null;
+  } catch {
+    return null;
+  }
+}
