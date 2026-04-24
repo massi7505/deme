@@ -93,32 +93,59 @@ async function checkSmsFactor(): Promise<HealthCard> {
         error: await res.text().catch(() => "unreadable body"),
       };
     }
-    const data = (await res.json()) as {
-      status?: number;
-      details?: { credits?: string | number };
-      credits?: string | number;
-    };
-    const rawCredits = data?.details?.credits ?? data?.credits ?? null;
-    const credits =
-      typeof rawCredits === "string" ? parseFloat(rawCredits) : (rawCredits as number | null);
+    const data = (await res.json()) as Record<string, unknown>;
+
+    // The /credits endpoint has varied across SMSFactor API versions. Try
+    // every field path we've seen in the wild before giving up — the account
+    // dashboard is the source of truth if this probe can't parse a value.
+    const raw =
+      extractNumberField(data, ["credits"]) ??
+      extractNumberField(data, ["credit"]) ??
+      extractNumberField(data, ["details", "credits"]) ??
+      extractNumberField(data, ["details", "credit"]) ??
+      extractNumberField(data, ["data", "credits"]) ??
+      null;
+
+    if (raw == null) {
+      const preview = JSON.stringify(data).slice(0, 120);
+      return {
+        source: "SMSFactor",
+        status: "unknown",
+        headline: "Format de réponse inconnu",
+        details: [{ label: "Réponse", value: preview }],
+      };
+    }
 
     let status: HealthStatus = "ok";
-    if (credits == null || Number.isNaN(credits)) status = "unknown";
-    else if (credits < 50) status = "error";
-    else if (credits < 200) status = "warn";
+    if (raw < 50) status = "error";
+    else if (raw < 200) status = "warn";
 
     return {
       source: "SMSFactor",
       status,
-      headline:
-        credits == null || Number.isNaN(credits)
-          ? "Crédits inconnus"
-          : `${credits} SMS restants`,
+      headline: `${raw} SMS restants`,
       details: [{ label: "Seuil warn/alert", value: "200 / 50" }],
     };
   } catch (err) {
     return errorCard("SMSFactor", err);
   }
+}
+
+function extractNumberField(obj: unknown, path: string[]): number | null {
+  let cursor: unknown = obj;
+  for (const key of path) {
+    if (cursor && typeof cursor === "object" && key in (cursor as Record<string, unknown>)) {
+      cursor = (cursor as Record<string, unknown>)[key];
+    } else {
+      return null;
+    }
+  }
+  if (typeof cursor === "number") return Number.isFinite(cursor) ? cursor : null;
+  if (typeof cursor === "string") {
+    const n = parseFloat(cursor);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 // ─── Resend ───────────────────────────────────────────────────────────────
@@ -171,12 +198,50 @@ async function checkMollie(): Promise<HealthCard> {
 
   const mode = apiKey.startsWith("live_") ? "live" : apiKey.startsWith("test_") ? "test" : "unknown";
 
+  const headers = { Authorization: `Bearer ${apiKey}` };
+
+  // /v2/balances is LIVE-only — it returns HTTP 400 on test keys. Try balances
+  // first in live mode; in test mode (or on fallback), use /v2/methods which
+  // is the same lightweight auth check `admin/test-mollie` already relies on.
   try {
+    if (mode === "live") {
+      const res = await withTimeout(
+        fetch("https://api.mollie.com/v2/balances", { method: "GET", headers }),
+        SOURCE_TIMEOUT_MS,
+        "Mollie"
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          _embedded?: {
+            balances?: Array<{
+              currency: string;
+              availableAmount?: { value: string; currency: string };
+              pendingAmount?: { value: string; currency: string };
+            }>;
+          };
+        };
+        const balances = data?._embedded?.balances ?? [];
+        const primary = balances[0];
+        return {
+          source: "Mollie",
+          status: "ok",
+          headline: primary
+            ? `${primary.availableAmount?.value ?? "?"} ${primary.availableAmount?.currency ?? ""} dispo`
+            : "Compte Mollie actif",
+          details: [
+            { label: "Mode", value: "LIVE" },
+            ...(primary?.pendingAmount
+              ? [{ label: "En attente", value: `${primary.pendingAmount.value} ${primary.pendingAmount.currency}` }]
+              : []),
+            { label: "Devises", value: balances.map((b) => b.currency).join(", ") || "—" },
+          ],
+        };
+      }
+      // live key but balances failed (account not yet eligible, etc.) — fall through to methods probe.
+    }
+
     const res = await withTimeout(
-      fetch("https://api.mollie.com/v2/balances", {
-        method: "GET",
-        headers: { Authorization: `Bearer ${apiKey}` },
-      }),
+      fetch("https://api.mollie.com/v2/methods", { method: "GET", headers }),
       SOURCE_TIMEOUT_MS,
       "Mollie"
     );
@@ -185,34 +250,22 @@ async function checkMollie(): Promise<HealthCard> {
         source: "Mollie",
         status: "error",
         headline: `HTTP ${res.status}`,
-        details: [{ label: "Mode", value: mode }],
+        details: [{ label: "Mode", value: mode.toUpperCase() }],
         error: await res.text().catch(() => "unreadable body"),
       };
     }
-    const data = (await res.json()) as {
-      _embedded?: {
-        balances?: Array<{
-          currency: string;
-          availableAmount?: { value: string; currency: string };
-          pendingAmount?: { value: string; currency: string };
-        }>;
-      };
-    };
-    const balances = data?._embedded?.balances ?? [];
-    const primary = balances[0];
+    const data = (await res.json()) as { count?: number; _embedded?: { methods?: Array<{ id: string }> } };
+    const methodsCount = data?.count ?? data?._embedded?.methods?.length ?? 0;
 
     return {
       source: "Mollie",
       status: mode === "live" ? "ok" : "warn",
-      headline: primary
-        ? `${primary.availableAmount?.value ?? "?"} ${primary.availableAmount?.currency ?? ""} dispo`
-        : "Compte Mollie actif",
+      headline: `Clé valide — ${methodsCount} méthodes`,
       details: [
         { label: "Mode", value: mode.toUpperCase() },
-        ...(primary?.pendingAmount
-          ? [{ label: "En attente", value: `${primary.pendingAmount.value} ${primary.pendingAmount.currency}` }]
+        ...(mode === "test"
+          ? [{ label: "Solde", value: "Indisponible en test" }]
           : []),
-        { label: "Devises", value: balances.map((b) => b.currency).join(", ") || "—" },
       ],
     };
   } catch (err) {
