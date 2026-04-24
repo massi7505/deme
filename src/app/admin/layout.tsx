@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   ShieldAlert,
+  Activity,
 } from "lucide-react";
 
 const ADMIN_NAV = [
@@ -34,6 +35,7 @@ const ADMIN_NAV = [
   { href: "/admin/pages", label: "Pages CMS", icon: FileEdit },
   { href: "/admin/reviews", label: "Avis", icon: Star },
   { href: "/admin/gdpr", label: "RGPD", icon: ShieldAlert },
+  { href: "/admin/system", label: "Système", icon: Activity },
   { href: "/admin/settings", label: "Paramètres", icon: Settings },
 ];
 

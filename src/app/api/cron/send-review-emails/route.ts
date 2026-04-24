@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { sendReviewRequestEmail, sendReviewReminderEmail } from "@/lib/resend";
+import { startCronRun, finishCronRun } from "@/lib/cron-log";
 import crypto from "crypto";
 
 /**
@@ -20,6 +21,8 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createUntypedAdminClient();
+  const runId = await startCronRun(admin, "send-review-emails");
+  try {
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data: leads } = await admin
@@ -161,5 +164,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, ...result, reminders: reminderResult });
+    const hadErrors = result.errors > 0 || reminderResult.errors > 0;
+    await finishCronRun(admin, runId, {
+      success: !hadErrors,
+      error: hadErrors ? "one or more lead emails failed" : null,
+      meta: { initial: result, reminders: reminderResult },
+    });
+    return NextResponse.json({ ok: true, ...result, reminders: reminderResult });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown error";
+    await finishCronRun(admin, runId, { success: false, error: message });
+    throw err;
+  }
 }

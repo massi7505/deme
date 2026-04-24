@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { reconcilePendingPayments } from "@/lib/reconcile-payments";
+import { startCronRun, finishCronRun } from "@/lib/cron-log";
 
 /**
  * Scheduled via vercel.json. Protected by CRON_SECRET.
@@ -23,6 +24,14 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createUntypedAdminClient();
-  const result = await reconcilePendingPayments(admin);
-  return NextResponse.json({ ok: true, ...result });
+  const runId = await startCronRun(admin, "reconcile-payments");
+  try {
+    const result = await reconcilePendingPayments(admin);
+    await finishCronRun(admin, runId, { success: true, meta: result });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown error";
+    await finishCronRun(admin, runId, { success: false, error: message });
+    throw err;
+  }
 }

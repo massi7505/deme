@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { getWalletBalanceCents } from "@/lib/wallet";
 import { sendWalletExpiryWarningEmail } from "@/lib/resend";
+import { startCronRun, finishCronRun } from "@/lib/cron-log";
 
 type Threshold = 7 | 30;
 
@@ -44,15 +45,27 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createUntypedAdminClient();
+  const runId = await startCronRun(admin, "warn-wallet-expiry");
   const stats: PassStats[] = [];
 
-  // J-7 first, then J-30. Order is cosmetic — the windows are disjoint so
-  // the same row can never match both in the same run.
-  for (const threshold of [7, 30] as const) {
-    stats.push(await runPass(admin, threshold));
+  try {
+    // J-7 first, then J-30. Order is cosmetic — the windows are disjoint so
+    // the same row can never match both in the same run.
+    for (const threshold of [7, 30] as const) {
+      stats.push(await runPass(admin, threshold));
+    }
+    const hadErrors = stats.some((s) => s.errors > 0);
+    await finishCronRun(admin, runId, {
+      success: !hadErrors,
+      error: hadErrors ? "one or more passes logged errors" : null,
+      meta: { stats },
+    });
+    return NextResponse.json({ ok: true, stats });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown error";
+    await finishCronRun(admin, runId, { success: false, error: message, meta: { stats } });
+    throw err;
   }
-
-  return NextResponse.json({ ok: true, stats });
 }
 
 async function runPass(
