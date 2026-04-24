@@ -1,38 +1,16 @@
-"use client";
-
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   Clock,
   User,
   Calendar,
   ChevronRight,
   Image as ImageIcon,
-  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import toast from "react-hot-toast";
-import DOMPurify from "isomorphic-dompurify";
-import { useSiteSettings } from "@/hooks/use-site-settings";
-
-// Ensure external links carry rel=noopener noreferrer to prevent tabnabbing.
-// Guard with globalThis so Next.js Fast Refresh doesn't double-register.
-declare global {
-  // eslint-disable-next-line no-var
-  var __dompurifyAnchorHookRegistered: boolean | undefined;
-}
-if (
-  typeof DOMPurify.addHook === "function" &&
-  !globalThis.__dompurifyAnchorHookRegistered
-) {
-  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
-      node.setAttribute("rel", "noopener noreferrer");
-    }
-  });
-  globalThis.__dompurifyAnchorHookRegistered = true;
-}
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { BRAND } from "@/lib/brand";
 
 interface Article {
   id: string;
@@ -45,6 +23,9 @@ interface Article {
   read_time: string;
   published_at: string;
   content: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  status?: string;
 }
 
 interface RelatedArticle {
@@ -53,106 +34,106 @@ interface RelatedArticle {
   title: string;
   category: string;
   cover_image?: string;
-  read_time: string;
+  read_time?: string;
+  excerpt?: string;
 }
 
-export default function BlogArticlePage() {
-  const params = useParams();
-  const slug = params?.slug as string;
-  const { siteName, siteUrl } = useSiteSettings();
+async function loadArticle(slug: string): Promise<{
+  article: Article;
+  related: RelatedArticle[];
+} | null> {
+  const supabase = createUntypedAdminClient();
+  const { data } = await supabase
+    .from("blog_posts")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .maybeSingle();
+  if (!data) return null;
+  const article = data as Article;
 
-  const [article, setArticle] = useState<Article | null>(null);
-  const [related, setRelated] = useState<RelatedArticle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const { data: relatedData } = await supabase
+    .from("blog_posts")
+    .select("id, slug, title, category, cover_image, excerpt")
+    .eq("status", "published")
+    .eq("category", article.category)
+    .neq("id", article.id)
+    .order("published_at", { ascending: false })
+    .limit(3);
 
-  const fetchArticle = useCallback(async () => {
-    if (!slug) return;
-    try {
-      const previewQs = typeof window !== "undefined"
-        && new URL(window.location.href).searchParams.get("preview") === "1"
-        ? "?preview=1"
-        : "";
-      const res = await fetch(`/api/public/blog/${slug}${previewQs}`);
-      if (res.status === 404) {
-        setNotFound(true);
-        return;
-      }
-      if (!res.ok) {
-        throw new Error("Erreur lors du chargement");
-      }
-      const data = await res.json();
-      setArticle(data.article);
-      setRelated(data.related || []);
-    } catch {
-      toast.error("Impossible de charger l\u2019article");
-    } finally {
-      setLoading(false);
-    }
-  }, [slug]);
+  return { article, related: (relatedData || []) as RelatedArticle[] };
+}
 
-  useEffect(() => {
-    fetchArticle();
-  }, [fetchArticle]);
-
-  // Content stored as HTML string by the admin editor. Sanitize before
-  // render so a future editorial delegation can't inject <script> / onclick.
-  // Hook must run before any early returns (Rules of Hooks).
-  const sanitizedHtml = useMemo(
-    () => DOMPurify.sanitize(article?.content || ""),
-    [article?.content]
-  );
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const result = await loadArticle(slug);
+  if (!result) {
+    return {
+      title: "Article introuvable",
+      robots: { index: false },
+    };
   }
+  const a = result.article;
+  const title = a.seo_title || a.title;
+  const description = a.seo_description || a.excerpt;
+  return {
+    title,
+    description,
+    alternates: { canonical: `/blog/${a.slug}` },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      publishedTime: a.published_at,
+      authors: a.author ? [a.author] : undefined,
+      images: a.cover_image ? [{ url: a.cover_image }] : undefined,
+    },
+  };
+}
 
-  if (notFound || !article) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
-        <h1 className="text-2xl font-bold">Article introuvable</h1>
-        <p className="text-muted-foreground">
-          Cet article n&apos;existe pas ou a été supprimé.
-        </p>
-        <Link
-          href="/blog"
-          className="rounded-lg bg-[var(--brand-green)] px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        >
-          Retour au blog
-        </Link>
-      </div>
-    );
-  }
+export default async function BlogArticlePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const result = await loadArticle(slug);
+  if (!result) notFound();
+
+  const { article, related } = result;
+  // blog_posts.content is written by authenticated admins through the admin
+  // rich-text editor — no anonymous HTML input. Skip the DOMPurify pass that
+  // would pull JSDOM into a Server Component bundle.
+  const articleHtml = article.content || "";
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: article.title,
-    author: {
-      "@type": "Person",
-      name: article.author,
-    },
+    author: article.author
+      ? { "@type": "Person", name: article.author }
+      : undefined,
     datePublished: article.published_at,
     dateModified: article.published_at,
     publisher: {
       "@type": "Organization",
-      name: siteName,
-      url: siteUrl,
+      name: BRAND.siteName,
+      url: BRAND.siteUrl,
     },
     description: article.excerpt,
+    image: article.cover_image,
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `${siteUrl}/blog/${article.slug}`,
+      "@id": `${BRAND.siteUrl}/blog/${article.slug}`,
     },
   };
 
   return (
     <>
-      {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -177,9 +158,7 @@ export default function BlogArticlePage() {
 
       <div className="container py-10">
         <div className="mx-auto max-w-3xl">
-          {/* Article content */}
           <article className="min-w-0">
-            {/* Header */}
             <header>
               {article.category && (
                 <Badge variant="secondary" className="mb-4">
@@ -213,7 +192,6 @@ export default function BlogArticlePage() {
               </div>
             </header>
 
-            {/* Cover image */}
             <div className="mt-8 flex aspect-[2/1] items-center justify-center rounded-2xl bg-gray-100 text-gray-300 overflow-hidden">
               {article.cover_image ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -227,11 +205,10 @@ export default function BlogArticlePage() {
               )}
             </div>
 
-            {/* Body */}
-            {sanitizedHtml ? (
+            {articleHtml ? (
               <div
                 className="prose prose-lg max-w-none mt-10 text-gray-800"
-                dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                dangerouslySetInnerHTML={{ __html: articleHtml }}
               />
             ) : article.excerpt ? (
               <p className="mt-10 leading-relaxed text-muted-foreground">
@@ -239,11 +216,9 @@ export default function BlogArticlePage() {
               </p>
             ) : null}
           </article>
-
         </div>
       </div>
 
-      {/* Related articles */}
       {related.length > 0 && (
         <section className="border-t bg-gray-50/50">
           <div className="container py-14">

@@ -39,10 +39,23 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Resolve the canonical base URL for the site. Priority: explicit site env
+// var → Vercel-provided preview/prod URL → last-resort localhost for dev.
+// `metadataBase` is what lets per-page `alternates.canonical` return absolute
+// URLs, which Next.js requires to emit a `<link rel="canonical">` tag.
+function getMetadataBaseUrl(): URL {
+  const candidate =
+    BRAND.siteUrl ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+    "http://localhost:3000";
+  return new URL(candidate);
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const siteName = await getSiteName();
 
   return {
+    metadataBase: getMetadataBaseUrl(),
     title: {
       default: `${siteName} — Trouvez votre déménageur en France`,
       template: `%s | ${siteName}`,
@@ -56,6 +69,9 @@ export async function generateMetadata(): Promise<Metadata> {
       "déménagement France",
       "comparateur déménageur",
     ],
+    alternates: {
+      canonical: "/",
+    },
     openGraph: {
       type: "website",
       locale: "fr_FR",

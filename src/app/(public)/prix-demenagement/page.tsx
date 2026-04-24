@@ -1,7 +1,5 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
   ArrowRight,
   Truck,
@@ -21,36 +19,49 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 
+export const metadata: Metadata = {
+  title: "Prix déménagement 2026 — Tarifs par taille de logement",
+  description:
+    "Combien coûte un déménagement en France en 2026 ? Prix moyens par logement (studio, T2, T3, T4, T5+), facteurs de coût et conseils pour économiser.",
+  alternates: { canonical: "/prix-demenagement" },
+  openGraph: {
+    title: "Prix déménagement 2026 — Tarifs par taille de logement",
+    description:
+      "Combien coûte un déménagement en France en 2026 ? Prix moyens par logement, facteurs de coût et conseils pour économiser.",
+    type: "article",
+  },
+};
+
 const PRICE_DATA = [
   {
     type: "Studio / T1",
-    volume: "10 - 20 m\³",
-    local: "300 - 600 \€",
-    longDistance: "600 - 1 200 \€",
+    volume: "10 - 20 m³",
+    local: "300 - 600 €",
+    longDistance: "600 - 1 200 €",
   },
   {
-    type: "2 pieces",
-    volume: "20 - 30 m\³",
-    local: "500 - 900 \€",
-    longDistance: "1 000 - 2 000 \€",
+    type: "2 pièces",
+    volume: "20 - 30 m³",
+    local: "500 - 900 €",
+    longDistance: "1 000 - 2 000 €",
   },
   {
-    type: "3 pieces",
-    volume: "30 - 40 m\³",
-    local: "700 - 1 200 \€",
-    longDistance: "1 500 - 3 000 \€",
+    type: "3 pièces",
+    volume: "30 - 40 m³",
+    local: "700 - 1 200 €",
+    longDistance: "1 500 - 3 000 €",
   },
   {
-    type: "4 pieces",
-    volume: "40 - 50 m\³",
-    local: "900 - 1 500 \€",
-    longDistance: "2 000 - 4 000 \€",
+    type: "4 pièces",
+    volume: "40 - 50 m³",
+    local: "900 - 1 500 €",
+    longDistance: "2 000 - 4 000 €",
   },
   {
-    type: "5+ pieces",
-    volume: "50 - 80 m\³",
-    local: "1 200 - 2 500 \€",
-    longDistance: "3 000 - 6 000 \€",
+    type: "5+ pièces",
+    volume: "50 - 80 m³",
+    local: "1 200 - 2 500 €",
+    longDistance: "3 000 - 6 000 €",
   },
 ];
 
@@ -59,48 +70,39 @@ const FACTORS = [
     icon: Ruler,
     title: "Distance",
     description:
-      "La distance entre l'ancien et le nouveau logement est le premier facteur de prix. Un demenagement local (meme ville) coutera nettement moins cher qu'un demenagement longue distance (plus de 200 km).",
+      "La distance entre l'ancien et le nouveau logement est le premier facteur de prix. Un déménagement local (même ville) coûtera nettement moins cher qu'un déménagement longue distance (plus de 200 km).",
   },
   {
     icon: Package,
     title: "Volume",
     description:
-      "Le volume total de vos biens a transporter determine la taille du camion et le nombre de demenageurs necessaires. Plus le volume est important, plus le cout augmente.",
+      "Le volume total de vos biens à transporter détermine la taille du camion et le nombre de déménageurs nécessaires. Plus le volume est important, plus le coût augmente.",
   },
   {
     icon: CalendarDays,
-    title: "Periode",
+    title: "Période",
     description:
-      "La haute saison (juin a septembre) et les fins de mois sont les periodes les plus demandees. Demenager en semaine ou en basse saison (octobre a mars) peut reduire votre facture de 20 a 30%.",
+      "La haute saison (juin à septembre) et les fins de mois sont les périodes les plus demandées. Déménager en semaine ou en basse saison (octobre à mars) peut réduire votre facture de 20 à 30 %.",
   },
   {
     icon: Building,
-    title: "Accessibilite",
+    title: "Accessibilité",
     description:
-      "L'etage, la presence d'un ascenseur, la distance entre le camion et l'entree, et les contraintes de stationnement influencent le temps necessaire et donc le prix final.",
+      "L'étage, la présence d'un ascenseur, la distance entre le camion et l'entrée, et les contraintes de stationnement influencent le temps nécessaire et donc le prix final.",
   },
   {
     icon: Truck,
-    title: "Services supplementaires",
+    title: "Services supplémentaires",
     description:
-      "L'emballage et le deballage des cartons, le demontage/remontage du mobilier, le transport d'objets speciaux (piano, oeuvres d'art) et le garde-meuble sont factures en supplement.",
+      "L'emballage et le déballage des cartons, le démontage/remontage du mobilier, le transport d'objets spéciaux (piano, œuvres d'art) et le garde-meuble sont facturés en supplément.",
   },
   {
     icon: TrendingUp,
     title: "Assurance",
     description:
-      "Le niveau de couverture d'assurance choisi (basique ou ad valorem) impacte le prix. L'assurance ad valorem, qui couvre la valeur reelle de vos biens, represente generalement 1 a 2% de la valeur declaree.",
+      "Le niveau de couverture d'assurance choisi (basique ou ad valorem) impacte le prix. L'assurance ad valorem, qui couvre la valeur réelle de vos biens, représente généralement 1 à 2 % de la valeur déclarée.",
   },
 ];
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-  }),
-};
 
 export default function PrixDemenagementPage() {
   return (
@@ -108,28 +110,16 @@ export default function PrixDemenagementPage() {
       {/* Hero */}
       <section className="bg-gradient-to-b from-green-50/80 via-white to-white">
         <div className="container py-16">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            className="mx-auto max-w-3xl text-center"
-          >
-            <motion.h1
-              variants={fadeUp}
-              custom={0}
-              className="font-display text-4xl font-extrabold tracking-tight text-gray-950 sm:text-5xl"
-            >
-              Prix demenagement &mdash; Guide complet 2026
-            </motion.h1>
-            <motion.p
-              variants={fadeUp}
-              custom={1}
-              className="mt-4 text-lg leading-relaxed text-muted-foreground"
-            >
-              Combien coute un demenagement en France ? Decouvrez les prix
-              moyens par taille de logement, les facteurs qui influencent le cout
-              et nos conseils pour economiser sur votre demenagement.
-            </motion.p>
-          </motion.div>
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="font-display text-4xl font-extrabold tracking-tight text-gray-950 sm:text-5xl">
+              Prix déménagement — Guide complet 2026
+            </h1>
+            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+              Combien coûte un déménagement en France ? Découvrez les prix
+              moyens par taille de logement, les facteurs qui influencent le coût
+              et nos conseils pour économiser sur votre déménagement.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -140,7 +130,7 @@ export default function PrixDemenagementPage() {
             Prix moyens par taille de logement
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Estimations indicatives basees sur les donnees 2026. Les prix reels
+            Estimations indicatives basées sur les données 2026. Les prix réels
             varient selon de nombreux facteurs.
           </p>
 
@@ -149,10 +139,8 @@ export default function PrixDemenagementPage() {
               <TableHeader>
                 <TableRow className="bg-gray-50">
                   <TableHead className="font-bold">Type de logement</TableHead>
-                  <TableHead className="font-bold">Volume estime</TableHead>
-                  <TableHead className="font-bold">
-                    Prix moyen local
-                  </TableHead>
+                  <TableHead className="font-bold">Volume estimé</TableHead>
+                  <TableHead className="font-bold">Prix moyen local</TableHead>
                   <TableHead className="font-bold">
                     Prix moyen longue distance
                   </TableHead>
@@ -176,9 +164,9 @@ export default function PrixDemenagementPage() {
           </div>
 
           <p className="mt-3 text-xs text-muted-foreground">
-            * Local = meme ville ou agglomeration (&lt;50 km). Longue distance =
+            * Local = même ville ou agglomération (&lt; 50 km). Longue distance =
             plus de 200 km. Les prix incluent le transport, le chargement et le
-            dechargement. TVA incluse.
+            déchargement. TVA incluse.
           </p>
         </div>
       </section>
@@ -188,40 +176,28 @@ export default function PrixDemenagementPage() {
         <div className="container">
           <div className="mx-auto max-w-4xl">
             <h2 className="font-display text-2xl font-bold text-gray-950">
-              Facteurs influencant le prix
+              Facteurs influençant le prix
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Comprendre les elements qui composent le prix de votre
-              demenagement pour mieux negocier.
+              Comprendre les éléments qui composent le prix de votre
+              déménagement pour mieux négocier.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              {FACTORS.map((factor, i) => (
-                <motion.div
-                  key={factor.title}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-40px" }}
-                  transition={{
-                    delay: i * 0.08,
-                    duration: 0.4,
-                    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-                  }}
-                >
-                  <Card className="h-full">
-                    <CardContent className="p-6">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600">
-                        <factor.icon className="h-5 w-5" />
-                      </div>
-                      <h3 className="mt-4 font-display text-base font-bold text-gray-950">
-                        {factor.title}
-                      </h3>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                        {factor.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+              {FACTORS.map((factor) => (
+                <Card key={factor.title} className="h-full">
+                  <CardContent className="p-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                      <factor.icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mt-4 font-display text-base font-bold text-gray-950">
+                      {factor.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {factor.description}
+                    </p>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
@@ -236,11 +212,11 @@ export default function PrixDemenagementPage() {
 
           <div className="relative z-10">
             <h2 className="font-display text-3xl font-bold">
-              Obtenez votre devis personnalise
+              Obtenez votre devis personnalisé
             </h2>
             <p className="mx-auto mt-4 max-w-md text-lg text-white/80">
-              Recevez jusqu&apos;a 6 devis gratuits de demenageurs professionnels
-              pour connaitre le prix exact de votre demenagement.
+              Recevez jusqu&apos;à 6 devis gratuits de déménageurs professionnels
+              pour connaître le prix exact de votre déménagement.
             </p>
             <div className="mt-8">
               <Link
