@@ -28,13 +28,21 @@ export async function GET() {
     return NextResponse.json({ kyc_status: "pending" });
   }
 
-  // Self-heal: if we're stuck in_review and we know the didit session, ask
-  // didit for the real decision and reconcile.
-  if (company.kyc_status === "in_review" && company.didit_session_id) {
+  // Self-heal: if we have a didit session, ask didit for the authoritative
+  // decision and reconcile. Covers two cases:
+  //   - webhook dropped (stuck at in_review or pending despite a real decision)
+  //   - mover clicked start then bailed without uploading (stuck at in_review
+  //     from an older bug; didit reports pending → we downgrade back to pending
+  //     so they can retry)
+  // Covers pending AND in_review as starting states.
+  if (
+    (company.kyc_status === "pending" || company.kyc_status === "in_review") &&
+    company.didit_session_id
+  ) {
     try {
       const decision = await getSession(company.didit_session_id);
       const mapped = mapDiditStatus(decision.status as DiditStatus);
-      if (mapped !== "in_review" && mapped !== "pending") {
+      if (mapped !== company.kyc_status) {
         const updates: Record<string, unknown> = { kyc_status: mapped };
         if (mapped === "approved") {
           updates.is_verified = true;

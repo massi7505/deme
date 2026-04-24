@@ -46,12 +46,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Only store the session id — DO NOT flip kyc_status to "in_review" here.
+  // If the mover abandons before uploading anything in didit, a premature
+  // "in_review" traps them in the "analyse en cours" screen forever. The
+  // webhook (or the self-heal in /api/kyc/status) promotes them to
+  // in_review / approved / rejected based on didit's actual decision.
   await admin
     .from("companies")
-    .update({
-      didit_session_id: session.session_id,
-      kyc_status: "in_review",
-    })
+    .update({ didit_session_id: session.session_id })
     .eq("id", company.id);
 
   return NextResponse.json({ verificationUrl: session.url });
