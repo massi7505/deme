@@ -39,6 +39,7 @@ interface Lead {
   category: string;
   status: string;
   move_date: string | null;
+  move_date_extended_to: string | null;
   volume_m3: number | null;
   room_count: number | null;
   client_name: string | null;
@@ -101,8 +102,18 @@ export default function AdminLeads() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [filterDefect, setFilterDefect] = useState(false);
+  const [filterExpired, setFilterExpired] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const ITEMS_PER_PAGE = 20;
+
+  // Today in YYYY-MM-DD for expiration checks. A lead is "expired" when the
+  // move date (or extension) is strictly before today — same rule the mover
+  // dashboard + unlock API use.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  function isLeadExpired(l: Lead): boolean {
+    const cutoff = l.move_date_extended_to || l.move_date;
+    return !!cutoff && cutoff < todayIso;
+  }
 
   async function fetchLeads() {
     setLoading(true);
@@ -268,6 +279,7 @@ export default function AdminLeads() {
   const filtered = leads.filter((l) => {
     if (filterStatus !== "all" && l.status !== filterStatus) return false;
     if (filterDefect && l.defect_status !== "suspected") return false;
+    if (filterExpired && !isLeadExpired(l)) return false;
     if (filterCategory !== "all" && l.category !== filterCategory) return false;
     if (filterVerif !== "all") {
       const emailV = !!l.email_verified;
@@ -323,7 +335,7 @@ export default function AdminLeads() {
   // Reset pagination + selection when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, filterStatus, filterCategory, filterVerif, filterDistribution, filterDefect, dateFrom, dateTo, sortBy]);
+  }, [search, filterStatus, filterCategory, filterVerif, filterDistribution, filterDefect, filterExpired, dateFrom, dateTo, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
@@ -333,6 +345,7 @@ export default function AdminLeads() {
   );
 
   const defectTotal = leads.filter((l) => l.defect_status === "suspected").length;
+  const expiredTotal = leads.filter(isLeadExpired).length;
   const allPageSelected = paginated.length > 0 && paginated.every((l) => selectedIds.has(l.id));
 
   function toggleSelectAllPage() {
@@ -640,6 +653,21 @@ export default function AdminLeads() {
             🚨 Défectueux ({defectTotal})
           </button>
         )}
+        {expiredTotal > 0 && (
+          <button
+            type="button"
+            onClick={() => setFilterExpired((v) => !v)}
+            className={cn(
+              "rounded-lg border px-3 py-2 text-xs font-semibold",
+              filterExpired
+                ? "border-amber-400 bg-amber-50 text-amber-800"
+                : "border-amber-200 bg-white text-amber-700 hover:bg-amber-50"
+            )}
+            title="Date de déménagement dépassée — leads cachés des déménageurs"
+          >
+            ⏱ Expirés ({expiredTotal})
+          </button>
+        )}
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className="ml-auto rounded-lg border bg-white px-3 py-2 text-sm">
           <option value="created_desc">Plus récents d&apos;abord</option>
           <option value="created_asc">Plus anciens d&apos;abord</option>
@@ -764,6 +792,14 @@ export default function AdminLeads() {
                       {lead.defect_status === "suspected" && (
                         <span className="ml-2 inline-flex items-center rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700" title="Lead signalé collectivement comme défectueux">
                           🚨 Défectueux
+                        </span>
+                      )}
+                      {isLeadExpired(lead) && (
+                        <span
+                          className="ml-2 inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                          title={`Date de déménagement dépassée (${lead.move_date_extended_to || lead.move_date}) — caché côté déménageur`}
+                        >
+                          ⏱ Expiré
                         </span>
                       )}
                     </td>
