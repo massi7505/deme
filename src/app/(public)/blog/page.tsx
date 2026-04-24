@@ -1,13 +1,15 @@
-"use client";
-
-import { useState, useEffect, useCallback } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Clock, User, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Clock, User, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import toast from "react-hot-toast";
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
-type Category = "Tous" | string;
+export const metadata: Metadata = {
+  title: "Blog — Conseils, guides et actualités sur le déménagement",
+  description:
+    "Guides pratiques, astuces et actualités pour réussir votre déménagement : préparation, prix, aides financières, démarches administratives.",
+  alternates: { canonical: "/blog" },
+};
 
 interface Article {
   id: string;
@@ -16,7 +18,7 @@ interface Article {
   excerpt: string;
   category: string;
   author: string;
-  cover_image?: string;
+  cover_image?: string | null;
   read_time: string;
   published_at: string;
 }
@@ -25,82 +27,80 @@ const CATEGORY_COLORS: Record<string, string> = {
   Conseils: "bg-blue-50 text-blue-700 border-blue-200",
   Guides: "bg-purple-50 text-purple-700 border-purple-200",
   Actualites: "bg-amber-50 text-amber-700 border-amber-200",
+  Actualités: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      delay: i * 0.08,
-      duration: 0.4,
-      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-    },
-  }),
-};
+const PAGE_SIZE = 9;
 
-export default function BlogPage() {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<Category>("Tous");
+async function loadArticles(): Promise<Article[]> {
+  const supabase = createUntypedAdminClient();
+  const { data } = await supabase
+    .from("blog_posts")
+    .select(
+      "id, slug, title, excerpt, category, author, cover_image, read_time, published_at"
+    )
+    .eq("status", "published")
+    .order("published_at", { ascending: false });
+  return (data || []) as Article[];
+}
 
-  const fetchArticles = useCallback(async () => {
-    try {
-      const res = await fetch("/api/public/blog");
-      if (!res.ok) {
-        throw new Error("Erreur lors du chargement");
-      }
-      const data = await res.json();
-      setArticles(data || []);
-    } catch {
-      toast.error("Impossible de charger les articles");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+// Server Component: search params bind the category filter + current page to
+// the URL so every state is shareable and indexable by Google.
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; category?: string }>;
+}) {
+  const params = await searchParams;
+  const articles = await loadArticles();
 
-  useEffect(() => {
-    fetchArticles();
-  }, [fetchArticles]);
-
-  // Build categories from real data
-  const categories: Category[] = [
+  const categories = [
     "Tous",
     ...Array.from(new Set(articles.map((a) => a.category).filter(Boolean))),
   ];
 
+  const activeCategory = params.category || "Tous";
   const filteredArticles =
     activeCategory === "Tous"
       ? articles
       : articles.filter((a) => a.category === activeCategory);
+
+  const totalPages = Math.max(1, Math.ceil(filteredArticles.length / PAGE_SIZE));
+  const rawPage = parseInt(params.page || "1", 10);
+  const currentPage = Math.min(
+    Math.max(Number.isFinite(rawPage) ? rawPage : 1, 1),
+    totalPages
+  );
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageArticles = filteredArticles.slice(start, start + PAGE_SIZE);
+
+  function buildPageHref(page: number): string {
+    const qs = new URLSearchParams();
+    if (activeCategory !== "Tous") qs.set("category", activeCategory);
+    if (page > 1) qs.set("page", String(page));
+    const query = qs.toString();
+    return query ? `/blog?${query}` : "/blog";
+  }
+
+  function buildCategoryHref(cat: string): string {
+    if (cat === "Tous") return "/blog";
+    return `/blog?category=${encodeURIComponent(cat)}`;
+  }
 
   return (
     <>
       {/* Hero */}
       <section className="bg-gradient-to-b from-green-50/80 via-white to-white">
         <div className="container py-16">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            className="mx-auto max-w-2xl text-center"
-          >
-            <motion.h1
-              variants={fadeUp}
-              custom={0}
-              className="font-display text-4xl font-extrabold tracking-tight text-gray-950 sm:text-5xl"
-            >
-              Blog &mdash; Conseils déménagement
-            </motion.h1>
-            <motion.p
-              variants={fadeUp}
-              custom={1}
-              className="mt-4 text-lg text-muted-foreground"
-            >
+          <div className="mx-auto max-w-2xl text-center">
+            <h1 className="font-display text-4xl font-extrabold tracking-tight text-gray-950 sm:text-5xl">
+              Blog — Conseils déménagement
+            </h1>
+            <p className="mt-4 text-lg text-muted-foreground">
               Guides pratiques, astuces et actualités pour réussir votre
               déménagement.
-            </motion.p>
-          </motion.div>
+            </p>
+          </div>
         </div>
       </section>
 
@@ -108,9 +108,9 @@ export default function BlogPage() {
       <section className="border-b">
         <div className="container flex flex-wrap gap-2 py-4">
           {categories.map((cat) => (
-            <button
+            <Link
               key={cat}
-              onClick={() => setActiveCategory(cat)}
+              href={buildCategoryHref(cat)}
               className={cn(
                 "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
                 activeCategory === cat
@@ -119,18 +119,14 @@ export default function BlogPage() {
               )}
             >
               {cat}
-            </button>
+            </Link>
           ))}
         </div>
       </section>
 
       {/* Article grid */}
       <section className="container py-10">
-        {loading ? (
-          <div className="flex min-h-[300px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredArticles.length === 0 ? (
+        {pageArticles.length === 0 ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
             <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
             <p className="text-muted-foreground">
@@ -138,28 +134,14 @@ export default function BlogPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredArticles.map((article, i) => (
-              <motion.div
-                key={article.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay: i * 0.08,
-                  duration: 0.4,
-                  ease: [0.22, 1, 0.36, 1] as [
-                    number,
-                    number,
-                    number,
-                    number,
-                  ],
-                }}
-              >
+          <>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {pageArticles.map((article) => (
                 <Link
+                  key={article.id}
                   href={`/blog/${article.slug}`}
                   className="group flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1"
                 >
-                  {/* Cover image */}
                   <div className="flex aspect-[16/9] items-center justify-center bg-gray-100 text-gray-300">
                     {article.cover_image ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
@@ -167,6 +149,7 @@ export default function BlogPage() {
                         src={article.cover_image}
                         alt={article.title}
                         className="h-full w-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <ImageIcon className="h-10 w-10" />
@@ -174,7 +157,6 @@ export default function BlogPage() {
                   </div>
 
                   <div className="flex flex-1 flex-col p-5">
-                    {/* Category badge */}
                     {article.category && (
                       <span
                         className={cn(
@@ -195,7 +177,6 @@ export default function BlogPage() {
                       {article.excerpt}
                     </p>
 
-                    {/* Meta */}
                     <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
                       {article.author && (
                         <span className="flex items-center gap-1">
@@ -222,9 +203,52 @@ export default function BlogPage() {
                     </div>
                   </div>
                 </Link>
-              </motion.div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <nav
+                className="mt-10 flex items-center justify-between"
+                aria-label="Pagination blog"
+              >
+                <p className="text-sm text-muted-foreground">
+                  Page {currentPage} sur {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  {currentPage > 1 ? (
+                    <Link
+                      href={buildPageHref(currentPage - 1)}
+                      rel="prev"
+                      className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Précédent
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium opacity-40">
+                      <ChevronLeft className="h-4 w-4" />
+                      Précédent
+                    </span>
+                  )}
+                  {currentPage < totalPages ? (
+                    <Link
+                      href={buildPageHref(currentPage + 1)}
+                      rel="next"
+                      className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+                    >
+                      Suivant
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1.5 text-sm font-medium opacity-40">
+                      Suivant
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
+              </nav>
+            )}
+          </>
         )}
       </section>
     </>

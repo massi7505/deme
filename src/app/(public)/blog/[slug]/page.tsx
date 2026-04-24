@@ -199,6 +199,7 @@ export default async function BlogArticlePage({
                   src={article.cover_image}
                   alt={article.title}
                   className="h-full w-full object-cover"
+                  decoding="async"
                 />
               ) : (
                 <ImageIcon className="h-16 w-16" />
@@ -239,6 +240,8 @@ export default async function BlogArticlePage({
                         src={relArticle.cover_image}
                         alt={relArticle.title}
                         className="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <ImageIcon className="h-8 w-8" />

@@ -162,6 +162,7 @@ export default function LeaveReviewPage() {
             {info?.company?.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
+                decoding="async"
                 src={info.company.logo_url}
                 alt={companyName}
                 className="h-14 w-14 shrink-0 rounded-xl object-cover"

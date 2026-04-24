@@ -146,7 +146,7 @@ function CompanyProfilePage({ slug }: { slug: string }) {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-5">
               {company.logo_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={company.logo_url} alt={company.name} className="h-20 w-20 rounded-2xl object-cover" />
+                <img src={company.logo_url} alt={company.name} className="h-20 w-20 rounded-2xl object-cover" decoding="async" />
               ) : (
                 <div className={cn("flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold text-white", getColor(company.name))}>
                   {getInitials(company.name)}
@@ -196,7 +196,7 @@ function CompanyProfilePage({ slug }: { slug: string }) {
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {company.company_photos.map((photo) => (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img key={photo.id} src={photo.url} alt={photo.caption || ""} className="aspect-video rounded-xl object-cover" />
+                    <img key={photo.id} src={photo.url} alt={photo.caption || ""} className="aspect-video rounded-xl object-cover" loading="lazy" decoding="async" />
                   ))}
                 </div>
               </section>

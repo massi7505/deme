@@ -191,7 +191,7 @@ export default function EntreprisesDemenagementPage() {
                     <div className="flex items-start gap-4">
                       {mover.logo_url ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={mover.logo_url} alt={mover.name} className="h-14 w-14 rounded-xl object-cover" />
+                        <img src={mover.logo_url} alt={mover.name} className="h-14 w-14 rounded-xl object-cover" loading="lazy" decoding="async" />
                       ) : (
                         <div className={cn("flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white", getColor(mover.name))}>
                           {getInitials(mover.name)}
