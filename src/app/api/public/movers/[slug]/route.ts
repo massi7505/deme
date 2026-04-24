@@ -5,7 +5,7 @@ import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   const ip = getClientIp(request);
   const rl = await checkIpRateLimit(ip, "public/movers/slug", 60, 120);
@@ -16,6 +16,7 @@ export async function GET(
     );
   }
 
+  const { slug } = await params;
   const supabase = createUntypedAdminClient();
 
   const { data: company, error } = await supabase
@@ -28,7 +29,8 @@ export async function GET(
       company_regions(department_code, department_name, categories),
       reviews(id, rating, comment, reviewer_name, is_anonymous, is_verified, created_at, mover_reply, mover_reply_at)
     `)
-    .eq("slug", params.slug)
+    .eq("slug", slug)
+    .in("account_status", ["active", "trial"])
     .single();
 
   if (error || !company) {

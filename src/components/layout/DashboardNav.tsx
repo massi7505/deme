@@ -184,7 +184,7 @@ export function DashboardNav() {
 
         {/* Footer — user menu */}
         <div className="border-t p-3">
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-[var(--brand-green)] focus:ring-offset-1">
               <Avatar className="h-9 w-9 rounded-lg bg-green-50">
                 <AvatarFallback className="rounded-lg bg-green-50 text-xs font-bold text-[var(--brand-green)]">
