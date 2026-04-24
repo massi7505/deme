@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { REGIONS } from "@/lib/utils";
+import { serverError } from "@/lib/api-errors";
 
 const VALID_DEPT_CODES = new Set<string>(Object.values(REGIONS).flat());
 const VALID_CATEGORIES = new Set(["national", "entreprise", "international"]);
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     }).select().single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError("dashboard/regions:add_region", error);
     }
 
     return NextResponse.json(data);
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
       .eq("company_id", company.id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError("dashboard/regions:remove_region", error);
     }
 
     return NextResponse.json({ success: true });
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     }).select().single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError("dashboard/regions:add_radius", error);
     }
 
     return NextResponse.json(data);
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
       .eq("company_id", company.id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError("dashboard/regions:remove_radius", error);
     }
 
     return NextResponse.json({ success: true });

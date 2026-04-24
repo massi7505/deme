@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { REGIONS, REGION_SLUGS } from "@/lib/utils";
 import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
+import { serverError } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
@@ -20,8 +21,11 @@ export async function GET(request: NextRequest) {
   const department = searchParams.get("department");
   const search = searchParams.get("search");
   const sort = searchParams.get("sort") || "rating";
-  const limit = parseInt(searchParams.get("limit") || "20");
-  const offset = parseInt(searchParams.get("offset") || "0");
+  // Bound pagination so a hostile caller can't request a million-row page.
+  const rawLimit = parseInt(searchParams.get("limit") || "20", 10);
+  const rawOffset = parseInt(searchParams.get("offset") || "0", 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 20;
+  const offset = Number.isFinite(rawOffset) ? Math.min(Math.max(rawOffset, 0), 10000) : 0;
 
   let query = supabase
     .from("companies")
@@ -56,7 +60,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("public/movers:list", error);
   }
 
   // Filter by region slug or specific department

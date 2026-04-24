@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
+import { serverError } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     reviewer_name: isAnonymous ? null : reviewerName,
   });
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return serverError("public/reviews:insert", insertError);
   }
 
   // Mark token as used

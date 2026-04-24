@@ -4,6 +4,7 @@ import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
 import { verifySiret } from "@/lib/sirene";
 import { findPredefinedAnswer } from "@/lib/predefined-qna";
+import { serverError } from "@/lib/api-errors";
 
 export async function GET() {
   const supabase = await createClient();
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (qnaError) return NextResponse.json({ error: qnaError.message }, { status: 500 });
+    if (qnaError) return serverError("dashboard/profile:create_qna", qnaError);
     return NextResponse.json(qnaData);
   }
 
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
       .eq("id", body.qnaId)
       .eq("company_id", company.id);
 
-    if (qnaError) return NextResponse.json({ error: qnaError.message }, { status: 500 });
+    if (qnaError) return serverError("dashboard/profile:update_qna", qnaError);
     return NextResponse.json({ success: true });
   }
 
@@ -139,27 +140,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "reviewId manquant" }, { status: 400 });
     }
 
-    // Ownership check: review must belong to this company
-    const { data: review } = await admin
-      .from("reviews")
-      .select("id, company_id")
-      .eq("id", reviewId)
-      .maybeSingle();
-    const typedReview = review as { id: string; company_id: string } | null;
-
-    if (!typedReview || typedReview.company_id !== company.id) {
-      return NextResponse.json({ error: "Avis introuvable" }, { status: 404 });
-    }
-
-    const { error } = await admin
+    // Scope the UPDATE to the authenticated company so a forged reviewId from
+    // another company silently matches zero rows instead of relying on a
+    // separate SELECT-then-check pattern. Aligns with delete_qna / delete_photo.
+    const { data: updated, error } = await admin
       .from("reviews")
       .update({
         mover_reply: reply ? reply : null,
         mover_reply_at: reply ? new Date().toISOString() : null,
       })
-      .eq("id", reviewId);
+      .eq("id", reviewId)
+      .eq("company_id", company.id)
+      .select("id");
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("dashboard/profile:reply_review", error);
+    if (!updated || updated.length === 0) {
+      return NextResponse.json({ error: "Avis introuvable" }, { status: 404 });
+    }
     return NextResponse.json({ success: true });
   }
 
@@ -171,7 +168,7 @@ export async function POST(request: NextRequest) {
       .eq("id", body.qnaId)
       .eq("company_id", company.id);
 
-    if (qnaError) return NextResponse.json({ error: qnaError.message }, { status: 500 });
+    if (qnaError) return serverError("dashboard/profile:delete_qna", qnaError);
     return NextResponse.json({ success: true });
   }
 
@@ -183,7 +180,7 @@ export async function POST(request: NextRequest) {
       .eq("id", body.photoId)
       .eq("company_id", company.id);
 
-    if (photoError) return NextResponse.json({ error: photoError.message }, { status: 500 });
+    if (photoError) return serverError("dashboard/profile:delete_photo", photoError);
     return NextResponse.json({ success: true });
   }
 
@@ -223,7 +220,7 @@ export async function POST(request: NextRequest) {
       .eq("id", company.id)
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("dashboard/profile:request_name_change", error);
     return NextResponse.json(data);
   }
 
@@ -252,7 +249,7 @@ export async function POST(request: NextRequest) {
       .eq("id", company.id)
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("dashboard/profile:sync_from_insee", error);
     return NextResponse.json(data);
   }
 
@@ -276,7 +273,7 @@ export async function POST(request: NextRequest) {
       .eq("id", company.id)
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("dashboard/profile:sync_address_from_insee", error);
     return NextResponse.json(data);
   }
 
@@ -313,7 +310,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("dashboard/profile:update_fields", error);
   }
 
   return NextResponse.json(data);

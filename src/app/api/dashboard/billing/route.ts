@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
 import { getWalletBalanceCents } from "@/lib/wallet";
+import { serverError } from "@/lib/api-errors";
 
 export async function GET() {
   const supabase = await createClient();
@@ -42,7 +43,7 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("dashboard/billing:list", error);
   }
 
   // Calculate monthly summary — only count PAID, deduplicate per lead

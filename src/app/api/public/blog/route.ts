@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
+import { serverError } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     .order("published_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("public/blog:list", error);
   }
 
   return NextResponse.json(data || []);
