@@ -386,6 +386,7 @@ const CRON_SCHEDULES: Record<string, string> = {
   "reconcile-payments": "*/15 * * * *",
   "send-review-emails": "0 * * * *",
   "warn-wallet-expiry": "0 9 * * *",
+  "reengage-clients": "0 10 * * *",
 };
 
 // Max age (ms) before a cron is considered stale per schedule cadence.
@@ -393,6 +394,7 @@ const CRON_STALE_MS: Record<string, number> = {
   "reconcile-payments": 30 * 60 * 1000, // 2× the 15-min cadence
   "send-review-emails": 2 * 60 * 60 * 1000, // 2× hourly
   "warn-wallet-expiry": 30 * 60 * 60 * 1000, // ~1.25× daily
+  "reengage-clients": 30 * 60 * 60 * 1000, // ~1.25× daily
 };
 
 async function checkCrons(): Promise<CronHealth[]> {

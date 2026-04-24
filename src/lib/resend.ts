@@ -225,6 +225,57 @@ export async function sendReviewReminderEmail(
   return getResend().emails.send({ from: FROM, to, subject, html: body });
 }
 
+export async function sendReconfirmClientEmail(
+  to: string,
+  clientFirstName: string,
+  fromCity: string | null,
+  toCity: string | null,
+  yesToken: string,
+  noToken: string
+) {
+  const baseUrl = emailBaseUrl();
+  const yesLink = `${baseUrl}/confirmer-demande/${yesToken}`;
+  const noLink = `${baseUrl}/confirmer-demande/${noToken}`;
+  const siteName = escapeHtml(await getSiteName());
+  const safeFirstName = escapeHtml(clientFirstName || "");
+  const greeting = clientFirstName ? `Bonjour ${safeFirstName},` : "Bonjour,";
+  const routeLabel = [fromCity, toCity].filter(Boolean).map((c) => escapeHtml(c as string)).join(" → ") || "votre déménagement";
+  const subject = `Votre déménagement approche — cherchez-vous encore un déménageur ?`;
+  const body = `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #111;">
+  <h1 style="font-size: 20px; margin: 0 0 16px;">${greeting}</h1>
+  <p style="line-height: 1.6; margin: 0 0 16px;">
+    Votre demande sur <strong>${siteName}</strong> pour <strong>${routeLabel}</strong> approche de sa date prévue.
+  </p>
+  <p style="line-height: 1.6; margin: 0 0 24px;">
+    Pour que nos déménageurs ne sollicitent que des clients encore à la recherche, pouvez-vous nous dire où vous en êtes ?
+  </p>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
+    <tr>
+      <td align="center" style="padding: 4px;">
+        <a href="${yesLink}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+          Oui, j'en cherche encore un
+        </a>
+      </td>
+      <td align="center" style="padding: 4px;">
+        <a href="${noLink}" style="display: inline-block; background: #f3f4f6; color: #111; padding: 14px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; border: 1px solid #e5e7eb;">
+          Non, j'ai trouvé
+        </a>
+      </td>
+    </tr>
+  </table>
+  <p style="line-height: 1.6; margin: 0 0 8px; color: #666; font-size: 13px;">
+    Ou copiez-collez l'un de ces liens dans votre navigateur :<br>
+    <span style="color: #22c55e; word-break: break-all;">${yesLink}</span><br>
+    <span style="color: #666; word-break: break-all;">${noLink}</span>
+  </p>
+  <p style="line-height: 1.6; margin: 24px 0 0; color: #999; font-size: 12px;">
+    Ces liens sont personnels et expirent dans 14 jours. Si vous ne répondez pas, votre demande sera automatiquement archivée à la date prévue.
+  </p>
+  <p style="margin: 24px 0 0; color: #999; font-size: 12px;">— L'équipe ${siteName}</p>
+</body></html>`;
+  return getResend().emails.send({ from: FROM, to, subject, html: body });
+}
+
 export async function sendReviewRequestEmail(
   to: string,
   clientFirstName: string,

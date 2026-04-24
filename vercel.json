@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/warn-wallet-expiry",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/reengage-clients",
+      "schedule": "0 10 * * *"
     }
   ]
 }
