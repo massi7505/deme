@@ -202,7 +202,7 @@ export function computeOnboarding(input: OnboardingInput): OnboardingData {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- src/lib/onboarding.test.ts`
-Expected: PASS — 7 tests green.
+Expected: PASS — 8 tests green.
 
 - [ ] **Step 5: Commit**
 
@@ -547,7 +547,7 @@ git commit -m "feat(apercu): render onboarding checklist, drop standalone KYC ba
 - [ ] **Step 1: Full test suite**
 
 Run: `npm test`
-Expected: all tests pass, including the new 7 `computeOnboarding` tests.
+Expected: all tests pass, including the new 8 `computeOnboarding` tests.
 
 - [ ] **Step 2: Full typecheck**
 
