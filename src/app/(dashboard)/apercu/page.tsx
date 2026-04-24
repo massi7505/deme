@@ -418,36 +418,34 @@ export default function ApercuPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {accountStatus === "active" ? (
-                <Badge variant="success" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Compte actif
-                </Badge>
-              ) : (
-                <Badge variant="warning" className="gap-1">
-                  <Clock className="h-3 w-3" />
-                  En attente de vérification
-                </Badge>
-              )}
-
-              {accountStatus === "active" && (
-                <p className="text-xs text-muted-foreground">
-                  Votre compte est vérifié et actif. Vous pouvez acheter des leads sans restriction.
-                </p>
-              )}
-
-              {accountStatus !== "active" && (
-                <div className="space-y-2">
+              {kycStatus === "approved" && accountStatus === "active" ? (
+                <>
+                  <Badge variant="success" className="gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Compte actif
+                  </Badge>
                   <p className="text-xs text-muted-foreground">
-                    Pour acheter des leads, vous devez vérifier votre identité.
+                    Votre compte est vérifié et actif. Vous pouvez acheter des leads sans restriction.
                   </p>
-                  {kycStatus !== "approved" && (
-                    <a href="/verification-identite" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand-gradient px-4 py-2 text-xs font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Vérifier mon identité
-                    </a>
-                  )}
-                </div>
+                </>
+              ) : (
+                <>
+                  <Badge variant="warning" className="gap-1">
+                    <Clock className="h-3 w-3" />
+                    Identité non vérifiée
+                  </Badge>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Pour acheter des leads, vous devez vérifier votre identité.
+                    </p>
+                    {kycStatus !== "approved" && (
+                      <a href="/verification-identite" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand-gradient px-4 py-2 text-xs font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Vérifier mon identité
+                      </a>
+                    )}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
