@@ -1,254 +1,124 @@
-"use client";
-
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
   AlertTriangle,
-  Send,
-  CheckCircle2,
   Clock,
   ShieldCheck,
   FileText,
+  LogIn,
+  ArrowRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
-const reclamationSchema = z.object({
-  reason: z.string().min(1, "Veuillez selectionner un motif"),
-  prospectId: z
-    .string()
-    .min(5, "L'identifiant prospect doit contenir au moins 5 caracteres"),
-  description: z
-    .string()
-    .min(20, "La description doit contenir au moins 20 caracteres"),
-});
-
-type ReclamationFormData = z.infer<typeof reclamationSchema>;
-
-const REASONS = [
-  { value: "numero-invalide", label: "Numero invalide" },
-  { value: "client-deja-contacte", label: "Client deja contacte" },
-  { value: "fausse-demande", label: "Fausse demande" },
-  { value: "client-deja-demenage", label: "Client deja demenage" },
-  { value: "doublon", label: "Doublon" },
-];
+export const metadata: Metadata = {
+  title: "Déposer une réclamation — Remboursement de lead",
+  description:
+    "Un lead défectueux ? Connectez-vous à votre espace déménageur pour déposer une réclamation et obtenir un remboursement sous 48 h ouvrables.",
+  alternates: { canonical: "/reclamation" },
+};
 
 const PROCESS_STEPS = [
   {
     icon: FileText,
-    title: "Depot de la reclamation",
+    title: "Dépôt depuis votre dashboard",
     description:
-      "Remplissez le formulaire ci-dessous avec le motif, l'identifiant prospect et une description detaillee.",
+      "Connectez-vous à votre espace déménageur, ouvrez le lead concerné et cliquez sur « Déposer une réclamation ».",
   },
   {
     icon: Clock,
-    title: "Traitement sous 48h",
+    title: "Traitement sous 48 h",
     description:
-      "Notre equipe analyse votre reclamation et verifie les informations fournies sous 48h ouvrables.",
+      "Notre équipe analyse votre réclamation et vérifie les informations fournies sous 48 h ouvrables.",
   },
   {
     icon: ShieldCheck,
-    title: "Decision et remboursement",
+    title: "Décision et remboursement",
     description:
-      "Si la reclamation est validee, le credit est automatiquement ajoute a votre compte sous 5 jours ouvrables.",
+      "Si la réclamation est validée, le crédit est automatiquement ajouté à votre portefeuille sous 5 jours ouvrables.",
   },
 ];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-  }),
-};
-
 export default function ReclamationPage() {
-  const [submitted, setSubmitted] = useState(false);
-  const [reasonValue, setReasonValue] = useState("");
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<ReclamationFormData>({
-    resolver: zodResolver(reclamationSchema),
-  });
-
-  const onSubmit = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSubmitted(true);
-  };
-
   return (
     <>
       {/* Hero */}
       <section className="bg-gradient-to-b from-orange-50/60 via-white to-white">
         <div className="container py-16">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            className="mx-auto max-w-2xl text-center"
-          >
-            <motion.div variants={fadeUp} custom={0}>
-              <AlertTriangle className="mx-auto h-12 w-12 text-orange-500" />
-            </motion.div>
-            <motion.h1
-              variants={fadeUp}
-              custom={1}
-              className="mt-6 font-display text-4xl font-extrabold tracking-tight text-gray-950 sm:text-5xl"
-            >
-              Deposer une reclamation
-            </motion.h1>
-            <motion.p
-              variants={fadeUp}
-              custom={2}
-              className="mt-4 text-lg text-muted-foreground"
-            >
-              Un probleme avec un lead ? Soumettez votre reclamation et notre
-              equipe l&apos;examinera sous 48h.
-            </motion.p>
-          </motion.div>
+          <div className="mx-auto max-w-2xl text-center">
+            <AlertTriangle className="mx-auto h-12 w-12 text-orange-500" />
+            <h1 className="mt-6 font-display text-4xl font-extrabold tracking-tight text-gray-950 sm:text-5xl">
+              Déposer une réclamation
+            </h1>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Un problème avec un lead que vous avez acheté ? Déposez votre
+              réclamation depuis votre espace déménageur, nous l&apos;examinons
+              sous 48 h.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Content */}
       <section className="container pb-20">
         <div className="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[1fr_380px]">
-          {/* Form */}
+          {/* Main CTA */}
           <div>
-            {submitted ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center rounded-2xl border bg-green-50 p-12 text-center"
-              >
-                <CheckCircle2 className="h-16 w-16 text-green-500" />
-                <h2 className="mt-6 font-display text-2xl font-bold text-gray-950">
-                  Reclamation envoyee !
-                </h2>
-                <p className="mt-3 max-w-md text-muted-foreground">
-                  Votre reclamation a bien ete enregistree. Notre equipe
-                  l&apos;analysera sous 48h ouvrables et vous informera de la
-                  decision par email.
-                </p>
-              </motion.div>
-            ) : (
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Reason */}
-                <div className="space-y-2">
-                  <Label>
-                    Motif de la reclamation{" "}
-                    <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={reasonValue}
-                    onValueChange={(val) => {
-                      setReasonValue(val);
-                      setValue("reason", val, { shouldValidate: true });
-                    }}
-                  >
-                    <SelectTrigger
-                      className={cn(errors.reason && "border-red-500")}
-                    >
-                      <SelectValue placeholder="Selectionnez un motif" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {REASONS.map((reason) => (
-                        <SelectItem key={reason.value} value={reason.value}>
-                          {reason.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.reason && (
-                    <p className="text-sm text-red-500">
-                      {errors.reason.message}
-                    </p>
-                  )}
-                </div>
+            <div className="rounded-2xl border-2 border-orange-200 bg-orange-50/40 p-8 sm:p-10">
+              <h2 className="font-display text-2xl font-bold text-gray-950">
+                Connectez-vous pour déposer votre réclamation
+              </h2>
+              <p className="mt-3 leading-relaxed text-muted-foreground">
+                Les réclamations sont gérées depuis votre espace déménageur
+                pour garantir qu&apos;elles portent bien sur un lead que vous
+                avez acheté. Connectez-vous, ouvrez le lead concerné et
+                utilisez le bouton <strong>« Déposer une réclamation »</strong>.
+              </p>
 
-                {/* Prospect ID */}
-                <div className="space-y-2">
-                  <Label htmlFor="prospectId">
-                    Identifiant prospect{" "}
-                    <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="prospectId"
-                    placeholder="Ex: 12345678FR123456"
-                    {...register("prospectId")}
-                    className={cn(errors.prospectId && "border-red-500")}
-                  />
-                  {errors.prospectId && (
-                    <p className="text-sm text-red-500">
-                      {errors.prospectId.message}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Retrouvez l&apos;identifiant dans votre espace
-                    demenageur, onglet &quot;Leads&quot;.
-                  </p>
-                </div>
-
-                {/* Description */}
-                <div className="space-y-2">
-                  <Label htmlFor="description">
-                    Description detaillee{" "}
-                    <span className="text-red-500">*</span>
-                  </Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Decrivez le probleme rencontre avec ce lead..."
-                    rows={6}
-                    {...register("description")}
-                    className={cn(errors.description && "border-red-500")}
-                  />
-                  {errors.description && (
-                    <p className="text-sm text-red-500">
-                      {errors.description.message}
-                    </p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="w-full gap-2"
-                  disabled={isSubmitting}
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/connexion?next=/demandes-de-devis"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-gradient px-6 py-3 text-base font-bold text-white shadow-lg transition-all hover:brightness-110"
                 >
-                  <Send className="h-4 w-4" />
-                  {isSubmitting
-                    ? "Envoi en cours..."
-                    : "Envoyer la reclamation"}
-                </Button>
-              </form>
-            )}
+                  <LogIn className="h-5 w-5" />
+                  Se connecter
+                </Link>
+                <Link
+                  href="/inscription/etape-1"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-orange-300 bg-white px-6 py-3 text-base font-semibold text-orange-700 transition-all hover:bg-orange-50"
+                >
+                  Créer un compte déménageur
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              <div className="mt-8 border-t border-orange-200 pt-6">
+                <p className="text-sm font-semibold text-gray-900">
+                  Vous êtes un client particulier ?
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pour toute réclamation concernant un déménagement, contactez
+                  directement l&apos;entreprise qui a effectué votre
+                  déménagement. Pour un problème avec notre plateforme, utilisez
+                  notre{" "}
+                  <Link
+                    href="/contact"
+                    className="font-semibold text-orange-700 underline underline-offset-2"
+                  >
+                    formulaire de contact
+                  </Link>
+                  .
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Process */}
             <Card>
               <CardContent className="p-6">
-                <h3 className="font-display text-base font-bold text-gray-950">
+                <h2 className="font-display text-base font-bold text-gray-950">
                   Processus de traitement
-                </h3>
+                </h2>
                 <div className="mt-5 space-y-6">
                   {PROCESS_STEPS.map((step) => (
                     <div key={step.title} className="flex gap-4">
@@ -269,32 +139,32 @@ export default function ReclamationPage() {
               </CardContent>
             </Card>
 
-            {/* Refund rules */}
             <Card className="border-orange-200 bg-orange-50/50">
               <CardContent className="p-6">
-                <h3 className="font-display text-base font-bold text-gray-950">
-                  Regles de remboursement
-                </h3>
+                <h2 className="font-display text-base font-bold text-gray-950">
+                  Règles de remboursement
+                </h2>
                 <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                   <li className="flex gap-2">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
-                    La reclamation doit etre deposee dans les 7 jours suivant la
-                    reception du lead.
+                    La réclamation doit être déposée dans les 7 jours suivant
+                    la réception du lead.
                   </li>
                   <li className="flex gap-2">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
-                    Un lead deja contacte (appel sortant enregistre) ne peut
+                    Un lead déjà contacté (appel sortant enregistré) ne peut
                     faire l&apos;objet d&apos;un remboursement.
                   </li>
                   <li className="flex gap-2">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
-                    Les credits sont restitues sous forme d&apos;avoir sur votre
-                    compte, utilisables pour l&apos;achat de futurs leads.
+                    Les crédits sont restitués sous forme d&apos;avoir sur
+                    votre portefeuille, utilisables pour l&apos;achat de futurs
+                    leads.
                   </li>
                   <li className="flex gap-2">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
-                    En cas de desaccord, une mediation peut etre demandee
-                    aupres de notre service client.
+                    En cas de désaccord, une médiation peut être demandée
+                    auprès de notre service client.
                   </li>
                 </ul>
               </CardContent>
