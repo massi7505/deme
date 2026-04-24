@@ -81,8 +81,17 @@ function VerificationIdentiteInner() {
   }, []);
 
   useEffect(() => {
-    if (!isReturning) return;
-    if (urlHintedStatus === "approved" || urlHintedStatus === "rejected") return;
+    // Poll whenever we expect the status to move: after a didit callback
+    // (isReturning) OR when the mover lands here with an in_review row (e.g.
+    // navigated away and came back while didit is still analyzing). Without
+    // the second branch the mover sees a frozen spinner and has to refresh
+    // manually to learn they're approved/rejected.
+    const shouldPoll =
+      (isReturning &&
+        urlHintedStatus !== "approved" &&
+        urlHintedStatus !== "rejected") ||
+      initialStatus === "in_review";
+    if (!shouldPoll) return;
 
     let stopped = false;
     let attempts = 0;
@@ -108,7 +117,7 @@ function VerificationIdentiteInner() {
     return () => {
       stopped = true;
     };
-  }, [isReturning, urlHintedStatus]);
+  }, [isReturning, urlHintedStatus, initialStatus]);
 
   // Treat as "returning" (show status UI) if the URL says so, OR if we just
   // learned the mover is already approved / has a terminal status.
@@ -197,7 +206,15 @@ function VerificationIdentiteInner() {
           >
             Réessayer <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
-        ) : null}
+        ) : (
+          <Link
+            href="/apercu"
+            className="flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Retour à l&apos;aperçu
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </motion.div>
     );
   }
