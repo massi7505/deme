@@ -68,6 +68,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Reject unlock if the move date has already passed. The effective cutoff
+    // uses move_date_extended_to when the client reconfirmed "still looking"
+    // via the J-3 re-engagement email. Defense-in-depth: the dashboard list
+    // already hides expired leads, this guard catches bookmarks / stale UI.
+    const { data: quoteForDate } = await supabase
+      .from("quote_requests")
+      .select("move_date, move_date_extended_to")
+      .eq("id", distribution.quote_request_id)
+      .single();
+    const quote = quoteForDate as {
+      move_date: string | null;
+      move_date_extended_to: string | null;
+    } | null;
+    const cutoff = quote?.move_date_extended_to || quote?.move_date;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if (cutoff && cutoff < todayIso) {
+      return NextResponse.json(
+        { error: "Ce lead n'est plus disponible (date dépassée)" },
+        { status: 410 }
+      );
+    }
+
     // Check max 6 unlocks per lead
     const { count: unlockedCount } = await supabase
       .from("quote_distributions")

@@ -69,6 +69,21 @@ export async function GET() {
     }
   }
 
+  // Hide leads whose move date has already passed (unless the mover already
+  // unlocked them — they need access to their own archives). The effective
+  // cutoff is move_date_extended_to if set (client reconfirmed "still
+  // looking" via the J-3 email), otherwise move_date.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const expiredQuoteIds = new Set<string>();
+  for (const q of Object.values(quotes) as Array<Record<string, unknown>>) {
+    const cutoff =
+      (q.move_date_extended_to as string | null) ||
+      (q.move_date as string | null);
+    if (cutoff && cutoff < todayIso) {
+      expiredQuoteIds.add(q.id as string);
+    }
+  }
+
   // Count unlocks per quote_request to enforce max 6
   const unlockCounts: Record<string, number> = {};
   if (quoteIds.length > 0) {
@@ -93,6 +108,8 @@ export async function GET() {
     const totalUnlocks = unlockCounts[d.quote_request_id as string] || 0;
     const isOwnUnlocked = d.status === "unlocked";
     const isSoldOut = totalUnlocks >= MAX_UNLOCKS && !isOwnUnlocked;
+    const isExpired =
+      expiredQuoteIds.has(d.quote_request_id as string) && !isOwnUnlocked;
 
     return {
       distributionId: d.id,
@@ -105,6 +122,7 @@ export async function GET() {
       totalUnlocks,
       maxUnlocks: MAX_UNLOCKS,
       isSoldOut,
+      isExpired,
       createdAt: d.created_at,
       // Quote info
       prospectId: quote.prospect_id,
@@ -142,8 +160,10 @@ export async function GET() {
     };
   });
 
-  // Filter out sold-out leads (max 6 unlocks reached, mover hasn't unlocked)
-  const leads = allLeads.filter((l: { isSoldOut: boolean }) => !l.isSoldOut);
+  // Filter out sold-out OR expired leads (unless mover already unlocked)
+  const leads = allLeads.filter(
+    (l: { isSoldOut: boolean; isExpired: boolean }) => !l.isSoldOut && !l.isExpired
+  );
 
   // Stats
   const totalLeads = leads.length;
