@@ -4,6 +4,7 @@ import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
 import { backfillLeadsForCompany } from "@/lib/backfill-leads";
 import { getWalletBalanceCents } from "@/lib/wallet";
+import { computeOnboarding } from "@/lib/onboarding";
 
 export async function GET() {
   const supabase = await createClient();
@@ -149,6 +150,30 @@ export async function GET() {
   const unlockedLeads = leads.filter((l) => l.status === "unlocked").length;
   const pendingLeads = leads.filter((l) => l.status === "pending").length;
   const conversionRate = totalLeads > 0 ? Math.round((unlockedLeads / totalLeads) * 100) : 0;
+
+  // Onboarding checklist — 2 parallel count queries (regions + radius) then derive
+  // the 5-item payload from the company/leads already loaded above.
+  const [{ count: regionCount }, { count: radiusCount }] = await Promise.all([
+    admin
+      .from("company_regions")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", company.id),
+    admin
+      .from("company_radius")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", company.id),
+  ]);
+
+  const onboarding = computeOnboarding({
+    company: {
+      kyc_status: company.kyc_status as string | null | undefined,
+      logo_url: company.logo_url as string | null | undefined,
+      description: company.description as string | null | undefined,
+    },
+    unlockedLeads,
+    regionCount: regionCount ?? 0,
+    radiusCount: radiusCount ?? 0,
+  });
 
   // Revenue from actual paid transactions (deduplicated per lead, same logic as billing)
   const { data: paidTxns } = await admin
@@ -298,6 +323,7 @@ export async function GET() {
       enabled: !!settings.refundsEnabled,
       balanceCents: walletBalanceCents,
     },
+    onboarding,
     spentCents,
     pendingCents,
   });
