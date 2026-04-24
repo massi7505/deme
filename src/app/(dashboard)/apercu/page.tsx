@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccountManagerCard } from "@/components/dashboard/AccountManagerCard";
+import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist";
+import type { OnboardingData } from "@/lib/onboarding";
 import { motion } from "framer-motion";
 import { formatPrice, formatDate, maskText } from "@/lib/utils";
 import {
@@ -54,6 +56,7 @@ interface DashboardData {
     enabled: boolean;
     balanceCents: number;
   };
+  onboarding?: OnboardingData;
 }
 
 interface Lead {
@@ -164,32 +167,7 @@ export default function ApercuPage() {
         </p>
       </motion.div>
 
-      {kycStatus !== "approved" && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-            <div>
-              <p className="text-sm font-semibold text-amber-900">
-                Vérifiez votre identité pour acheter des leads
-              </p>
-              <p className="mt-0.5 text-xs text-amber-800">
-                Vous pouvez consulter les demandes correspondant à votre zone. La vérification d&apos;identité (KYC) est requise avant tout achat.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/verification-identite"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-amber-700"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Vérifier mon identité
-          </Link>
-        </motion.div>
-      )}
+      {data.onboarding && <OnboardingChecklist onboarding={data.onboarding} />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
