@@ -1,16 +1,9 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { createUntypedAdminClient } from "@/lib/supabase/admin";
+import { ConfigurationsView } from "@/components/dashboard/ConfigurationsView";
 
-import { useEffect, useState, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MapPin, Settings2, Pencil } from "lucide-react";
-import { CoverageMap } from "@/components/dashboard/CoverageMap";
-import { RegionEditModal } from "@/components/dashboard/RegionEditModal";
-import { DEPARTMENTS } from "@/lib/utils";
-import { motion } from "framer-motion";
+export const dynamic = "force-dynamic";
 
 interface Region {
   id: string;
@@ -28,133 +21,59 @@ interface RadiusRule {
   move_types: string[];
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  national: "bg-green-100 text-green-800 border-green-200",
-  entreprise: "bg-blue-100 text-blue-800 border-blue-200",
-  international: "bg-purple-100 text-purple-800 border-purple-200",
-};
+export default async function ConfigurationsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/connexion");
 
-export default function ConfigurationsPage() {
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [radiusRules, setRadiusRules] = useState<RadiusRule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [companyCity, setCompanyCity] = useState<string | null>(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  const admin = createUntypedAdminClient();
 
-  const fetchRegions = useCallback(() => {
-    fetch("/api/dashboard/regions")
-      .then((r) => r.ok ? r.json() : { regions: [], radiusRules: [] })
-      .then((data) => {
-        // Support both old format (array) and new format (object with regions + radiusRules)
-        if (Array.isArray(data)) {
-          setRegions(data);
-        } else {
-          setRegions(data.regions || []);
-          setRadiusRules(data.radiusRules || []);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: company } = await admin
+    .from("companies")
+    .select("id, city")
+    .eq("profile_id", user.id)
+    .single();
 
-  useEffect(() => {
-    fetch("/api/dashboard/overview")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.company) {
-          setCompanyCity(data.company.city);
-        }
-      });
+  if (!company) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">Régions ciblées et catégories</h2>
+        <p className="text-sm text-muted-foreground">
+          Aucune entreprise associée à votre compte. Complétez votre inscription.
+        </p>
+      </div>
+    );
+  }
 
-    fetchRegions();
-  }, [fetchRegions]);
+  const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+
+  const [regionsRes, radiusRulesRes, impactRes] = await Promise.all([
+    admin
+      .from("company_regions")
+      .select("id, department_code, department_name, categories")
+      .eq("company_id", company.id)
+      .order("department_code"),
+    admin
+      .from("company_radius")
+      .select("id, departure_city, lat, lng, radius_km, move_types")
+      .eq("company_id", company.id)
+      .order("created_at", { ascending: false }),
+    admin
+      .from("quote_distributions")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", company.id)
+      .gte("created_at", since),
+  ]);
+
+  const regions = (regionsRes.data || []) as Region[];
+  const radiusRules = (radiusRulesRes.data || []) as RadiusRule[];
+  const impactCount = impactRes.count ?? 0;
 
   return (
-    <div className="space-y-8">
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <h2 className="text-2xl font-bold tracking-tight">Régions ciblées et catégories</h2>
-        <p className="text-sm text-muted-foreground">
-          Configurez vos zones d&apos;intervention et les types de déménagements que vous acceptez.
-        </p>
-      </motion.div>
-
-      {/* Regions table */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MapPin className="h-4 w-4 text-[var(--brand-green)]" /> Régions configurées
-          </CardTitle>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditModalOpen(true)}><Pencil className="h-3.5 w-3.5" /> Modifier</Button>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
-          ) : regions.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Aucune région configurée</p>
-          ) : (
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Département</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Catégories</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {regions.map((region) => (
-                    <TableRow key={region.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-50">
-                            <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
-                          </div>
-                          <span className="text-sm font-medium">
-                            {DEPARTMENTS[region.department_code] || region.department_name}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs text-muted-foreground">{region.department_code}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1.5">
-                          {region.categories.map((cat) => (
-                            <Badge key={cat} variant="outline" className={`text-[11px] capitalize ${CATEGORY_COLORS[cat] ?? ""}`}>
-                              {cat}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Map */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Settings2 className="h-4 w-4 text-[var(--brand-green)]" /> Zone de couverture
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CoverageMap markers={companyCity ? [{ lat: 48.8566, lng: 2.3522, label: companyCity, radiusKm: 30 }] : []} />
-        </CardContent>
-      </Card>
-
-
-      {/* Region edit modal */}
-      <RegionEditModal
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        regions={regions}
-        radiusRules={radiusRules}
-        onSaved={fetchRegions}
-      />
-    </div>
+    <ConfigurationsView
+      regions={regions}
+      radiusRules={radiusRules}
+      impactCount={impactCount}
+    />
   );
 }
