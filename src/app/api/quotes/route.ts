@@ -35,6 +35,93 @@ export async function POST(request: NextRequest) {
     }
     const supabase = createUntypedAdminClient();
 
+    // De-duplication. Two tiers:
+    //   1. < 1h, any matching email/phone → idempotent: return the existing
+    //      lead so a double-clicked form doesn't get billed twice.
+    //   2. 1h–7d, matching email/phone AND identical from/to postal codes →
+    //      hard reject (HTTP 409). Different itinerary still passes through
+    //      (legitimate "compare two moves" use case); fraud-detection's score
+    //      bump still flags it for admin review when warranted.
+    const normalizedEmail = body.email ? normalizeEmail(body.email) : null;
+    const normalizedPhone = body.phone ? normalizePhone(body.phone) : null;
+    if (normalizedEmail || normalizedPhone) {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+      type DupRow = {
+        id: string;
+        prospect_id: string;
+        created_at: string;
+        from_postal_code: string | null;
+        to_postal_code: string | null;
+      };
+
+      // Two separate queries (one per indexed column) — safer than .or() which
+      // would need value-escaping if the email contained a comma.
+      const queries: Promise<{ data: DupRow[] | null }>[] = [];
+      if (normalizedEmail) {
+        queries.push(
+          supabase
+            .from("quote_requests")
+            .select("id, prospect_id, created_at, from_postal_code, to_postal_code")
+            .eq("client_email_normalized", normalizedEmail)
+            .in("status", ["new", "active", "review_pending"])
+            .gte("created_at", sevenDaysAgo) as unknown as Promise<{ data: DupRow[] | null }>
+        );
+      }
+      if (normalizedPhone) {
+        queries.push(
+          supabase
+            .from("quote_requests")
+            .select("id, prospect_id, created_at, from_postal_code, to_postal_code")
+            .eq("client_phone_normalized", normalizedPhone)
+            .in("status", ["new", "active", "review_pending"])
+            .gte("created_at", sevenDaysAgo) as unknown as Promise<{ data: DupRow[] | null }>
+        );
+      }
+
+      const results = await Promise.all(queries);
+      const seen = new Set<string>();
+      const matches: DupRow[] = [];
+      for (const { data } of results) {
+        for (const row of data ?? []) {
+          if (seen.has(row.id)) continue;
+          seen.add(row.id);
+          matches.push(row);
+        }
+      }
+      matches.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
+      const recent = matches.find((m) => m.created_at >= oneHourAgo);
+      if (recent) {
+        return NextResponse.json({
+          success: true,
+          prospectId: recent.prospect_id,
+          quoteId: recent.id,
+          verificationRequired: FEATURE_ENABLED,
+          emailSent: !!body.email,
+          smsSent: !!body.phone,
+          idempotent: true,
+        });
+      }
+
+      const sameRoute = matches.find(
+        (m) =>
+          m.from_postal_code === body.fromPostalCode &&
+          m.to_postal_code === body.toPostalCode
+      );
+      if (sameRoute) {
+        return NextResponse.json(
+          {
+            error:
+              "Une demande similaire est déjà en cours pour cet itinéraire. Vos déménageurs vous recontacteront sous peu.",
+            code: "duplicate_route",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const prospectId = generateProspectId();
     const departmentCode = body.fromPostalCode?.slice(0, 2) ?? "";
 
@@ -70,8 +157,8 @@ export async function POST(request: NextRequest) {
         client_name: `${body.firstName ?? ""} ${body.lastName ?? ""}`.trim(),
         client_phone: body.phone,
         client_email: body.email,
-        client_email_normalized: body.email ? normalizeEmail(body.email) : null,
-        client_phone_normalized: body.phone ? normalizePhone(body.phone) : null,
+        client_email_normalized: normalizedEmail,
+        client_phone_normalized: normalizedPhone,
         source: "website",
         geographic_zone: departmentCode,
         status: "new",
