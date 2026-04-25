@@ -5,15 +5,28 @@ import { MapPin } from "lucide-react";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-// France center
 const DEFAULT_CENTER: [number, number] = [2.3522, 46.6034];
 const DEFAULT_ZOOM = 5;
+
+const CATEGORY_FILL: Record<string, { fill: string; line: string }> = {
+  national: { fill: "#22c55e", line: "#16a34a" },
+  entreprise: { fill: "#3b82f6", line: "#2563eb" },
+  international: { fill: "#a855f7", line: "#9333ea" },
+};
+
+interface Marker {
+  lat: number;
+  lng: number;
+  label?: string;
+  radiusKm?: number;
+  categories?: string[];
+}
 
 export function CoverageMap({
   markers = [],
   className = "",
 }: {
-  markers?: { lat: number; lng: number; label?: string; radiusKm?: number }[];
+  markers?: Marker[];
   className?: string;
 }) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -36,11 +49,9 @@ export function CoverageMap({
       // @ts-expect-error — CSS import for mapbox styles
       await import("mapbox-gl/dist/mapbox-gl.css").catch(() => {});
 
-      // Center on first marker if available, otherwise France center
-      const center: [number, number] = markers.length > 0
-        ? [markers[0].lng, markers[0].lat]
-        : DEFAULT_CENTER;
-      const zoom = markers.length > 0 ? 15 : DEFAULT_ZOOM;
+      const center: [number, number] =
+        markers.length > 0 ? [markers[0].lng, markers[0].lat] : DEFAULT_CENTER;
+      const zoom = markers.length > 0 ? 8 : DEFAULT_ZOOM;
 
       map = new mapboxgl.Map({
         container: mapContainer.current!,
@@ -56,23 +67,31 @@ export function CoverageMap({
         setLoaded(true);
         mapRef.current = map;
 
-        // Add markers
-        markers.forEach((m) => {
-          new mapboxgl.Marker({ color: "#22c55e" })
+        const bounds = new mapboxgl.LngLatBounds();
+
+        markers.forEach((m, idx) => {
+          const primaryCat = m.categories?.[0] ?? "national";
+          const colors = CATEGORY_FILL[primaryCat] ?? CATEGORY_FILL.national;
+
+          const popupHtml = `
+            <div style="font-family:system-ui;font-size:12px;line-height:1.4">
+              <strong>${m.label ?? "Zone"}</strong>
+              ${m.radiusKm ? `<br/>Rayon ${m.radiusKm} km` : ""}
+              ${m.categories?.length ? `<br/>Catégories : ${m.categories.join(", ")}` : ""}
+            </div>
+          `;
+
+          new mapboxgl.Marker({ color: colors.line })
             .setLngLat([m.lng, m.lat])
-            .setPopup(
-              m.label
-                ? new mapboxgl.Popup().setHTML(`<strong>${m.label}</strong>`)
-                : undefined
-            )
+            .setPopup(new mapboxgl.Popup({ offset: 24 }).setHTML(popupHtml))
             .addTo(map);
 
-          // Draw radius circle if specified
+          bounds.extend([m.lng, m.lat]);
+
           if (m.radiusKm) {
             const points = 64;
             const km = m.radiusKm;
             const coords: [number, number][] = [];
-
             for (let i = 0; i < points; i++) {
               const angle = (i / points) * 2 * Math.PI;
               const dx = km / (111.32 * Math.cos((m.lat * Math.PI) / 180));
@@ -81,10 +100,14 @@ export function CoverageMap({
                 m.lng + dx * Math.cos(angle),
                 m.lat + dy * Math.sin(angle),
               ]);
+              bounds.extend([
+                m.lng + dx * Math.cos(angle),
+                m.lat + dy * Math.sin(angle),
+              ]);
             }
-            coords.push(coords[0]); // close the circle
+            coords.push(coords[0]);
 
-            const sourceId = `radius-${m.lat}-${m.lng}`;
+            const sourceId = `radius-${idx}-${m.lat}-${m.lng}`;
             map.addSource(sourceId, {
               type: "geojson",
               data: {
@@ -98,23 +121,23 @@ export function CoverageMap({
               id: `${sourceId}-fill`,
               type: "fill",
               source: sourceId,
-              paint: {
-                "fill-color": "#22c55e",
-                "fill-opacity": 0.12,
-              },
+              paint: { "fill-color": colors.fill, "fill-opacity": 0.12 },
             });
 
             map.addLayer({
               id: `${sourceId}-border`,
               type: "line",
               source: sourceId,
-              paint: {
-                "line-color": "#16a34a",
-                "line-width": 2,
-              },
+              paint: { "line-color": colors.line, "line-width": 2 },
             });
           }
         });
+
+        if (markers.length > 1) {
+          map.fitBounds(bounds, { padding: 40, maxZoom: 11 });
+        } else if (markers.length === 1 && markers[0].radiusKm) {
+          map.fitBounds(bounds, { padding: 40, maxZoom: 11 });
+        }
       });
     }
 

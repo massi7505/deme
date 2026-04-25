@@ -109,6 +109,27 @@ export function RegionEditModal({ open, onClose, onSaved, regions, radiusRules }
     });
   }
 
+  function toggleRegionBulk(deptCodes: string[]) {
+    setSelectedDepts((prev) => {
+      const allPresent = deptCodes.every((c) => !!prev[c]);
+      const next = { ...prev };
+      if (allPresent) {
+        // Remove all departments of this region
+        for (const c of deptCodes) {
+          delete next[c];
+        }
+      } else {
+        // Add any missing departments with default category
+        for (const c of deptCodes) {
+          if (!next[c]) {
+            next[c] = ["national"];
+          }
+        }
+      }
+      return next;
+    });
+  }
+
   function toggleDeptCategory(code: string, category: string) {
     setSelectedDepts((prev) => {
       const current = prev[code] || [];
@@ -301,7 +322,46 @@ export function RegionEditModal({ open, onClose, onSaved, regions, radiusRules }
 
             {!activeRegion ? (
               /* ── STEP 1: Region grid ── */
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto space-y-4">
+                {/* Bulk region picker — toggle all departments of a region in one click */}
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Sélection rapide par région française
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(REGIONS).map(([regionName, deptCodes]) => {
+                      const present = deptCodes.filter((d) => !!selectedDepts[d]).length;
+                      const state =
+                        present === 0
+                          ? "none"
+                          : present === deptCodes.length
+                          ? "all"
+                          : "partial";
+                      return (
+                        <button
+                          key={regionName}
+                          type="button"
+                          onClick={() => toggleRegionBulk(deptCodes)}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                            state === "all"
+                              ? "border-green-500 bg-green-500 text-white"
+                              : state === "partial"
+                              ? "border-green-300 bg-green-50 text-green-800"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-green-200"
+                          )}
+                          aria-pressed={state === "all"}
+                        >
+                          {regionName}{" "}
+                          <span className="opacity-70">
+                            ({present}/{deptCodes.length})
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {Object.entries(REGIONS).map(([regionName, deptCodes]) => {
                     const selectedCount = deptCodes.filter((c) => !!selectedDepts[c]).length;

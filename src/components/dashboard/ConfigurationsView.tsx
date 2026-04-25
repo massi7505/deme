@@ -11,6 +11,8 @@ import { CoverageMap } from "@/components/dashboard/CoverageMap";
 import { RegionEditModal } from "@/components/dashboard/RegionEditModal";
 import { DEPARTMENTS } from "@/lib/utils";
 import toast from "react-hot-toast";
+import type { ConfigConflict } from "@/lib/config-conflicts";
+import { ConflictBanner } from "@/components/dashboard/ConflictBanner";
 
 interface Region {
   id: string;
@@ -32,6 +34,7 @@ interface Props {
   regions: Region[];
   radiusRules: RadiusRule[];
   impactCount: number;
+  conflicts: ConfigConflict[];
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -40,7 +43,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   international: "bg-purple-100 text-purple-800 border-purple-200",
 };
 
-export function ConfigurationsView({ regions, radiusRules, impactCount }: Props) {
+export function ConfigurationsView({ regions, radiusRules, impactCount, conflicts }: Props) {
   const router = useRouter();
   const [editModalOpen, setEditModalOpen] = useState(false);
 
@@ -64,6 +67,7 @@ export function ConfigurationsView({ regions, radiusRules, impactCount }: Props)
     lng: r.lng,
     label: r.departure_city,
     radiusKm: r.radius_km,
+    categories: r.move_types,
   }));
 
   return (
@@ -82,6 +86,8 @@ export function ConfigurationsView({ regions, radiusRules, impactCount }: Props)
           <span className="font-semibold text-foreground">~{impactCount}</span> lead{impactCount !== 1 ? "s" : ""} reçu{impactCount !== 1 ? "s" : ""} sur 30 jours
         </p>
       </div>
+
+      <ConflictBanner conflicts={conflicts} />
 
       {/* Régions par département */}
       <Card>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ConfigurationsView } from "@/components/dashboard/ConfigurationsView";
+import { detectConflicts } from "@/lib/config-conflicts";
 
 export const dynamic = "force-dynamic";
 
@@ -74,11 +75,14 @@ export default async function ConfigurationsPage() {
   const impactCount =
     impactRes.status === "fulfilled" ? impactRes.value.count ?? 0 : 0;
 
+  const conflicts = detectConflicts(regions, radiusRules);
+
   return (
     <ConfigurationsView
       regions={regions}
       radiusRules={radiusRules}
       impactCount={impactCount}
+      conflicts={conflicts}
     />
   );
 }
