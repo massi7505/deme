@@ -22,6 +22,19 @@ interface Marker {
   categories?: string[];
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case '"': return "&quot;";
+      case "'": return "&#39;";
+      default: return c;
+    }
+  });
+}
+
 export function CoverageMap({
   markers = [],
   className = "",
@@ -73,11 +86,16 @@ export function CoverageMap({
           const primaryCat = m.categories?.[0] ?? "national";
           const colors = CATEGORY_FILL[primaryCat] ?? CATEGORY_FILL.national;
 
+          const safeLabel = escapeHtml(m.label ?? "Zone");
+          const safeRadius = m.radiusKm ? escapeHtml(String(m.radiusKm)) : "";
+          const safeCategories = m.categories?.length
+            ? escapeHtml(m.categories.join(", "))
+            : "";
           const popupHtml = `
-            <div style="font-family:system-ui;font-size:12px;line-height:1.4">
-              <strong>${m.label ?? "Zone"}</strong>
-              ${m.radiusKm ? `<br/>Rayon ${m.radiusKm} km` : ""}
-              ${m.categories?.length ? `<br/>Catégories : ${m.categories.join(", ")}` : ""}
+            <div style="font-family:system-ui;font-size:12px;line-height:1.4;max-width:240px">
+              <strong>${safeLabel}</strong>
+              ${safeRadius ? `<br/>Rayon ${safeRadius} km` : ""}
+              ${safeCategories ? `<br/>Catégories : ${safeCategories}` : ""}
             </div>
           `;
 
