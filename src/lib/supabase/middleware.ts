@@ -34,7 +34,19 @@ export async function updateSession(request: NextRequest) {
   // debug issues with users being randomly logged out.
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  // Self-heal stale auth cookies so the next request doesn't retry the
+  // failed refresh on every navigation (otherwise spams Vercel logs).
+  if (
+    error &&
+    (error.code === "refresh_token_not_found" ||
+      error.code === "refresh_token_already_used")
+  ) {
+    await supabase.auth.signOut({ scope: "local" });
+    return { user: null, supabaseResponse };
+  }
 
   return { user, supabaseResponse };
 }
