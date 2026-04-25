@@ -113,7 +113,7 @@ export default function DemandesDeDevisPage() {
       </motion.div>
 
       {unlocked.length > 0 && lastUnlocked && (
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto]">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto]">
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Achetés</p>
@@ -131,7 +131,7 @@ export default function DemandesDeDevisPage() {
               )}
             </CardContent>
           </Card>
-          <Card>
+          <Card className="col-span-2 sm:col-span-1">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Dernier achat</p>
               <p className="mt-1 text-sm font-semibold truncate">
@@ -144,7 +144,7 @@ export default function DemandesDeDevisPage() {
           </Card>
           <Link
             href={`/demandes-de-devis/${lastUnlocked.distributionId}`}
-            className="flex items-center justify-center gap-2 rounded-xl bg-brand-gradient px-4 py-3 text-sm font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110"
+            className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-brand-gradient px-4 py-3 text-sm font-bold text-white shadow-md shadow-green-500/20 hover:brightness-110 sm:col-span-3 lg:col-span-1"
           >
             Voir mon dernier achat <ArrowRight className="h-4 w-4" />
           </Link>
@@ -200,18 +200,43 @@ export default function DemandesDeDevisPage() {
               <motion.div key={lead.distributionId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
                 <Link href={`/demandes-de-devis/${lead.distributionId}`}>
                   <Card className="transition-all hover:shadow-md cursor-pointer">
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-4">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-start gap-3">
                         <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", lead.status === "unlocked" ? "bg-green-50" : "bg-gray-100")}>
                           {lead.status === "unlocked" ? <Unlock className="h-5 w-5 text-green-600" /> : <Lock className="h-5 w-5 text-gray-400" />}
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{formatLeadName(lead)}</p>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="text-xs text-muted-foreground">
-                              {formatLeadRoute(lead)}
-                              {lead.moveDate && ` · ${formatDate(lead.moveDate)}`}
-                            </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-sm font-medium">{formatLeadName(lead)}</p>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="text-sm font-bold tabular-nums">{formatPrice(lead.priceCents)}</span>
+                              <ArrowRight className="hidden h-4 w-4 text-muted-foreground sm:block" />
+                            </div>
+                          </div>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {formatLeadRoute(lead)}
+                            {lead.moveDate && ` · ${formatDate(lead.moveDate)}`}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {(() => {
+                              const sold = lead.totalUnlocks ?? 0;
+                              const max = lead.maxUnlocks ?? 6;
+                              const remaining = Math.max(0, max - sold);
+                              const tone =
+                                remaining === 0
+                                  ? "bg-red-50 text-red-700 border-red-200"
+                                  : remaining <= 2
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-gray-50 text-gray-700";
+                              return (
+                                <Badge variant="outline" className={cn("text-[10px]", tone)}>
+                                  {sold}/{max} acheteur{sold > 1 ? "s" : ""}
+                                  {remaining > 0 && lead.status !== "unlocked" && (
+                                    <span className="ml-1 font-normal opacity-75">· {remaining} pl.</span>
+                                  )}
+                                </Badge>
+                              );
+                            })()}
                             {lead.emailVerified && (
                               <span className="inline-flex items-center gap-0.5 rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
                                 <ShieldCheck className="h-3 w-3" /> Email
@@ -225,29 +250,6 @@ export default function DemandesDeDevisPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const sold = lead.totalUnlocks ?? 0;
-                          const max = lead.maxUnlocks ?? 6;
-                          const remaining = Math.max(0, max - sold);
-                          const tone =
-                            remaining === 0
-                              ? "bg-red-50 text-red-700 border-red-200"
-                              : remaining <= 2
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-gray-50 text-gray-700";
-                          return (
-                            <Badge variant="outline" className={cn("text-[10px]", tone)}>
-                              {sold}/{max} acheteur{sold > 1 ? "s" : ""}
-                              {remaining > 0 && lead.status !== "unlocked" && (
-                                <span className="ml-1 font-normal opacity-75">· {remaining} place{remaining > 1 ? "s" : ""}</span>
-                              )}
-                            </Badge>
-                          );
-                        })()}
-                        <span className="text-sm font-bold">{formatPrice(lead.priceCents)}</span>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
                     </CardContent>
                   </Card>
                 </Link>
@@ -256,11 +258,11 @@ export default function DemandesDeDevisPage() {
           </div>
 
           {/* Pagination controls */}
-          <div className="flex items-center justify-between pt-4">
-            <p className="text-sm text-muted-foreground">
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground sm:text-sm">
               {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2 sm:justify-end">
               <Button
                 variant="outline"
                 size="sm"
@@ -269,9 +271,9 @@ export default function DemandesDeDevisPage() {
                 className="gap-1"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Précédent
+                <span className="hidden sm:inline">Précédent</span>
               </Button>
-              <span className="px-2 text-sm font-medium">
+              <span className="px-2 text-sm font-medium tabular-nums">
                 {currentPage} / {totalPages}
               </span>
               <Button
@@ -281,7 +283,7 @@ export default function DemandesDeDevisPage() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 className="gap-1"
               >
-                Suivant
+                <span className="hidden sm:inline">Suivant</span>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
