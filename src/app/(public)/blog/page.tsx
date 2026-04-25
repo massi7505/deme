@@ -4,6 +4,8 @@ import { Clock, User, Image as ImageIcon, ChevronLeft, ChevronRight } from "luci
 import { cn } from "@/lib/utils";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Blog — Conseils, guides et actualités sur le déménagement",
   description:
