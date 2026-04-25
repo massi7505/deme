@@ -30,7 +30,7 @@ export default async function ConfigurationsPage() {
 
   const { data: company } = await admin
     .from("companies")
-    .select("id, city")
+    .select("id")
     .eq("profile_id", user.id)
     .single();
 
@@ -47,7 +47,7 @@ export default async function ConfigurationsPage() {
 
   const since = new Date(Date.now() - 30 * 86400_000).toISOString();
 
-  const [regionsRes, radiusRulesRes, impactRes] = await Promise.all([
+  const [regionsRes, radiusRulesRes, impactRes] = await Promise.allSettled([
     admin
       .from("company_regions")
       .select("id, department_code, department_name, categories")
@@ -65,9 +65,14 @@ export default async function ConfigurationsPage() {
       .gte("created_at", since),
   ]);
 
-  const regions = (regionsRes.data || []) as Region[];
-  const radiusRules = (radiusRulesRes.data || []) as RadiusRule[];
-  const impactCount = impactRes.count ?? 0;
+  const regions =
+    regionsRes.status === "fulfilled" ? ((regionsRes.value.data || []) as Region[]) : [];
+  const radiusRules =
+    radiusRulesRes.status === "fulfilled"
+      ? ((radiusRulesRes.value.data || []) as RadiusRule[])
+      : [];
+  const impactCount =
+    impactRes.status === "fulfilled" ? impactRes.value.count ?? 0 : 0;
 
   return (
     <ConfigurationsView
