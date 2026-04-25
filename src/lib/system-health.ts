@@ -391,7 +391,7 @@ const CRON_SCHEDULES: Record<string, string> = {
 
 // Max age (ms) before a cron is considered stale per schedule cadence.
 const CRON_STALE_MS: Record<string, number> = {
-  "reconcile-payments": 30 * 60 * 1000, // 2× the 15-min cadence
+  "reconcile-payments": 45 * 60 * 1000, // 3× the 15-min cadence (absorbs Vercel jitter)
   "send-review-emails": 2 * 60 * 60 * 1000, // 2× hourly
   "warn-wallet-expiry": 30 * 60 * 60 * 1000, // ~1.25× daily
   "reengage-clients": 30 * 60 * 60 * 1000, // ~1.25× daily
