@@ -101,47 +101,89 @@ export function ConfigurationsView({ regions, radiusRules, impactCount, conflict
         </CardHeader>
         <CardContent>
           {regions.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Aucun département configuré</p>
-          ) : (
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Département</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Catégories</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {regions.map((region) => (
-                    <TableRow key={region.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-50">
-                            <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
-                          </div>
-                          <span className="text-sm font-medium">
-                            {DEPARTMENTS[region.department_code] || region.department_name}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs text-muted-foreground">{region.department_code}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1.5">
-                          {region.categories.map((cat) => (
-                            <Badge key={cat} variant="outline" className={`text-[11px] capitalize ${CATEGORY_COLORS[cat] ?? ""}`}>
-                              {cat}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50">
+                <MapPin className="h-6 w-6 text-[var(--brand-green)]" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Aucun département ciblé</p>
+                <p className="text-sm text-muted-foreground">
+                  Ajoutez les départements où vous souhaitez recevoir des leads.
+                </p>
+              </div>
+              <Button size="sm" onClick={() => setEditModalOpen(true)} className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" /> Configurer mes départements
+              </Button>
             </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden rounded-lg border sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Département</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Catégories</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {regions.map((region) => (
+                      <TableRow key={region.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-50">
+                              <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
+                            </div>
+                            <span className="text-sm font-medium">
+                              {DEPARTMENTS[region.department_code] || region.department_name}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-xs text-muted-foreground">{region.department_code}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1.5">
+                            {region.categories.map((cat) => (
+                              <Badge key={cat} variant="outline" className={`text-[11px] capitalize ${CATEGORY_COLORS[cat] ?? ""}`}>
+                                {cat}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="space-y-2 sm:hidden">
+                {regions.map((region) => (
+                  <div key={region.id} className="flex items-start gap-3 rounded-lg border p-3">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-green-50">
+                      <MapPin className="h-4 w-4 text-[var(--brand-green)]" />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium">
+                          {DEPARTMENTS[region.department_code] || region.department_name}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">{region.department_code}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {region.categories.map((cat) => (
+                          <Badge key={cat} variant="outline" className={`text-[10px] capitalize ${CATEGORY_COLORS[cat] ?? ""}`}>
+                            {cat}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -158,57 +200,106 @@ export function ConfigurationsView({ regions, radiusRules, impactCount, conflict
         </CardHeader>
         <CardContent>
           {radiusRules.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Aucune zone par rayon configurée</p>
-          ) : (
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ville de départ</TableHead>
-                    <TableHead>Rayon</TableHead>
-                    <TableHead>Catégories</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {radiusRules.map((rule) => (
-                    <TableRow key={rule.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-50">
-                            <Target className="h-4 w-4 text-[var(--brand-green)]" />
-                          </div>
-                          <span className="text-sm font-medium">{rule.departure_city}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm tabular-nums">{rule.radius_km} km</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1.5">
-                          {rule.move_types.map((cat) => (
-                            <Badge key={cat} variant="outline" className={`text-[11px] capitalize ${CATEGORY_COLORS[cat] ?? ""}`}>
-                              {cat}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
-                          onClick={() => deleteRadius(rule.id, rule.departure_city)}
-                          aria-label={`Supprimer la zone ${rule.departure_city}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50">
+                <Target className="h-6 w-6 text-[var(--brand-green)]" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Aucune zone par rayon</p>
+                <p className="text-sm text-muted-foreground">
+                  Définissez un rayon autour d&apos;une ville pour cibler une zone précise.
+                </p>
+              </div>
+              <Button size="sm" onClick={() => setEditModalOpen(true)} className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" /> Ajouter une zone par rayon
+              </Button>
             </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden rounded-lg border sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ville de départ</TableHead>
+                      <TableHead>Rayon</TableHead>
+                      <TableHead>Catégories</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {radiusRules.map((rule) => (
+                      <TableRow key={rule.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-50">
+                              <Target className="h-4 w-4 text-[var(--brand-green)]" />
+                            </div>
+                            <span className="text-sm font-medium">{rule.departure_city}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm tabular-nums">{rule.radius_km} km</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1.5">
+                            {rule.move_types.map((cat) => (
+                              <Badge key={cat} variant="outline" className={`text-[11px] capitalize ${CATEGORY_COLORS[cat] ?? ""}`}>
+                                {cat}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                            onClick={() => deleteRadius(rule.id, rule.departure_city)}
+                            aria-label={`Supprimer la zone ${rule.departure_city}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="space-y-2 sm:hidden">
+                {radiusRules.map((rule) => (
+                  <div key={rule.id} className="flex items-start gap-3 rounded-lg border p-3">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-green-50">
+                      <Target className="h-4 w-4 text-[var(--brand-green)]" />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium">{rule.departure_city}</span>
+                        <span className="text-sm tabular-nums text-muted-foreground">{rule.radius_km} km</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {rule.move_types.map((cat) => (
+                          <Badge key={cat} variant="outline" className={`text-[10px] capitalize ${CATEGORY_COLORS[cat] ?? ""}`}>
+                            {cat}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 flex-shrink-0 p-0 text-muted-foreground hover:text-red-600"
+                      onClick={() => deleteRadius(rule.id, rule.departure_city)}
+                      aria-label={`Supprimer la zone ${rule.departure_city}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
