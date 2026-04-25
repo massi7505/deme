@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { BRAND } from "@/lib/brand";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 interface Article {
   id: string;

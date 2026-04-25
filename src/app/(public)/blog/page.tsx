@@ -4,7 +4,7 @@ import { Clock, User, Image as ImageIcon, ChevronLeft, ChevronRight } from "luci
 import { cn } from "@/lib/utils";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Blog — Conseils, guides et actualités sur le déménagement",
@@ -36,13 +36,14 @@ const PAGE_SIZE = 9;
 
 async function loadArticles(): Promise<Article[]> {
   const supabase = createUntypedAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("blog_posts")
     .select(
       "id, slug, title, excerpt, category, author, cover_image, read_time, published_at"
     )
     .eq("status", "published")
     .order("published_at", { ascending: false });
+  console.log("[blog/page] loadArticles", { count: data?.length ?? 0, hasError: !!error, errorMsg: error?.message });
   return (data || []) as Article[];
 }
 
