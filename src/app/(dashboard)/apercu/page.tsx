@@ -145,7 +145,7 @@ export default function ApercuPage() {
       color: "bg-purple-50 text-purple-600",
     },
     {
-      label: "Revenus (30j)",
+      label: "Dépensé en leads (30j)",
       value: formatPrice(stats.revenue30d),
       sublabel: `Total : ${formatPrice(stats.revenue)}`,
       icon: Euro,

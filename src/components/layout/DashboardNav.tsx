@@ -35,11 +35,13 @@ import {
   Menu as MenuIcon,
   MoreHorizontal,
   ChevronsUpDown,
+  TrendingUp,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/apercu", label: "Aperçu", shortLabel: "Aperçu", icon: LayoutDashboard },
   { href: "/demandes-de-devis", label: "Demandes de devis", shortLabel: "Demandes", icon: FileText },
+  { href: "/performance", label: "Performance", shortLabel: "Perf.", icon: TrendingUp },
   { href: "/profil-entreprise", label: "Profil d'entreprise", shortLabel: "Profil", icon: Building2 },
   { href: "/configurations", label: "Configurations", shortLabel: "Config", icon: Settings2 },
   { href: "/recommandations", label: "Recommandations", shortLabel: "Aide", icon: BookOpen },
@@ -50,8 +52,8 @@ const NAV_ITEMS = [
 const BOTTOM_PRIMARY = [
   NAV_ITEMS[0], // Aperçu
   NAV_ITEMS[1], // Demandes
-  NAV_ITEMS[5], // Facturation
-  NAV_ITEMS[2], // Profil
+  NAV_ITEMS[6], // Facturation
+  NAV_ITEMS[3], // Profil
 ];
 
 function useCompanyInfo() {
