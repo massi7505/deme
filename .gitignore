@@ -35,3 +35,6 @@ admin-settings.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# superpowers (visual companion mockups)
+.superpowers/
