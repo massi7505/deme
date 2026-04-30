@@ -6,7 +6,9 @@ import { serverError } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
-  const rl = await checkIpRateLimit(ip, "public/movers", 60, 60);
+  // Tight rate-limit on the list endpoint: scraping the full mover catalog
+  // is the main abuse vector. The detail (slug) endpoint stays more permissive.
+  const rl = await checkIpRateLimit(ip, "public/movers", 60, 30);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Trop de requêtes" },
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
     .select(`
       id, name, slug, city, postal_code, logo_url, description,
       rating, review_count, is_verified, account_status,
-      employee_count, legal_status, siret,
+      employee_count, legal_status,
       company_regions(department_code, department_name, categories)
     `)
     .in("account_status", ["active", "trial"])
@@ -87,10 +89,12 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Get total count
+  // Estimated count uses Postgres table stats, not a full scan — ~1000x
+  // cheaper at scale and good enough for a public "X movers" badge. Switching
+  // to "exact" was an unnecessary amplification vector for scraping.
   const { count } = await supabase
     .from("companies")
-    .select("id", { count: "exact", head: true })
+    .select("id", { count: "estimated", head: true })
     .in("account_status", ["active", "trial"]);
 
   return NextResponse.json({

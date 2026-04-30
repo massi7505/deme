@@ -8,7 +8,10 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const ip = getClientIp(request);
-  const rl = await checkIpRateLimit(ip, "public/movers/slug", 60, 120);
+  // 30/min/IP — was 120/min, dropped because the detail response embeds
+  // SIRET / VAT / legal_status (intentional trust-signal block on the page),
+  // so scraping is amplified compared to a generic listing.
+  const rl = await checkIpRateLimit(ip, "public/movers/slug", 60, 30);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Trop de requêtes" },
@@ -73,5 +76,16 @@ export async function GET(
     .order("created_at", { ascending: true })
     .limit(4);
 
-  return NextResponse.json({ ...company, company_qna, company_photos: company_photos || [] });
+  // CDN-cache for 1h, allow stale-while-revalidate for another hour. Mover
+  // profiles change rarely; serving from CDN cuts the scraping amplification
+  // factor on this endpoint dramatically (cached responses don't hit our
+  // origin or count against rate-limit budget for cache hits).
+  return NextResponse.json(
+    { ...company, company_qna, company_photos: company_photos || [] },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=3600",
+      },
+    }
+  );
 }
