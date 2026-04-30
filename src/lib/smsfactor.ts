@@ -18,6 +18,7 @@ async function smsfactorFetch(path: string, body: Record<string, unknown>) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
       Authorization: `Bearer ${process.env.SMSFACTOR_API_KEY}`,
     },
     body: JSON.stringify(body),
@@ -26,6 +27,14 @@ async function smsfactorFetch(path: string, body: Record<string, unknown>) {
   if (!response.ok) {
     const error = await response.text();
     throw new Error(`SMSFactor API error ${response.status}: ${error}`);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    const preview = (await response.text()).slice(0, 200);
+    throw new Error(
+      `SMSFactor returned non-JSON response (content-type: ${contentType || "none"}): ${preview}`
+    );
   }
 
   return response.json();
