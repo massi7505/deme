@@ -1,17 +1,28 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 import { ensureCompanyForUser } from "@/lib/ensure-company";
 import { backfillLeadsForCompany } from "@/lib/backfill-leads";
 import { getWalletBalanceCents } from "@/lib/wallet";
 import { computeOnboarding } from "@/lib/onboarding";
+import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  // 60 req/min/user. Composite IP+user key so a shared NAT doesn't block a
+  // whole office, and a VPN-rotating attacker still hits the cap on user.id.
+  const rl = await checkIpRateLimit(`${getClientIp(request)}:${user.id}`, "dashboard/overview", 60, 60);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de requêtes" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 60) } }
+    );
   }
 
   const admin = createUntypedAdminClient();
