@@ -1,16 +1,31 @@
 import { NextRequest } from "next/server";
 import { createUntypedAdminClient } from "@/lib/supabase/admin";
 
-/** Extract the public-facing IP from a Vercel/edge request. */
+/**
+ * Extract the public-facing IP from a Vercel/edge request.
+ *
+ * Order of trust (most → least):
+ * 1. `request.ip` — populated by Vercel's edge from a header the platform
+ *    controls. Cannot be spoofed by the client.
+ * 2. `x-real-ip` — set by Vercel infrastructure. Trusted.
+ * 3. `x-forwarded-for` — RIGHTMOST entry only. The leftmost can be
+ *    injected by the client; the rightmost is the proxy's view of the
+ *    connecting peer. Used only as a last-resort fallback for non-Vercel
+ *    environments (local dev, self-hosted).
+ */
 export function getClientIp(request: NextRequest): string {
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) {
-    // x-forwarded-for is a comma-separated list; the leftmost is the client.
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
-  }
+  if (request.ip) return request.ip;
+
   const real = request.headers.get("x-real-ip");
   if (real) return real.trim();
+
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
+  }
+
   return "unknown";
 }
 
