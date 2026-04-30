@@ -1,6 +1,13 @@
 import crypto from "crypto";
+import { requireSecretEnv } from "@/lib/secrets";
 
-const SECRET = process.env.ADMINJS_COOKIE_SECRET ?? "dev-admin-secret-change-me";
+// Distinct from ADMINJS_COOKIE_SECRET so the same key isn't reused for two
+// HMAC purposes (admin session cookie vs. reconfirm email tokens). Falls
+// back to ADMINJS_COOKIE_SECRET so already-issued tokens (signed before
+// the split) still verify until they expire (14d TTL).
+const SECRET = requireSecretEnv("RECONFIRM_TOKEN_SECRET", {
+  fallbackEnvVar: "ADMINJS_COOKIE_SECRET",
+});
 
 export type ReconfirmAction = "yes" | "no";
 

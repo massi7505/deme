@@ -1,7 +1,8 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { requireSecretEnv } from "@/lib/secrets";
 
-const ADMIN_SECRET = process.env.ADMINJS_COOKIE_SECRET ?? "dev-admin-secret-change-me";
+const ADMIN_SECRET = requireSecretEnv("ADMINJS_COOKIE_SECRET");
 
 /**
  * Guard helper for /api/admin/* routes. Reads the admin_token cookie,
