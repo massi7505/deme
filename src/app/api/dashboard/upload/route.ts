@@ -6,6 +6,7 @@ import {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_SIZE,
   extFromFile,
+  detectImageMimeFromBytes,
 } from "@/lib/blob";
 import { notifyAdminPhotoPending } from "@/lib/resend";
 import { checkIpRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -56,16 +57,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
     }
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    if (file.size > MAX_IMAGE_SIZE) {
       return NextResponse.json(
-        { error: "Type de fichier non autorisé. Utilisez JPG, PNG, WebP ou SVG." },
+        { error: "Le fichier ne doit pas dépasser 5 Mo" },
         { status: 400 }
       );
     }
 
-    if (file.size > MAX_IMAGE_SIZE) {
+    // Cheap pre-check on the client-supplied Content-Type. Defense-in-depth
+    // only — the authoritative check is the magic-bytes inspection below,
+    // because file.type is set from a header the attacker controls.
+    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
       return NextResponse.json(
-        { error: "Le fichier ne doit pas dépasser 5 Mo" },
+        { error: "Type de fichier non autorisé. Utilisez JPG, PNG, WebP ou ICO." },
+        { status: 400 }
+      );
+    }
+
+    // Authoritative MIME detection from the actual file bytes. Catches
+    // payloads renamed/relabeled to bypass the header check (e.g. an SVG
+    // with <script> served as image/png, or HTML uploaded as image/jpeg).
+    // Reads only the first 16 bytes — enough for every magic-bytes
+    // signature we accept and bounded so a hostile multi-GB upload doesn't
+    // get fully buffered just to validate.
+    const headerBuf = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    const detectedMime = detectImageMimeFromBytes(headerBuf);
+    if (!detectedMime) {
+      return NextResponse.json(
+        { error: "Le fichier ne semble pas être une image valide (JPG, PNG, WebP ou ICO)." },
         { status: 400 }
       );
     }
